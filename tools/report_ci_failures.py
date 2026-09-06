@@ -37,3 +37,10 @@ for report in Path('app/build/reports').glob('lint-results*.xml'):
         except ValueError: pass
         line = location.attrib.get('line', '1') if location is not None else '1'
         print(f'::error file={escape(filename)},line={line},title={escape(issue.attrib.get("id", "Lint"))}::{escape(issue.attrib.get("message", ""))}')
+
+# Schema JSON contains structure only, never user data. Publish it as a notice so it can be
+# retained from a verified KSP build even when this client's artifact-download host is blocked.
+for schema in Path('app/schemas').rglob('*.json'):
+    payload = schema.read_text()
+    if len(payload) <= 50000:
+        print(f'::notice title=Room schema {schema.stem}::{escape(payload)}')

@@ -68,6 +68,20 @@ class ConnectedFeaturesTest {
         assertNull(repo.snapshot(date, date).milestones.single().subjectId)
     }
 
+    @Test fun maximumLengthSubjectStillCreatesValidLocalizedEntries(): Unit = runBlocking {
+        val id = repo.saveSubject(Subject(name = "M".repeat(120), colorHex = 0xFF3B82F6, defaultDurationMinutes = 45))
+        val presets = PresetFactory.forSubject(repo.snapshot(date, date).subjects.single())
+        for (preset in presets) {
+            val title = preset.title(context)
+            assertTrue(title.length <= 120)
+            assertTrue(title.endsWith(context.getString(preset.kind.labelRes(), "").trim()))
+            if (preset.isExam) repo.saveMilestone(Milestone(subjectId = id, title = title, dueDate = date, dueTime = null, isExam = true))
+            else repo.saveRoutine(RoutineBlueprint(subjectId = id, title = title, category = preset.category, dayOfWeek = date.dayOfWeek,
+                startTime = LocalTime.of(8, 0), endTime = LocalTime.of(8, 45), isNotificationEnabled = false, validFrom = date, validUntil = date))
+        }
+        assertEquals(3, repo.getTimelineForDate(date).first().size)
+    }
+
     @Test fun warningActionPersistsOneOffRecoveryAndPreservesNextWeek(): Unit = runBlocking {
         repo.saveRoutine(RoutineBlueprint(subjectId = null, title = "Učenje", category = RoutineCategory.FOCUS_STUDY,
             dayOfWeek = date.dayOfWeek, startTime = LocalTime.of(8, 0), endTime = LocalTime.of(10, 0), isNotificationEnabled = false))

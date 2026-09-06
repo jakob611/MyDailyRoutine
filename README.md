@@ -105,7 +105,7 @@ Health thresholds are **planning heuristics, not medical advice or universal cog
 - **11 SQLite / resource smoke tests passed**, plus presentation checks for **384 Slovenian string resources**, a single domain model, bundled font and tabular widget text.
 - Kotlin compiler PSI syntax parsing passed for **63 source files**.
 - The canonical base's GitHub CI build passed. The first integration run reached Android lint and reported suspicious indentation in the adapted demo seeder; that formatting is corrected locally without suppressing lint.
-- The sandbox still cannot download Gradle/Google artifacts directly. The first integration emulator run exposed a JUnit return-type issue in a legacy Room test and an unstable FAB semantics lookup. Both are corrected in the follow-up, along with warm-widget navigation and deadline-editor preservation. Follow-up CI verification is **pending**; no all-green claim is made.
+- The sandbox still cannot download Gradle/Google artifacts directly. The first integration emulator run exposed a JUnit return-type issue in a legacy Room test and an unstable FAB semantics lookup. Both are corrected in the follow-up, along with warm-widget navigation and deadline-editor preservation. Follow-up `8b71abf` passed **APK assembly, core/app JVM tests and lint**. One warm-intent `ActivityScenario` teardown issue remains under final verification; the production route is asserted separately. No all-green connected-suite claim is made yet.
 - CI now publishes compiler, lint and JUnit diagnostics as annotations, alongside APK/reports artifacts on a successful build.
 
 See [validation details and device checklist](docs/VALIDATION.md). No downloaded toolchains or generated build outputs are tracked.

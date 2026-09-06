@@ -61,10 +61,21 @@ fun categoryColor(category: RoutineCategory, subjectColor: Long? = null): Color 
     PresetKind.SUBJECT_TEST -> R.string.preset_test
 }
 fun QuickAddPreset.label(context: Context): String = context.getString(kind.labelRes(), subjectName.orEmpty())
-fun QuickAddPreset.title(context: Context): String = if (subjectId != null) label(context) else context.getString(when (kind) {
-    PresetKind.DEEP_WORK -> R.string.title_deep_work
-    PresetKind.POMODORO -> R.string.title_pomodoro
-    PresetKind.WALK -> R.string.title_walk
-    PresetKind.IB_REVISION -> R.string.title_ib
-    else -> R.string.title_exam
-})
+fun QuickAddPreset.title(context: Context): String {
+    if (subjectId != null) {
+        // A valid 120-character subject must still produce a valid stored block/milestone title.
+        // Keep the localized purpose suffix and never split a UTF-16 surrogate pair.
+        val suffixLength = context.getString(kind.labelRes(), "").length
+        val name = subjectName.orEmpty()
+        var end = minOf(name.length, (120 - suffixLength).coerceAtLeast(0))
+        if (end > 0 && end < name.length && name[end - 1].isHighSurrogate()) end--
+        return context.getString(kind.labelRes(), name.substring(0, end).trimEnd())
+    }
+    return context.getString(when (kind) {
+        PresetKind.DEEP_WORK -> R.string.title_deep_work
+        PresetKind.POMODORO -> R.string.title_pomodoro
+        PresetKind.WALK -> R.string.title_walk
+        PresetKind.IB_REVISION -> R.string.title_ib
+        else -> R.string.title_exam
+    })
+}

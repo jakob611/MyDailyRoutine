@@ -1,6 +1,9 @@
 package com.example.mydailyroutine
 
 import android.content.pm.PackageManager
+import android.content.Intent
+import androidx.lifecycle.Lifecycle
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.annotation.StringRes
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -32,11 +35,21 @@ class TimelineUiTest {
         compose.onNodeWithText(text(R.string.demo_heading)).performScrollTo().assertIsDisplayed()
     }
     @Test fun warmWidgetQuickAddDismissesSettingsAndOpensOneFreshSheet() {
+        val activity = compose.activity
+        val originalIntent = Intent(activity.intent)
         compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
         awaitText(R.string.settings_title)
-        compose.activityRule.scenario.onActivity { activity -> activity.startActivity(MainActivity.fastAddIntent(activity)) }
-        awaitText(R.string.fast_add_title)
-        compose.onNodeWithText(text(R.string.settings_title)).assertDoesNotExist()
+        try {
+            compose.activityRule.scenario.onActivity { it.startActivity(MainActivity.fastAddIntent(it)) }
+            awaitText(R.string.fast_add_title)
+            compose.onNodeWithText(text(R.string.settings_title)).assertDoesNotExist()
+            compose.runOnIdle { assertEquals(Lifecycle.State.RESUMED, activity.lifecycle.currentState) }
+        } finally {
+            // ActivityScenario filters lifecycle callbacks by the original action/data. A correct
+            // onNewIntent calls setIntent, so restore only the harness intent before rule teardown.
+            // Do not remove production setIntent or weaken the actual route/lifecycle assertions.
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { activity.intent = originalIntent }
+        }
     }
     @Test fun languageAndMergedPrivacyPermissionsAreCorrect() {
         assertEquals("sl", compose.activity.resources.configuration.locales[0].language)

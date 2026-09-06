@@ -32,6 +32,8 @@ import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
 import com.example.mydailyroutine.platform.Slovenian
 import com.example.mydailyroutine.platform.withSlovenianLocale
 import com.example.mydailyroutine.ui.theme.OledColorScheme
+import com.example.mydailyroutine.ui.theme.CategoryStyle
+import com.example.mydailyroutine.ui.theme.categoryStyle
 import com.example.mydailyroutine.ui.theme.RoutineColors
 import com.example.mydailyroutine.ui.timeline.labelRes
 import java.time.Instant
@@ -41,7 +43,7 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 
-private data class WidgetRow(val title: String, val time: String, val status: String, val active: Boolean, val next: Boolean)
+private data class WidgetRow(val title: String, val time: String, val status: String, val active: Boolean, val next: Boolean, val style: CategoryStyle)
 private data class WidgetAgenda(val date: LocalDate, val days: Long, val countdown: String, val rows: List<WidgetRow>, val updatedAt: String,
     val error: Boolean = false, val loading: Boolean = false)
 private data class WidgetSnapshot(val date: LocalDate, val items: List<ResolvedTimelineItem>, val preferences: SchedulePreferences,
@@ -96,10 +98,10 @@ private fun resolveAgenda(context: Context, snapshot: WidgetSnapshot, now: Insta
             val active = now >= window.start && now < window.end
             val next = item.key == nextKey
             WidgetRow(item.title, context.getString(R.string.time_range, window.start.atZone(zone).format(timeFormat), window.end.atZone(zone).format(timeFormat)),
-                context.getString(when { active -> R.string.now; next -> R.string.up_next; else -> item.category.labelRes() }), active, next)
+                context.getString(when { active -> R.string.now; next -> R.string.up_next; else -> item.category.labelRes() }), active, next, categoryStyle(item.category, item.subject?.colorHex))
         }
         is ResolvedTimelineItem.Milestone -> WidgetRow(item.title, item.dueTime?.format(timeFormat) ?: context.getString(R.string.all_day),
-            context.getString(if (item.isExam) R.string.category_exam else R.string.category_milestone), false, false)
+            context.getString(if (item.isExam) R.string.category_exam else R.string.category_milestone), false, false, RoutineColors.Exam)
     } }
     val days = SlovenianAcademicCalendar.daysRemaining(snapshot.date, snapshot.preferences.teachingEndDate)
     val countdown = if (snapshot.loading) context.getString(R.string.widget_updating) else if (days > 0)
@@ -135,11 +137,11 @@ private fun AgendaContent(context: Context, agenda: WidgetAgenda) {
             }
             items(agenda.rows.take(60)) { row ->
                 Column(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).cornerRadius(16.dp)
-                    .background(if (row.active) RoutineColors.Focus.container else if (row.next) RoutineColors.School.container else RoutineColors.Surface1)
+                    .background(if (row.active || row.next) row.style.container else RoutineColors.Surface1)
                     .clickable(openDay).padding(10.dp)) {
                     Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         WidgetText(context, row.time, 12f, RoutineColors.TextSecondary, modifier = GlanceModifier.defaultWeight())
-                        WidgetText(context, row.status, 11f, if (row.active) RoutineColors.Amber else if (row.next) RoutineColors.School.content else RoutineColors.TextMuted, bold = true)
+                        WidgetText(context, row.status, 11f, if (row.active || row.next) row.style.content else RoutineColors.TextMuted, bold = true)
                     }
                     WidgetText(context, row.title, 15f, bold = true)
                 }

@@ -12,7 +12,7 @@
   transactional recovery, live threshold changes, and preservation during the v1→v2 migration.
 - Updated the Compose tests to use Slovenian resources and verify advanced Settings, merged
   privacy permissions, and the warm widget → fresh fast-add route. Along with the 7 original
-  Room tests, the connected suite now contains 16 tests.
+  Room tests, the connected suite now contains 17 tests (including maximum-length localized subject presets).
 
 ## Remote build status
 
@@ -25,9 +25,13 @@
   Tests now explicitly return `Unit` and target the FAB's stable test tag. Warm widget navigation
   and deadline-type preservation are also corrected. Follow-up CI is pending.
 - A temporary GitHub authentication error cleared on retry; it was not a workflow-file rejection.
+- Follow-up `8b71abf`, run `34051695928`: **APK assembly, core/app JVM tests and lint all passed**.
+  The emulator suite reached execution with one remaining failure in `ActivityScenario` cleanup
+  after a warm widget intent. AndroidX filters lifecycle callbacks by the original intent; the
+  test now restores that harness intent in `finally`, preserving production `setIntent` behavior
+  and asserting the real activity remains RESUMED. Final verification of that correction is pending.
 - Direct local `./gradlew :core:test :app:testDebugUnitTest --stacktrace` remains blocked by
-  a TLS handshake failure downloading Gradle 8.13. No successful build of the latest changes
-  or all-green connected suite is claimed yet.
+  a TLS handshake failure downloading Gradle 8.13. The newer cleanup/polish changes and an all-green connected suite are not claimed verified yet.
 
 ## Reproduction
 
