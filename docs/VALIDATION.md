@@ -14,24 +14,38 @@
   privacy permissions, and the warm widget → fresh fast-add route. Along with the 7 original
   Room tests, the connected suite now contains 17 tests (including maximum-length localized subject presets).
 
-## Remote build status
+## Remote build status — passed
 
-- Canonical base `839b840`: GitHub build job passed; its emulator job failed.
-- Integration `0e7c067`, run `34050382229`: build reached Android lint, which reported
-  `SuspiciousIndentation` in the selectively ported demo seeder. The indentation is corrected
-  in the local follow-up; lint has not been disabled.
-- The first integration emulator run reported two failures: a legacy expression-bodied Room
-  test did not return `Unit`, and the FAB label was not found in the merged semantics tree.
-  Tests now explicitly return `Unit` and target the FAB's stable test tag. Warm widget navigation
-  and deadline-type preservation are also corrected. Follow-up CI is pending.
-- A temporary GitHub authentication error cleared on retry; it was not a workflow-file rejection.
-- Follow-up `8b71abf`, run `34051695928`: **APK assembly, core/app JVM tests and lint all passed**.
-  The emulator suite reached execution with one remaining failure in `ActivityScenario` cleanup
-  after a warm widget intent. AndroidX filters lifecycle callbacks by the original intent; the
-  test now restores that harness intent in `finally`, preserving production `setIntent` behavior
-  and asserting the real activity remains RESUMED. Final verification of that correction is pending.
-- Direct local `./gradlew :core:test :app:testDebugUnitTest --stacktrace` remains blocked by
-  a TLS handshake failure downloading Gradle 8.13. The newer cleanup/polish changes and an all-green connected suite are not claimed verified yet.
+**GitHub Actions run [34052593518](https://github.com/jakob611/MyDailyRoutine/actions/runs/34052593518), code commit `9c504308bc3209730e0903d9b84655cae47c318b`: both jobs succeeded.**
+
+| Check | Result |
+|---|---|
+| `:core:test` | 74 tests passed |
+| `:app:testDebugUnitTest` | 9 tests passed |
+| `:app:assembleDebug` | APK built |
+| `:app:lintDebug` | Passed |
+| `:app:connectedDebugAndroidTest` | 17 tests passed on API 35 |
+| SQLite/resource + presentation checks | Passed |
+
+The job used the declared Kotlin 2.2.10/JDK 17/API 36 build, not the standalone
+Kotlin 2.0.21 fallback. Artifacts contain the debug APK, test/lint reports and actual
+Room/KSP-generated v2 schema JSON. No schema identity hash was fabricated.
+
+Issues found and fixed during CI:
+
+- Inherited indentation in the selectively ported seeder triggered `SuspiciousIndentation`;
+  formatting was fixed without disabling lint.
+- A legacy expression-bodied Room test returned a list; all suspend-backed JUnit methods now
+  explicitly return `Unit`.
+- FAB lookup now uses a stable semantics tag rather than relying on merged label text.
+- AndroidX ActivityScenario filters lifecycle callbacks by the launch intent. A real warm
+  widget launch correctly calls production `setIntent`; the test restores only its original
+  harness intent in `finally` so teardown can observe DESTROYED, while asserting the actual
+  app is RESUMED and the correct fresh sheet is visible.
+
+A temporary GitHub authentication error cleared on retry. It was not a workflow-file
+permission rejection; all fixes were pushed on the same branch. Direct local Gradle download
+still fails its TLS handshake, which is why the successful Android verification was remote.
 
 ## Reproduction
 

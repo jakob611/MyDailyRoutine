@@ -101,14 +101,15 @@ Health thresholds are **planning heuristics, not medical advice or universal cog
 
 ## Verification status
 
-- **74 core JVM tests passed** locally, including custom thresholds, per-rule switches, preset lifecycle/identity, overlap-aware load bars and conservative break insertion.
-- **11 SQLite / resource smoke tests passed**, plus presentation checks for **384 Slovenian string resources**, a single domain model, bundled font and tabular widget text.
-- Kotlin compiler PSI syntax parsing passed for **63 source files**.
-- The canonical base's GitHub CI build passed. The first integration run reached Android lint and reported suspicious indentation in the adapted demo seeder; that formatting is corrected locally without suppressing lint.
-- The sandbox still cannot download Gradle/Google artifacts directly. The first integration emulator run exposed a JUnit return-type issue in a legacy Room test and an unstable FAB semantics lookup. Both are corrected in the follow-up, along with warm-widget navigation and deadline-editor preservation. Follow-up `8b71abf` passed **APK assembly, core/app JVM tests and lint**. One warm-intent `ActivityScenario` teardown issue remains under final verification; the production route is asserted separately. No all-green connected-suite claim is made yet.
-- CI now publishes compiler, lint and JUnit diagnostics as annotations, alongside APK/reports artifacts on a successful build.
+**Verified in GitHub Actions:** [run 34052593518](https://github.com/jakob611/MyDailyRoutine/actions/runs/34052593518), code commit `9c50430`.
 
-See [validation details and device checklist](docs/VALIDATION.md). No downloaded toolchains or generated build outputs are tracked.
+- Android debug APK assembly and Android lint **passed** with the pinned Kotlin 2.2.10 / JDK 17 / API 36 toolchain.
+- **74 core JVM tests** and **9 Android-module JVM tests passed**.
+- **17 connected tests passed on the API-35 emulator**, covering Room integrity/migration, opt-in demo import, persisted presets/exams, live threshold changes, transactional recovery, all four views, advanced Settings, Slovenian locale/privacy permissions, and warm widget quick-add navigation.
+- **11 SQLite/resource checks passed**, plus presentation checks for **384 Slovenian string resources**, the bundled font, tabular widget text, and a single pure-JVM domain model.
+- All **63 Kotlin source files** passed local compiler PSI syntax parsing. Local standalone core tests also pass; direct sandbox Gradle downloads remain TLS-blocked, so the Android build was verified in CI rather than claimed locally.
+
+The run provides `debug-apk`, `verification-reports` (including generated Room schema JSON), and `device-test-reports` artifacts. Runtime hardware haptics, vendor-specific Doze/reboot behavior, launcher-specific widget rendering and release R8 still need the [physical-device/release checklist](docs/VALIDATION.md). Passing an emulator suite is not a guarantee about every manufacturer's power-management policy.
 
 ## Local-data privacy
 
