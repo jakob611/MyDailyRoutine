@@ -11,7 +11,6 @@ enum class WarningType {
 
 data class HealthWarning(
     val type: WarningType,
-    val message: String,
     val relatedItemKeys: Set<String>,
     val atMinute: Int,
 )
@@ -24,10 +23,12 @@ data class HealthWarning(
  * - >=20 min of explicit REST or genuinely unallocated time resets cognitive accumulation.
  * - >=5 min of the same recovery resets the deskwork span; PROJECT is assumed deskwork.
  * - A recovery booked over work is NOT recovery. PERSONAL isn't presumed sedentary or restorative.
- * - Thresholds are strict >90, >180, >300, >120; transition is <30; fragmentation is 45..90 inclusive.
+ * - Defaults: strict >90, >180, >300, >120; transition <30; fragmentation 45..90 inclusive.
+ *   A HealthConfig customizes thresholds and enables/disables each rule without changing interval accounting.
+ * - Warnings carry facts only. All displayed copy is localized by the Android resource layer.
  */
 class ScheduleHealthEngine {
-    fun evaluate(items: List<ResolvedTimelineItem>): List<HealthWarning> {
+    fun evaluate(items: List<ResolvedTimelineItem>, config: HealthConfig = HealthConfig()): List<HealthWarning> {
         require(items.map { it.date }.distinct().size <= 1) { "Evaluate one display date at a time." }
         val blocks = items.filterIsInstance<ResolvedTimelineItem.Block>()
             .filter { !it.isSuppressed && it.durationMinutes > 0 }
@@ -45,42 +46,42 @@ class ScheduleHealthEngine {
         val warnings = mutableListOf<HealthWarning>()
 
         fun warn(type: WarningType, related: List<ResolvedTimelineItem.Block>, minute: Int) {
-            warnings += HealthWarning(type, messages.getValue(type), related.map { it.key }.toSet(), minute)
+            if (config.isEnabled(type)) warnings += HealthWarning(type, related.map { it.key }.toSet(), minute)
         }
 
-        focus.filter { Duration.between(it.startsAt, it.endsAt).toMinutes() > 90 }.forEach {
+        focus.filter { Duration.between(it.startsAt, it.endsAt).toMinutes() > config.focusLimitMinutes }.forEach {
             // A >90-minute overnight occurrence must not escape this rule by crossing midnight.
-            warn(WarningType.CONCENTRATION_LIMIT, listOf(it), minOf(it.startMinute + 90, it.endMinute))
+            warn(WarningType.CONCENTRATION_LIMIT, listOf(it), minOf(it.startMinute + config.focusLimitMinutes, it.endMinute))
         }
 
-        Intervals.clusters(cognitive.map { it.interval() }, recovery, minimumRecovery = 20).forEach { cluster ->
-            if (cluster.sumOf { it.duration } > 180) {
+        Intervals.clusters(cognitive.map { it.interval() }, recovery, minimumRecovery = HealthConfig.COGNITIVE_RECOVERY_MINUTES).forEach { cluster ->
+            if (cluster.sumOf { it.duration } > config.cognitiveLimitMinutes) {
                 val related = cognitive.filter { block -> cluster.any { it.intersects(block.interval()) } }
-                warn(WarningType.HIGH_COGNITIVE_LOAD, related, minuteAtLoad(cluster, 180))
+                warn(WarningType.HIGH_COGNITIVE_LOAD, related, minuteAtLoad(cluster, config.cognitiveLimitMinutes))
             }
         }
 
         focus.forEach { study ->
             val lastSchool = school.filter { it.startMinute <= study.startMinute }.maxByOrNull { it.endMinute }
-            if (lastSchool != null && study.startMinute - lastSchool.endMinute < 30) {
+            if (lastSchool != null && study.startMinute - lastSchool.endMinute < config.transitionMinutes) {
                 warn(WarningType.INSUFFICIENT_TRANSITION, listOf(lastSchool, study), study.startMinute)
             }
         }
 
         val focusIntervals = Intervals.union(focus.map { it.interval() })
-        if (focusIntervals.sumOf { it.duration } > 300) {
-            warn(WarningType.BURNOUT_RISK, focus, minuteAtLoad(focusIntervals, 300))
+        if (focusIntervals.sumOf { it.duration } > config.dailyFocusLimitMinutes) {
+            warn(WarningType.BURNOUT_RISK, focus, minuteAtLoad(focusIntervals, config.dailyFocusLimitMinutes))
         }
 
-        Intervals.clusters(seated.map { it.interval() }, recovery, minimumRecovery = 5).forEach { cluster ->
-            if (cluster.last().end - cluster.first().start > 120) {
+        Intervals.clusters(seated.map { it.interval() }, recovery, minimumRecovery = HealthConfig.PHYSICAL_RECOVERY_MINUTES).forEach { cluster ->
+            if (cluster.last().end - cluster.first().start > config.sedentaryLimitMinutes) {
                 val related = seated.filter { block -> cluster.any { it.intersects(block.interval()) } }
-                warn(WarningType.PHYSICAL_RESET, related, cluster.first().start + 120)
+                warn(WarningType.PHYSICAL_RESET, related, cluster.first().start + config.sedentaryLimitMinutes)
             }
         }
 
         focusIntervals.zipWithNext().forEach { (before, after) ->
-            if (after.start - before.end in 45..90) {
+            if (after.start - before.end in config.fragmentedMinMinutes..config.fragmentedMaxMinutes) {
                 val gap = MinuteInterval(before.end, after.start)
                 // An allocated walk, meal, school block, or other routine makes the gap intentional.
                 if (blocks.none { it.interval().intersects(gap) }) {
@@ -104,14 +105,7 @@ class ScheduleHealthEngine {
     companion object {
         private val cognitiveCategories = setOf(RoutineCategory.SCHOOL, RoutineCategory.FOCUS_STUDY)
         private val seatedCategories = cognitiveCategories + RoutineCategory.PROJECT
-        val messages: Map<WarningType, String> = mapOf(
-            WarningType.CONCENTRATION_LIMIT to "Continuous deep focus past 90 min causes sharp cognitive decline. Insert a 10-15 min recovery block.",
-            WarningType.HIGH_COGNITIVE_LOAD to "Mental stamina exhausted. Schedule a physical or screen-free break.",
-            WarningType.INSUFFICIENT_TRANSITION to "No buffer after school. Allow at least 30 minutes for a nutritional and cognitive reset.",
-            WarningType.BURNOUT_RISK to "Total daily deep work exceeds human sustained limits (~4-5h). Diminishing returns detected.",
-            WarningType.PHYSICAL_RESET to "Take a walk or implement the 20-20-20 visual rule to prevent eye strain and fatigue.",
-            WarningType.FRAGMENTED_TIME to "Fragmented dead window. Either consolidate blocks or convert this into intentional recovery.",
-        )
+
     }
 }
 

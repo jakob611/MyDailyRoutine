@@ -27,13 +27,13 @@ class ScheduleNotifier(private val context: Context) {
 
     fun ensureChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val normal = NotificationChannel(NORMAL_CHANNEL, "Upcoming blocks", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Study and recovery reminders outside your quiet window"
+            val normal = NotificationChannel(NORMAL_CHANNEL, context.getString(R.string.notification_channel_normal), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = context.getString(R.string.notification_channel_normal_description)
                 enableVibration(true)
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
             }
-            val quiet = NotificationChannel(QUIET_CHANNEL, "Quiet school hours", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Silent reminders during your configured school window"
+            val quiet = NotificationChannel(QUIET_CHANNEL, context.getString(R.string.notification_channel_quiet), NotificationManager.IMPORTANCE_LOW).apply {
+                description = context.getString(R.string.notification_channel_quiet_description)
                 setSound(null, null)
                 enableVibration(false)
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
@@ -59,9 +59,10 @@ class ScheduleNotifier(private val context: Context) {
         val window = OccurrenceTimes.window(alarm.block, zone)
         val startLabel = window.start.atZone(zone).format(DateTimeFormatter.ofPattern("HH:mm"))
         val text = if (alarm.kind == AlarmKind.RECOVERY_START) {
-            if (now >= window.start.plusSeconds(60)) "Recovery started at $startLabel. Make a little room to reset."
-            else "Recovery starts now. Make a little room to reset."
-        } else "${if (now >= window.start) "Started" else "Starts"} at $startLabel · ${alarm.block.subject?.name ?: "Your daily routine"}"
+            if (now >= window.start.plusSeconds(60)) context.getString(R.string.notification_recovery_late, startLabel)
+            else context.getString(R.string.notification_recovery_now)
+        } else context.getString(if (now >= window.start) R.string.notification_started else R.string.notification_starts,
+            startLabel, alarm.block.subject?.name ?: context.getString(R.string.notification_subject_fallback))
         val intent = MainActivity.openDayIntent(context, alarm.block.occurrenceDate).apply {
             data = android.net.Uri.parse("mydailyroutine://day/${alarm.block.occurrenceDate}/${alarm.deliveryKey}")
         }

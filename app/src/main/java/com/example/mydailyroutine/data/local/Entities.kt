@@ -113,3 +113,7 @@ data class AlarmDeliveryEntity(
     val kind: String,
     val deliveredAtEpochMillis: Long,
 )
+
+/** Records the opt-in import in the same SQLite transaction as its data, preventing duplicate demos. */
+@Entity(tableName = "demo_imports", primaryKeys = ["key"])
+data class DemoImportEntity(val key: String, val importedAtEpochMillis: Long)

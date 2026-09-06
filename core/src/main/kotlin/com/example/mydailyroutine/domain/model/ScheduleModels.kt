@@ -1,5 +1,6 @@
 package com.example.mydailyroutine.domain.model
 
+import com.example.mydailyroutine.domain.health.HealthConfig
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -132,6 +133,8 @@ data class SchedulePreferences(
     val schoolStart: LocalTime = LocalTime.of(7, 45),
     val schoolEnd: LocalTime = LocalTime.of(14, 30),
     val teachingEndDate: LocalDate = LocalDate.of(2027, 6, 24),
+    val hapticsEnabled: Boolean = true,
+    val health: HealthConfig = HealthConfig(),
 ) {
     /** Half-open window. Overnight quiet windows are supported; equal endpoints are rejected. */
     fun isQuietAt(time: LocalTime): Boolean = muteDuringSchoolHours && when {

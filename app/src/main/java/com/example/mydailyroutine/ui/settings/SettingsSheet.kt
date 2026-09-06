@@ -1,100 +1,185 @@
 package com.example.mydailyroutine.ui.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
+import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.health.WarningType
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.model.ScheduleValidation
 import com.example.mydailyroutine.domain.model.Subject
+import com.example.mydailyroutine.ui.theme.*
 import com.example.mydailyroutine.ui.timeline.TimelineAction
 import com.example.mydailyroutine.ui.timeline.clockLabel
 
 @Immutable
 data class NotificationAccess(val notificationsEnabled: Boolean, val exactAlarmsAllowed: Boolean)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsSheet(
-    preferences: SchedulePreferences, subjects: List<Subject>, busy: Boolean, access: NotificationAccess,
+    preferences: SchedulePreferences, subjects: List<Subject>, busy: Boolean, access: NotificationAccess, exampleLoaded: Boolean,
     onAction: (TimelineAction) -> Unit, onDismiss: () -> Unit,
     requestNotifications: () -> Unit, requestExactAlarms: () -> Unit, openNotificationSettings: () -> Unit,
 ) {
     var start by rememberSaveable(preferences.schoolStart) { mutableStateOf(preferences.schoolStart.clockLabel()) }
     var end by rememberSaveable(preferences.schoolEnd) { mutableStateOf(preferences.schoolEnd.clockLabel()) }
     var teachingEnd by rememberSaveable(preferences.teachingEndDate) { mutableStateOf(preferences.teachingEndDate.toString()) }
-    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var error by rememberSaveable { mutableStateOf<Int?>(null) }
     var deleteSubjectId by rememberSaveable { mutableStateOf<Long?>(null) }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Your rhythm", style = MaterialTheme.typography.headlineSmall)
-            Text("Entirely offline. No account, network access, analytics, or cloud backup.", style = MaterialTheme.typography.bodyMedium)
-            Text("Uninstalling the app or clearing its storage permanently removes your schedule.", style = MaterialTheme.typography.bodySmall)
+    var advanced by rememberSaveable { mutableStateOf(false) }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1, tonalElevation = 0.dp) {
+        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.privacy_summary), color = RoutineColors.TextSecondary)
+            Text(stringResource(R.string.privacy_delete_warning), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
             HorizontalDivider()
-            Text("Reminders", style = MaterialTheme.typography.titleLarge)
-            Text(if (access.notificationsEnabled) "Notifications are allowed by Android." else "Notifications are off. Your schedule still works normally.", style = MaterialTheme.typography.bodyMedium)
-            if (!access.notificationsEnabled) FilledTonalButton(onClick = requestNotifications) { Text("Allow reminders") }
-            Text(if (access.exactAlarmsAllowed) "Precise alarm access is available." else "Precise alarm access is off. Reminders use an approximate fallback and may arrive late.", style = MaterialTheme.typography.bodySmall)
-            if (!access.exactAlarmsAllowed) FilledTonalButton(onClick = requestExactAlarms) { Text("Allow precise alarms") }
-            TextButton(onClick = openNotificationSettings) { Text("System notification settings") }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Quiet during school hours", style = MaterialTheme.typography.titleMedium)
-                    Text("Silent, low-priority notifications. Your phone’s system DND is not changed.", style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(preferences.muteDuringSchoolHours, { onAction(TimelineAction.SetMute(it)) }, enabled = !busy)
-            }
+            Text(stringResource(R.string.settings_reminders), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(if (access.notificationsEnabled) R.string.notifications_allowed else R.string.notifications_disabled))
+            if (!access.notificationsEnabled) FilledTonalButton(onClick = requestNotifications) { Text(stringResource(R.string.allow_notifications)) }
+            Text(stringResource(if (access.exactAlarmsAllowed) R.string.exact_allowed else R.string.exact_disabled), style = MaterialTheme.typography.bodySmall)
+            if (!access.exactAlarmsAllowed) FilledTonalButton(onClick = requestExactAlarms) { Text(stringResource(R.string.allow_exact)) }
+            TextButton(onClick = openNotificationSettings) { Text(stringResource(R.string.system_notification_settings)) }
+            SettingSwitch(stringResource(R.string.quiet_title), stringResource(R.string.quiet_description), preferences.muteDuringSchoolHours, !busy) { onAction(TimelineAction.SetMute(it)) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(start, { start = it; error = null }, label = { Text("From · HH:mm") }, singleLine = true, modifier = Modifier.weight(1f), enabled = !busy)
-                OutlinedTextField(end, { end = it; error = null }, label = { Text("Until · HH:mm") }, singleLine = true, modifier = Modifier.weight(1f), enabled = !busy)
+                OutlinedTextField(start, { start = it; error = null }, label = { Text(stringResource(R.string.quiet_from)) }, singleLine = true, modifier = Modifier.weight(1f), enabled = !busy)
+                OutlinedTextField(end, { end = it; error = null }, label = { Text(stringResource(R.string.quiet_until)) }, singleLine = true, modifier = Modifier.weight(1f), enabled = !busy)
             }
-            Text("This daily window includes weekends. An earlier end wraps past midnight. Android controls heads-up display; low-priority quiet reminders normally stay in the notification shade.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.quiet_hint), style = MaterialTheme.typography.bodySmall)
             OutlinedButton(enabled = !busy, onClick = {
-                val from = ScheduleValidation.parseTime(start)
-                val until = ScheduleValidation.parseTime(end)
-                if (from == null || until == null || from == until) error = "Choose two different HH:mm times."
+                val from = ScheduleValidation.parseTime(start); val until = ScheduleValidation.parseTime(end)
+                if (from == null || until == null || from == until) error = R.string.error_time_range
                 else onAction(TimelineAction.SetSchoolWindow(from, until))
-            }) { Text("Save quiet window") }
+            }) { Text(stringResource(R.string.save_quiet)) }
+            SettingSwitch(stringResource(R.string.settings_haptics), stringResource(R.string.settings_haptics_hint), preferences.hapticsEnabled, !busy) { onAction(TimelineAction.SetHaptics(it)) }
             HorizontalDivider()
-            Text("School-year countdown", style = MaterialTheme.typography.titleLarge)
-            Text("Bundled calendar: ${SlovenianAcademicCalendar.CYCLE_LABEL}. Other years are not guessed or downloaded.", style = MaterialTheme.typography.bodySmall)
-            OutlinedTextField(teachingEnd, { teachingEnd = it; error = null }, label = { Text("Teaching ends · YYYY-MM-DD") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy)
-            Text("Default: 2027-06-24 for non-final years. National final-year teaching ends 2027-05-21; your IB school may use another date. Changing this countdown does not cancel recurring blocks.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.settings_countdown), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.calendar_scope_hint), style = MaterialTheme.typography.bodySmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = preferences.teachingEndDate == SlovenianAcademicCalendar.teachingEnd, onClick = { onAction(TimelineAction.SetTeachingEnd(SlovenianAcademicCalendar.teachingEnd)) }, enabled = !busy,
+                    label = { Text(stringResource(R.string.regular_year_preset)) })
+                FilterChip(selected = preferences.teachingEndDate == SlovenianAcademicCalendar.finalYearTeachingEnd, onClick = { onAction(TimelineAction.SetTeachingEnd(SlovenianAcademicCalendar.finalYearTeachingEnd)) }, enabled = !busy,
+                    label = { Text(stringResource(R.string.final_year_preset)) })
+            }
+            OutlinedTextField(teachingEnd, { teachingEnd = it; error = null }, label = { Text(stringResource(R.string.teaching_end_label)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy)
+            Text(stringResource(R.string.teaching_end_hint), style = MaterialTheme.typography.bodySmall)
             OutlinedButton(enabled = !busy, onClick = {
-                val parsed = ScheduleValidation.parseDate(teachingEnd)
-                if (parsed == null) error = "Enter a valid YYYY-MM-DD date."
-                else onAction(TimelineAction.SetTeachingEnd(parsed))
-            }) { Text("Save end date") }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                val date = ScheduleValidation.parseDate(teachingEnd)
+                if (date == null) error = R.string.error_date else onAction(TimelineAction.SetTeachingEnd(date))
+            }) { Text(stringResource(R.string.save_teaching_end)) }
+            error?.let { Text(stringResource(it), color = RoutineColors.Crimson) }
             HorizontalDivider()
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Saved subjects", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(enabled = !busy, onClick = { onAction(TimelineAction.EditSubject()) }) { Text("Add") }
+                Text(stringResource(R.string.saved_subjects), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                TextButton(enabled = !busy, onClick = { onAction(TimelineAction.EditSubject()) }) { Text(stringResource(R.string.add)) }
             }
-            if (subjects.isEmpty()) Text("Save your subjects for quick titles, colors, and durations when planning a block.", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.subject_presets_hint), style = MaterialTheme.typography.bodySmall)
+            if (subjects.isEmpty()) Text(stringResource(R.string.no_subjects_hint), style = MaterialTheme.typography.bodyMedium)
             subjects.forEach { subject ->
-                ListItem(headlineContent = { Text(subject.name) }, supportingContent = { Text("${subject.defaultDurationMinutes} min default") },
-                    trailingContent = { TextButton(enabled = !busy, onClick = { deleteSubjectId = subject.id }) { Text("Delete") } },
+                ListItem(headlineContent = { Text(subject.name) }, supportingContent = { Text(stringResource(R.string.subject_default_duration, subject.defaultDurationMinutes)) },
+                    trailingContent = { TextButton(enabled = !busy, onClick = { deleteSubjectId = subject.id }) { Text(stringResource(R.string.delete)) } },
                     modifier = Modifier.clickable(enabled = !busy) { onAction(TimelineAction.EditSubject(subject)) })
             }
             HorizontalDivider()
-            Text("Healthy planning", style = MaterialTheme.typography.titleLarge)
-            Text("Guidance uses transparent, deterministic rules. Twenty minutes of unallocated time or explicit recovery resets cognitive load; five minutes resets a deskwork span. An overlapping break does not count as rest. Completed work still counts. These are planning heuristics, not clinical limits.", style = MaterialTheme.typography.bodySmall)
-            Text("Battery note: no polling service or foreground timer. Android can delay alarms in deep idle or on restrictive devices, even with precise alarm access. A force-stopped app cannot deliver reminders until you open it again.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.settings_health), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.settings_health_body), style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.health_explanation), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning)
+            OutlinedButton(onClick = { advanced = !advanced }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.advanced_settings)) }
+            AnimatedVisibility(advanced, enter = fadeIn(tween(TransitionMillis)), exit = fadeOut(tween(TransitionMillis))) {
+                AdvancedHealthSettings(preferences.health, busy) { onAction(TimelineAction.SetHealthConfig(it)) }
+            }
+            HorizontalDivider()
+            Text(stringResource(R.string.demo_heading), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.demo_description), style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(enabled = !busy && !exampleLoaded, onClick = { onAction(TimelineAction.RequestDemo) }) {
+                Text(stringResource(if (exampleLoaded) R.string.demo_loaded else R.string.load_example_data))
+            }
+            Text(stringResource(R.string.battery_note), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
         }
     }
     subjects.firstOrNull { it.id == deleteSubjectId }?.let { subject ->
-        AlertDialog(onDismissRequest = { deleteSubjectId = null }, title = { Text("Delete ${subject.name}?") },
-            text = { Text("Blocks and milestones are kept. Their link to this subject is removed, including its color and default duration.") },
-            confirmButton = { TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteSubject(subject.id)); deleteSubjectId = null }) { Text("Delete subject") } },
-            dismissButton = { TextButton(onClick = { deleteSubjectId = null }) { Text("Cancel") } })
+        AlertDialog(onDismissRequest = { deleteSubjectId = null }, title = { Text(stringResource(R.string.delete_subject_title, subject.name)) },
+            text = { Text(stringResource(R.string.delete_subject_body)) },
+            confirmButton = { TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteSubject(subject.id)); deleteSubjectId = null }) { Text(stringResource(R.string.delete_subject)) } },
+            dismissButton = { TextButton(onClick = { deleteSubjectId = null }) { Text(stringResource(R.string.cancel)) } })
     }
+}
+
+@Composable
+private fun SettingSwitch(title: String, description: String, value: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(description, style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary) }
+        Switch(value, onChange, enabled = enabled)
+    }
+}
+
+@Composable
+private fun AdvancedHealthSettings(config: HealthConfig, busy: Boolean, onSave: (HealthConfig) -> Unit) {
+    var focus by rememberSaveable(config) { mutableStateOf(config.focusLimitMinutes.toString()) }
+    var cognitive by rememberSaveable(config) { mutableStateOf(config.cognitiveLimitMinutes.toString()) }
+    var transition by rememberSaveable(config) { mutableStateOf(config.transitionMinutes.toString()) }
+    var daily by rememberSaveable(config) { mutableStateOf(config.dailyFocusLimitMinutes.toString()) }
+    var sedentary by rememberSaveable(config) { mutableStateOf(config.sedentaryLimitMinutes.toString()) }
+    var gapMin by rememberSaveable(config) { mutableStateOf(config.fragmentedMinMinutes.toString()) }
+    var gapMax by rememberSaveable(config) { mutableStateOf(config.fragmentedMaxMinutes.toString()) }
+    var flags by rememberSaveable(config) { mutableIntStateOf(WarningType.entries.fold(0) { mask, type -> if (config.isEnabled(type)) mask or (1 shl type.ordinal) else mask }) }
+    var invalid by rememberSaveable { mutableStateOf(false) }
+    fun enabled(type: WarningType) = flags and (1 shl type.ordinal) != 0
+    fun toggle(type: WarningType, value: Boolean) { flags = if (value) flags or (1 shl type.ordinal) else flags and (1 shl type.ordinal).inv() }
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(stringResource(R.string.advanced_hint), style = MaterialTheme.typography.bodySmall)
+        RuleField(stringResource(R.string.threshold_focus), focus, { focus = it }, 1..720, enabled(WarningType.CONCENTRATION_LIMIT), busy) { toggle(WarningType.CONCENTRATION_LIMIT, it) }
+        RuleField(stringResource(R.string.threshold_cognitive), cognitive, { cognitive = it }, 30..720, enabled(WarningType.HIGH_COGNITIVE_LOAD), busy) { toggle(WarningType.HIGH_COGNITIVE_LOAD, it) }
+        RuleField(stringResource(R.string.threshold_transition), transition, { transition = it }, 0..240, enabled(WarningType.INSUFFICIENT_TRANSITION), busy) { toggle(WarningType.INSUFFICIENT_TRANSITION, it) }
+        RuleField(stringResource(R.string.threshold_daily), daily, { daily = it }, 30..1440, enabled(WarningType.BURNOUT_RISK), busy) { toggle(WarningType.BURNOUT_RISK, it) }
+        RuleField(stringResource(R.string.threshold_sedentary), sedentary, { sedentary = it }, 15..720, enabled(WarningType.PHYSICAL_RESET), busy) { toggle(WarningType.PHYSICAL_RESET, it) }
+        SettingSwitch(stringResource(R.string.threshold_fragmented), stringResource(R.string.rule_enabled), enabled(WarningType.FRAGMENTED_TIME), !busy) { toggle(WarningType.FRAGMENTED_TIME, it) }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MinuteField(gapMin, { gapMin = it }, stringResource(R.string.threshold_min), 1..1439, !busy && enabled(WarningType.FRAGMENTED_TIME), Modifier.weight(1f))
+            MinuteField(gapMax, { gapMax = it }, stringResource(R.string.threshold_max), 1..1439, !busy && enabled(WarningType.FRAGMENTED_TIME), Modifier.weight(1f))
+        }
+        if (invalid) Text(stringResource(R.string.error_thresholds), color = RoutineColors.Crimson)
+        Button(enabled = !busy, onClick = {
+            val parsed = runCatching { HealthConfig(
+                focus.toInt(), cognitive.toInt(), transition.toInt(), daily.toInt(), sedentary.toInt(), gapMin.toInt(), gapMax.toInt(),
+                enabled(WarningType.CONCENTRATION_LIMIT), enabled(WarningType.HIGH_COGNITIVE_LOAD), enabled(WarningType.INSUFFICIENT_TRANSITION),
+                enabled(WarningType.BURNOUT_RISK), enabled(WarningType.PHYSICAL_RESET), enabled(WarningType.FRAGMENTED_TIME),
+            ) }.getOrNull()
+            invalid = parsed == null
+            parsed?.let(onSave)
+        }) { Text(stringResource(R.string.save_thresholds)) }
+        TextButton(enabled = !busy, onClick = { invalid = false; onSave(HealthConfig()) }) { Text(stringResource(R.string.reset_thresholds)) }
+    }
+}
+
+@Composable
+private fun RuleField(title: String, value: String, onValue: (String) -> Unit, range: IntRange, enabled: Boolean, busy: Boolean, onEnabled: (Boolean) -> Unit) {
+    Column {
+        SettingSwitch(title, stringResource(R.string.rule_enabled), enabled, !busy, onEnabled)
+        MinuteField(value, onValue, stringResource(R.string.threshold_minutes), range, enabled && !busy, Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun MinuteField(value: String, onValue: (String) -> Unit, label: String, range: IntRange, enabled: Boolean, modifier: Modifier) {
+    OutlinedTextField(value, { onValue(it.filter(Char::isDigit).take(4)) }, label = { Text(label) },
+        supportingText = { Text(stringResource(R.string.threshold_range, range.first, range.last)) },
+        singleLine = true, enabled = enabled, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = modifier)
 }

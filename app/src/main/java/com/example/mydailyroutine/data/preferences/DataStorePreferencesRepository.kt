@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.mydailyroutine.domain.health.HealthConfig
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.model.ScheduleValidation
 import com.example.mydailyroutine.domain.repository.PreferencesRepository
@@ -25,6 +26,7 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
     private val startKey = intPreferencesKey("school_start_minute")
     private val endKey = intPreferencesKey("school_end_minute")
     private val teachingEndKey = longPreferencesKey("teaching_end_epoch_day")
+    private val hapticsKey = booleanPreferencesKey("haptics_enabled")
     private val defaults = SchedulePreferences()
 
     override val preferences = store.data.catch { error ->
@@ -34,6 +36,8 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             muteDuringSchoolHours = values[muteKey] ?: defaults.muteDuringSchoolHours,
             schoolStart = time(values[startKey], defaults.schoolStart),
             schoolEnd = time(values[endKey], defaults.schoolEnd),
+            hapticsEnabled = values[hapticsKey] ?: true,
+            health = HealthPreferenceCodec.read(values),
             teachingEndDate = values[teachingEndKey]?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
                 ?: defaults.teachingEndDate,
         )
@@ -58,6 +62,16 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
 
     override suspend fun setTeachingEndDate(date: LocalDate) {
         store.edit { it[teachingEndKey] = date.toEpochDay() }
+        onChanged()
+    }
+
+    override suspend fun setHapticsEnabled(enabled: Boolean) {
+        store.edit { it[hapticsKey] = enabled }
+        onChanged()
+    }
+
+    override suspend fun setHealthConfig(config: HealthConfig) {
+        store.edit { HealthPreferenceCodec.write(it, config) }
         onChanged()
     }
 }

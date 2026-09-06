@@ -3,6 +3,7 @@ package com.example.mydailyroutine.data.repository
 import androidx.room.withTransaction
 import com.example.mydailyroutine.data.local.*
 import com.example.mydailyroutine.domain.model.*
+import com.example.mydailyroutine.domain.health.*
 import com.example.mydailyroutine.domain.repository.TimelineRepository
 import com.example.mydailyroutine.domain.repository.TimelineResolver
 import java.time.LocalDate
@@ -151,4 +152,50 @@ class RoomTimelineRepository(
         check(db.milestones().setCompleted(id, completed) == 1) { "This milestone was deleted." }
     }
     override suspend fun deleteMilestone(id: Long) = write { db.milestones().delete(id) }
+
+    override suspend fun insertRecovery(
+        date: LocalDate, type: WarningType, anchorKey: String, config: HealthConfig,
+        recoveryTitle: String, continuationSuffix: String,
+    ): RecoveryResult = write {
+        val data = snapshot(date.minusDays(1), date.plusDays(1))
+        val resolved = resolver.prepare(data)
+        val today = resolved.forDate(date)
+        val warning = ScheduleHealthEngine().evaluate(today, config).firstOrNull {
+            it.type == type && anchorKey in it.relatedItemKeys
+        } ?: return@write RecoveryResult(RecoveryStatus.ALREADY_HANDLED)
+        val items = resolved.forDate(date.minusDays(1)) + today + resolved.forDate(date.plusDays(1))
+        when (val decision = RecoveryPlanner().plan(date, items, warning, config)) {
+            RecoveryDecision.AlreadyHandled -> RecoveryResult(RecoveryStatus.ALREADY_HANDLED)
+            RecoveryDecision.NoSpace -> RecoveryResult(RecoveryStatus.NO_SPACE)
+            is RecoveryDecision.Insert -> {
+                val plan = decision.plan
+                plan.change?.let { change ->
+                    val previous = db.overrides().get(change.original.routineBlockId, change.original.occurrenceDate)?.domain()
+                        ?: EventOverride(routineBlockId = change.original.routineBlockId, overrideDate = change.original.occurrenceDate)
+                    saveOverrideInTransaction(previous.copy(customStartTime = change.start.toLocalTime(), customEndTime = change.end.toLocalTime()))
+                }
+                plan.continuation?.let { part ->
+                    saveRoutineInTransaction(RoutineBlueprint(
+                        subjectId = part.original.subject?.id,
+                        title = "${part.original.title.take((119 - continuationSuffix.length).coerceAtLeast(1))} $continuationSuffix",
+                        category = part.original.category, dayOfWeek = part.start.dayOfWeek,
+                        startTime = part.start.toLocalTime(), endTime = part.end.toLocalTime(),
+                        isNotificationEnabled = part.original.isNotificationEnabled,
+                        validFrom = part.start.toLocalDate(), validUntil = part.start.toLocalDate(),
+                    ))
+                }
+                saveRoutineInTransaction(RoutineBlueprint(
+                    subjectId = null, title = recoveryTitle, category = RoutineCategory.REST_BREAK,
+                    dayOfWeek = plan.start.dayOfWeek, startTime = plan.start.toLocalTime(), endTime = plan.end.toLocalTime(),
+                    isNotificationEnabled = true, validFrom = plan.start.toLocalDate(), validUntil = plan.start.toLocalDate(),
+                ))
+                RecoveryResult(when {
+                    plan.continuation != null -> RecoveryStatus.FOCUS_SPLIT
+                    plan.change != null -> RecoveryStatus.FOCUS_MOVED
+                    else -> RecoveryStatus.INSERTED
+                }, plan.minutes, plan.start.toLocalDate())
+            }
+        }
+    }
+
 }

@@ -14,32 +14,29 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.RoutineCategory
 import com.example.mydailyroutine.domain.model.ScheduleValidation
 import com.example.mydailyroutine.domain.model.Subject
+import com.example.mydailyroutine.domain.presets.*
+import com.example.mydailyroutine.ui.feedback.LocalRoutineHaptics
+import com.example.mydailyroutine.ui.theme.*
 import com.example.mydailyroutine.ui.timeline.*
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
-private data class QuickPreset(val label: String, val title: String, val minutes: Int, val category: RoutineCategory, val kind: EntryKind = EntryKind.BLOCK)
-private val presets = listOf(
-    QuickPreset("90 min Deep Work", "Deep work", 90, RoutineCategory.FOCUS_STUDY),
-    QuickPreset("45 min Pomodoro", "Pomodoro", 45, RoutineCategory.FOCUS_STUDY),
-    QuickPreset("15 min Walk", "Screen-free walk", 15, RoutineCategory.REST_BREAK),
-    QuickPreset("IB Revision", "IB revision", 90, RoutineCategory.FOCUS_STUDY),
-    QuickPreset("Exam", "Exam", 60, RoutineCategory.SCHOOL, EntryKind.EXAM),
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EntryEditorSheet(
-    selectedDate: LocalDate, subjects: List<Subject>, editing: ResolvedTimelineItem.Milestone?, busy: Boolean,
+    selectedDate: LocalDate, subjects: List<Subject>, subjectPresets: List<QuickAddPreset>,
+    editing: ResolvedTimelineItem.Milestone?, busy: Boolean,
     onDismiss: () -> Unit, onSave: (EntryDraft) -> Unit, onNewSubject: () -> Unit,
 ) {
     val initial = remember(selectedDate, editing?.key) {
@@ -58,107 +55,142 @@ fun EntryEditorSheet(
     var weekly by rememberSaveable { mutableStateOf(false) }
     var notifications by rememberSaveable { mutableStateOf(true) }
     var allDay by rememberSaveable(editing?.key) { mutableStateOf(editing != null && editing.dueTime == null) }
-    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var error by rememberSaveable { mutableStateOf<Int?>(null) }
     var pickingDate by rememberSaveable { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
+    val haptics = LocalRoutineHaptics.current
+    val context = LocalContext.current
+    val standardPresets = remember { PresetFactory.standard() }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(if (editing == null) "Make a little space." else "Edit milestone", style = MaterialTheme.typography.headlineSmall)
-            Text("A plan for your time. Stored only on this device.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (editing == null) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(presets, key = { it.label }) { preset ->
-                        SuggestionChip(onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            title = preset.title; kind = preset.kind; category = preset.category
-                            endText = (ScheduleValidation.parseTime(startText) ?: LocalTime.of(16, 0)).plusMinutes(preset.minutes.toLong()).clockLabel()
-                            allDay = false; error = null
-                        }, label = { Text(preset.label) })
-                    }
+    fun applyPreset(preset: QuickAddPreset) {
+        haptics.tap()
+        title = preset.title(context)
+        kind = if (preset.isExam) EntryKind.EXAM else EntryKind.BLOCK
+        category = preset.category
+        subjectId = preset.subjectId ?: subjectId.takeUnless { preset.kind == PresetKind.WALK }
+        val start = ScheduleValidation.parseTime(startText) ?: initial.toLocalTime()
+        startText = start.clockLabel()
+        endText = preset.window(selectedDate, start).end.toLocalTime().clockLabel()
+        allDay = false
+        error = null
+    }
+    fun save(preset: QuickAddPreset? = null) {
+        val chosenKind = if (preset?.isExam == true) EntryKind.EXAM else kind
+        val chosenTitle = preset?.title(context) ?: title.trim()
+        val date = ScheduleValidation.parseDate(dateText)
+        val start = if (chosenKind != EntryKind.BLOCK && allDay) null else ScheduleValidation.parseTime(startText)
+        val end = if (chosenKind == EntryKind.BLOCK) ScheduleValidation.parseTime(endText) else null
+        error = when {
+            chosenTitle.isBlank() -> R.string.error_title
+            date == null -> R.string.error_date
+            (chosenKind == EntryKind.BLOCK || !allDay) && start == null -> R.string.error_time
+            chosenKind == EntryKind.BLOCK && (end == null || end == start) -> R.string.error_time_range
+            else -> null
+        }
+        if (error == null && date != null) {
+            val chosenSubject = preset?.subjectId ?: subjectId
+            onSave(EntryDraft(chosenTitle, chosenSubject?.takeIf { id -> subjects.any { it.id == id } }, chosenKind, date, start, end,
+                preset?.category ?: category, weekly, notifications, editing?.milestoneId ?: 0, editing?.isCompleted ?: false))
+        }
+    }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1, tonalElevation = 0.dp) {
+        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(stringResource(if (editing == null) R.string.fast_add_title else R.string.entry_edit_milestone), style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.fast_add_subtitle), color = RoutineColors.TextSecondary)
+            if (editing == null) LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(standardPresets, key = { it.key }) { preset ->
+                    SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip, label = { Text(preset.label(context)) })
                 }
-            }
-            Text("Saved subjects", style = MaterialTheme.typography.titleSmall)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(subjects, key = { it.id }) { subject ->
-                    FilterChip(selected = subjectId == subject.id, onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (subjectId == subject.id) subjectId = null else {
-                            if (title.isBlank() || title == subjects.firstOrNull { it.id == subjectId }?.name) title = subject.name
-                            subjectId = subject.id
-                            endText = (ScheduleValidation.parseTime(startText) ?: LocalTime.of(16, 0)).plusMinutes(subject.defaultDurationMinutes.toLong()).clockLabel()
-                        }
-                    }, label = { Text(subject.name) })
-                }
-                item { SuggestionChip(onClick = onNewSubject, label = { Text("+ Subject") }) }
             }
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 val choices = if (editing == null) EntryKind.entries else listOf(EntryKind.DEADLINE, EntryKind.EXAM)
                 choices.forEachIndexed { index, choice ->
-                    SegmentedButton(selected = kind == choice, onClick = { kind = choice; error = null },
-                        shape = SegmentedButtonDefaults.itemShape(index, choices.size)) {
-                        Text(when (choice) { EntryKind.BLOCK -> "Block"; EntryKind.DEADLINE -> "Deadline"; EntryKind.EXAM -> "Exam" })
+                    SegmentedButton(selected = kind == choice, enabled = !busy, onClick = { haptics.tap(); kind = choice; error = null }, shape = SegmentedButtonDefaults.itemShape(index, choices.size)) {
+                        Text(stringResource(when (choice) { EntryKind.BLOCK -> R.string.entry_block; EntryKind.DEADLINE -> R.string.entry_deadline; EntryKind.EXAM -> R.string.entry_exam }))
                     }
                 }
             }
-            OutlinedTextField(value = title, onValueChange = { title = it.take(120); error = null }, label = { Text("Title") },
-                singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
-            OutlinedTextField(value = dateText, onValueChange = { dateText = it; error = null }, label = { Text("Date · YYYY-MM-DD") },
-                singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-                trailingIcon = { IconButton(onClick = { pickingDate = true }, enabled = !busy) { Icon(Icons.Outlined.CalendarMonth, "Choose date") } })
+            Text(stringResource(R.string.saved_subjects), style = MaterialTheme.typography.titleSmall)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { FilterChip(subjectId == null, onClick = { subjectId = null; haptics.tap() }, enabled = !busy, label = { Text(stringResource(R.string.subject_all)) }, shape = RoutineShapes.Chip) }
+                items(subjects, key = { it.id }) { subject ->
+                    FilterChip(selected = subjectId == subject.id, enabled = !busy, shape = RoutineShapes.Chip,
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(subject.colorHex.toInt()).copy(alpha = 0.2f)),
+                        onClick = {
+                            subjectId = subject.id
+                            val desired = if (kind == EntryKind.BLOCK && editing == null) PresetKind.SUBJECT_LESSON else PresetKind.SUBJECT_TEST
+                            subjectPresets.firstOrNull { it.subjectId == subject.id && it.kind == desired }?.let(::applyPreset)
+                        }, label = { Text(subject.name) })
+                }
+                item { SuggestionChip(onClick = onNewSubject, enabled = !busy, label = { Text(stringResource(R.string.new_subject)) }, shape = RoutineShapes.Chip) }
+            }
+            if (subjects.isEmpty()) Text(stringResource(R.string.no_subjects_hint), style = MaterialTheme.typography.bodySmall)
+            else {
+                Text(stringResource(R.string.subject_presets), style = MaterialTheme.typography.titleSmall)
+                val visible = subjectPresets.filter { (subjectId == null || it.subjectId == subjectId) && (editing == null || it.isExam) }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(visible, key = { it.key }) { preset ->
+                        val color = preset.colorHex?.let { Color(it.toInt()) } ?: RoutineColors.Cobalt
+                        SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f)), label = { Text(preset.label(context), color = color) })
+                    }
+                }
+            }
+            OutlinedTextField(title, { title = it.take(120); error = null }, label = { Text(stringResource(R.string.entry_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+            OutlinedTextField(dateText, { dateText = it; error = null }, label = { Text(stringResource(R.string.entry_date)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), trailingIcon = {
+                    IconButton(onClick = { pickingDate = true; haptics.tap() }, enabled = !busy) { Icon(Icons.Outlined.CalendarMonth, stringResource(R.string.choose_date)) }
+                })
             if (kind != EntryKind.BLOCK) Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = allDay, onCheckedChange = { allDay = it }, enabled = !busy)
-                Text("All-day marker (no fixed time)")
+                Checkbox(allDay, { allDay = it; haptics.tap() }, enabled = !busy)
+                Text(stringResource(R.string.entry_all_day))
             }
             AnimatedVisibility(kind == EntryKind.BLOCK || !allDay) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(value = startText, onValueChange = { startText = it; error = null }, label = { Text(if (kind == EntryKind.BLOCK) "Start · HH:mm" else "Due · HH:mm") },
+                    OutlinedTextField(startText, { startText = it; error = null }, label = { Text(stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due)) },
                         singleLine = true, modifier = Modifier.weight(1f), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
-                    if (kind == EntryKind.BLOCK) OutlinedTextField(value = endText, onValueChange = { endText = it; error = null }, label = { Text("End · HH:mm") },
+                    if (kind == EntryKind.BLOCK) OutlinedTextField(endText, { endText = it; error = null }, label = { Text(stringResource(R.string.entry_end)) },
                         singleLine = true, modifier = Modifier.weight(1f), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
                 }
             }
             if (kind == EntryKind.BLOCK) {
-                Text("An end earlier than the start continues into the next day.", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.entry_overnight_hint), style = MaterialTheme.typography.bodySmall)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(RoutineCategory.entries, key = { it.name }) { option ->
-                        FilterChip(selected = category == option, onClick = { category = option }, label = { Text(option.label()) })
-                    }
+                    items(RoutineCategory.entries, key = { it.name }) { option -> FilterChip(category == option, { category = option; haptics.tap() }, enabled = !busy,
+                        label = { Text(option.label()) }, shape = RoutineShapes.Chip) }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Repeat weekly", style = MaterialTheme.typography.titleSmall)
-                        Text(if (weekly) "From this date forward, on the same weekday" else "Only this date — your weekly plan stays unchanged", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.entry_repeat), style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(if (weekly) R.string.entry_repeat_hint else R.string.entry_once_hint), style = MaterialTheme.typography.bodySmall)
                     }
-                    Switch(checked = weekly, onCheckedChange = { weekly = it }, enabled = !busy)
+                    Switch(weekly, { weekly = it; haptics.tap() }, enabled = !busy)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Reminder", style = MaterialTheme.typography.titleSmall)
-                        Text(if (category == RoutineCategory.REST_BREAK) "At the start of recovery" else "5 minutes before the block", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.entry_reminder), style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(if (category == RoutineCategory.REST_BREAK) R.string.reminder_at_recovery else R.string.reminder_before), style = MaterialTheme.typography.bodySmall)
                     }
-                    Switch(checked = notifications, onCheckedChange = { notifications = it }, enabled = !busy)
+                    Switch(notifications, { notifications = it; haptics.tap() }, enabled = !busy)
                 }
-            } else Text("Markers highlight a deadline without reserving study time. Add a separate block if you need time to prepare. Markers do not send block reminders.", style = MaterialTheme.typography.bodySmall)
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-            Button(enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp), onClick = {
-                val date = ScheduleValidation.parseDate(dateText)
-                val start = if (kind != EntryKind.BLOCK && allDay) null else ScheduleValidation.parseTime(startText)
-                val end = if (kind == EntryKind.BLOCK) ScheduleValidation.parseTime(endText) else null
-                error = when {
-                    title.isBlank() -> "Give this entry a title."
-                    date == null -> "Use a valid date in 1900–2100, for example 2026-09-07."
-                    (kind == EntryKind.BLOCK || !allDay) && start == null -> "Enter a 24-hour time, for example 16:30."
-                    kind == EntryKind.BLOCK && (end == null || end == start) -> "Use different, valid start and end times."
-                    else -> null
+            } else {
+                Text(stringResource(R.string.marker_hint), style = MaterialTheme.typography.bodySmall)
+                if (editing == null && subjects.isNotEmpty()) {
+                    Text(stringResource(R.string.scheduled_test_hint), style = MaterialTheme.typography.bodySmall)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(subjectPresets.filter { it.kind == PresetKind.SUBJECT_TEST }, key = { it.key }) { test ->
+                            OutlinedButton(enabled = !busy, shape = RoutineShapes.Pill, onClick = { save(test) }) {
+                                Text(stringResource(R.string.scheduled_test, test.subjectName.orEmpty()), color = RoutineColors.Exam.content)
+                            }
+                        }
+                    }
                 }
-                if (error == null && date != null) {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onSave(EntryDraft(title.trim(), subjectId?.takeIf { id -> subjects.any { it.id == id } }, kind, date, start, end, category, weekly, notifications,
-                        existingMilestoneId = editing?.milestoneId ?: 0, isCompleted = editing?.isCompleted ?: false))
-                }
-            }) { Text(if (busy) "Saving…" else if (editing == null) "Add to my day" else "Save milestone") }
+            }
+            error?.let { Text(stringResource(it), color = RoutineColors.Crimson) }
+            Button(enabled = !busy, shape = RoutineShapes.Pill, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp), onClick = { save() }) {
+                Text(stringResource(if (busy) R.string.saving else if (editing == null) R.string.entry_save else R.string.entry_save_milestone))
+            }
         }
     }
     if (pickingDate) AppDatePicker(ScheduleValidation.parseDate(dateText) ?: selectedDate,
@@ -168,12 +200,11 @@ fun EntryEditorSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDatePicker(date: LocalDate, onDismiss: () -> Unit, onDate: (LocalDate) -> Unit) {
-    // Material DatePicker speaks UTC epoch milliseconds, not local-zone midnight instants.
     val state = rememberDatePickerState(initialSelectedDateMillis = date.toEpochDay() * 86_400_000L)
     DatePickerDialog(onDismissRequest = onDismiss,
         confirmButton = { TextButton(enabled = state.selectedDateMillis != null, onClick = {
             state.selectedDateMillis?.let { onDate(LocalDate.ofEpochDay(Math.floorDiv(it, 86_400_000L))) }
-        }) { Text("Choose") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    ) { DatePicker(state = state) }
+        }) { Text(stringResource(R.string.choose)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    ) { DatePicker(state) }
 }

@@ -1,6 +1,9 @@
 package com.example.mydailyroutine.ui.timeline
 
 import androidx.compose.runtime.Immutable
+import androidx.annotation.StringRes
+import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.presets.QuickAddPreset
 import com.example.mydailyroutine.domain.health.DailyMetrics
 import com.example.mydailyroutine.domain.health.WarningType
 import com.example.mydailyroutine.domain.model.*
@@ -16,7 +19,7 @@ enum class TimelineMode { DAY, WEEK, MONTH, YEAR }
 enum class EntryKind { BLOCK, DEADLINE, EXAM }
 
 @Immutable
-data class WarningUi(val type: WarningType, val message: String, val itemKeys: PersistentSet<String>)
+data class WarningUi(val type: WarningType, val itemKeys: PersistentSet<String>, val atMinute: Int, val recoveryMinutes: Int)
 @Immutable
 data class CancelledOccurrenceUi(val routineId: Long, val date: LocalDate, val title: String)
 @Immutable
@@ -34,9 +37,10 @@ data class TimelineContent(
     val date: LocalDate,
     val mode: TimelineMode = TimelineMode.DAY,
     val isLoading: Boolean = true,
-    val error: String? = null,
+    @StringRes val error: Int? = null,
     val days: PersistentMap<LocalDate, DayUi> = persistentMapOf(),
     val subjects: PersistentList<Subject> = persistentListOf(),
+    val subjectPresets: PersistentList<QuickAddPreset> = persistentListOf(),
     val calendar: PersistentList<CalendarEntry> = persistentListOf(),
     val milestones: PersistentList<Milestone> = persistentListOf(),
 )
@@ -50,6 +54,7 @@ data class TimelinePanels(
     val editingSubject: Subject? = null,
     val pendingDelete: ResolvedTimelineItem? = null,
     val isSaving: Boolean = false,
+    val confirmDemo: Boolean = false,
 )
 
 @Immutable
@@ -57,6 +62,7 @@ data class TimelineUiState(
     val content: TimelineContent,
     val preferences: SchedulePreferences = SchedulePreferences(),
     val panels: TimelinePanels = TimelinePanels(),
+    val exampleLoaded: Boolean = false,
 )
 
 @Immutable
@@ -100,7 +106,18 @@ sealed interface TimelineAction {
     data object CloseSubjectEditor : TimelineAction
     data class SaveSubject(val subject: Subject) : TimelineAction
     data class DeleteSubject(val id: Long) : TimelineAction
+    data class InsertRecovery(val type: WarningType, val anchorKey: String, val recoveryTitle: String, val continuationSuffix: String) : TimelineAction
+    data class SetHaptics(val enabled: Boolean) : TimelineAction
+    data class SetHealthConfig(val config: HealthConfig) : TimelineAction
+    data object RequestDemo : TimelineAction
+    data object DismissDemo : TimelineAction
+    data object LoadDemo : TimelineAction
     data class SetMute(val muted: Boolean) : TimelineAction
     data class SetSchoolWindow(val start: LocalTime, val end: LocalTime) : TimelineAction
     data class SetTeachingEnd(val date: LocalDate) : TimelineAction
+}
+
+sealed interface TimelineEffect {
+    data class Message(@StringRes val resource: Int, val minutes: Int? = null) : TimelineEffect
+    data object Completed : TimelineEffect
 }

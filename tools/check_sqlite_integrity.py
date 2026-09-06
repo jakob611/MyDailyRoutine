@@ -55,7 +55,7 @@ def database():
             unique = "UNIQUE " if "unique = true" in value else ""
             connection.execute(f"CREATE {unique}INDEX index_{table}_{'_'.join(names)} ON {table}({','.join(names)})")
     predicates = re.findall(r'"(\w+)" to """(.*?)"""\.trimIndent\(\)', (LOCAL / "DatabaseIntegrity.kt").read_text(), re.S)
-    assert len(predicates) == len(ENTITIES) == 7, "All entity integrity predicates must be exercised"
+    assert len(predicates) == len(ENTITIES) == 8, "All entity integrity predicates must be exercised"
     for table, predicate in predicates:
         for operation in ("INSERT", "UPDATE"):
             connection.execute(f"CREATE TRIGGER validate_{table}_{operation.lower()} BEFORE {operation} ON {table} FOR EACH ROW WHEN ({predicate}) BEGIN SELECT RAISE(ABORT, 'Invalid {table} values'); END")

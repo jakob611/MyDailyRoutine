@@ -1,12 +1,11 @@
 package com.example.mydailyroutine
 
-import androidx.compose.ui.test.assertIsDisplayed
+import android.content.pm.PackageManager
+import androidx.annotation.StringRes
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -14,29 +13,32 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TimelineUiTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    private fun text(@StringRes id: Int) = compose.activity.getString(id)
+    private fun click(@StringRes id: Int) = compose.onNodeWithText(text(id)).performClick()
 
-    @Test fun allFourViewsAndFastAddAreReachable() {
-        compose.onNodeWithText("My Daily Routine").assertIsDisplayed()
-        compose.onNodeWithText("Week").performClick()
-        awaitText("Your week, at a glance")
-        compose.onNodeWithText("Month").performClick()
-        awaitText("Build a rhythm, not a streak.")
-        compose.onNodeWithText("Year").performClick()
-        awaitText("THE BIG PICTURE")
-        compose.onNodeWithText("Day").performClick()
-        compose.onNodeWithText("Add block").performClick()
-        awaitText("Make a little space.")
-        compose.onNodeWithText("90 min Deep Work").assertIsDisplayed()
+    @Test fun allFourSlovenianViewsAndFastAddAreReachable() {
+        compose.onNodeWithText(text(R.string.app_name)).assertIsDisplayed()
+        click(R.string.nav_week); awaitText(R.string.week_heading)
+        click(R.string.nav_month); awaitText(R.string.month_heading)
+        click(R.string.nav_year); awaitText(R.string.year_big_picture)
+        click(R.string.nav_day); click(R.string.add_block); awaitText(R.string.fast_add_title)
+        compose.onNodeWithText(text(R.string.preset_deep_work)).assertIsDisplayed()
     }
-
-    @Test fun settingsAreAvailableWithoutGrantingAnyPermission() {
-        compose.onNodeWithContentDescription("Settings").performClick()
-        awaitText("Your rhythm")
-        compose.onNodeWithText("Entirely offline. No account, network access, analytics, or cloud backup.").assertIsDisplayed()
+    @Test fun settingsExposeAdvancedRulesAndOptInDemo() {
+        compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
+        awaitText(R.string.settings_title)
+        compose.onNodeWithText(text(R.string.advanced_settings)).performScrollTo().performClick()
+        compose.onNodeWithText(text(R.string.threshold_focus)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.demo_heading)).performScrollTo().assertIsDisplayed()
     }
-
-    private fun awaitText(text: String) {
-        compose.waitUntil(timeoutMillis = 10000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText(text).assertIsDisplayed()
+    @Test fun languageAndMergedPrivacyPermissionsAreCorrect() {
+        assertEquals("sl", compose.activity.resources.configuration.locales[0].language)
+        @Suppress("DEPRECATION") val permissions = compose.activity.packageManager.getPackageInfo(compose.activity.packageName, PackageManager.GET_PERMISSIONS).requestedPermissions.orEmpty()
+        assertFalse("android.permission.INTERNET" in permissions)
+        assertFalse("android.permission.ACCESS_NETWORK_STATE" in permissions)
+    }
+    private fun awaitText(@StringRes id: Int) {
+        compose.waitUntil(10000) { compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(text(id)).assertIsDisplayed()
     }
 }

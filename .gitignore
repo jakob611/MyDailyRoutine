@@ -20,3 +20,7 @@ local.properties
 .tools/
 *.apk
 *.aab
+
+**/__pycache__/
+*.pyc
+ci-*.log

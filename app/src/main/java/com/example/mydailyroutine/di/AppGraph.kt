@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.example.mydailyroutine.RoutineApplication
 import com.example.mydailyroutine.data.local.RoutineDatabase
+import com.example.mydailyroutine.data.seed.DemoDataSeeder
 import com.example.mydailyroutine.data.preferences.DataStorePreferencesRepository
 import com.example.mydailyroutine.data.repository.RoomTimelineRepository
 import com.example.mydailyroutine.scheduling.ScheduleAlarmScheduler
@@ -23,6 +24,7 @@ class AppGraph(context: Context) {
     val database = RoutineDatabase.create(context)
     val repository = RoomTimelineRepository(database, ::requestRefresh)
     val preferences = DataStorePreferencesRepository(context, ::requestRefresh)
+    val exampleData = DemoDataSeeder(context, database, preferences, ::requestRefresh)
     val scheduler = ScheduleAlarmScheduler(context)
     val notifier = ScheduleNotifier(context)
     val coordinator = ScheduleCoordinator(context, database, repository, preferences, scheduler, notifier)

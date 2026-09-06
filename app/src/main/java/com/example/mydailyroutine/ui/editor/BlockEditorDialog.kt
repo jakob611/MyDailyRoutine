@@ -8,9 +8,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import com.example.mydailyroutine.ui.feedback.LocalRoutineHaptics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.ScheduleValidation
 import com.example.mydailyroutine.ui.timeline.TimelineAction
@@ -22,36 +23,34 @@ fun BlockEditorDialog(block: ResolvedTimelineItem.Block, busy: Boolean, onDismis
     var start by rememberSaveable(block.key) { mutableStateOf(block.startsAt.toLocalTime().clockLabel()) }
     var end by rememberSaveable(block.key) { mutableStateOf(block.endsAt.toLocalTime().clockLabel()) }
     var whole by rememberSaveable(block.key) { mutableStateOf(false) }
-    var error by rememberSaveable { mutableStateOf<String?>(null) }
-    val haptic = LocalHapticFeedback.current
+    var error by rememberSaveable { mutableStateOf<Int?>(null) }
+    val haptic = LocalRoutineHaptics.current
     AlertDialog(onDismissRequest = onDismiss,
-        title = { Text("Move / rename") },
+        title = { Text(stringResource(R.string.edit_block_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Occurrence: ${block.occurrenceDate}")
-                OutlinedTextField(title, { title = it.take(120) }, label = { Text("Title") }, singleLine = true, enabled = !busy)
-                OutlinedTextField(start, { start = it }, label = { Text("Start · HH:mm") }, singleLine = true, enabled = !busy)
-                OutlinedTextField(end, { end = it }, label = { Text("End · HH:mm") }, singleLine = true, enabled = !busy)
-                Text("An earlier end continues tomorrow. Equal start and end times are not allowed.", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.edit_occurrence, block.occurrenceDate))
+                OutlinedTextField(title, { title = it.take(120) }, label = { Text(stringResource(R.string.entry_title)) }, singleLine = true, enabled = !busy)
+                OutlinedTextField(start, { start = it }, label = { Text(stringResource(R.string.entry_start)) }, singleLine = true, enabled = !busy)
+                OutlinedTextField(end, { end = it }, label = { Text(stringResource(R.string.entry_end)) }, singleLine = true, enabled = !busy)
+                Text(stringResource(R.string.edit_times_hint), style = MaterialTheme.typography.bodySmall)
                 if (!block.isOneOff) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(whole, { whole = it }, enabled = !busy)
-                    Text("Edit the weekly blueprint", style = MaterialTheme.typography.bodyMedium)
+                    Checkbox(whole, { whole = it; haptic.tap() }, enabled = !busy)
+                    Text(stringResource(R.string.edit_whole_template), style = MaterialTheme.typography.bodyMedium)
                 }
-                Text(if (whole) "Existing date-specific exceptions are preserved. This changes the blueprint in all weeks, including past weeks."
-                    else "Only this occurrence changes; other weeks stay as planned.", style = MaterialTheme.typography.bodySmall)
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                Text(stringResource(if (whole) R.string.edit_whole_hint else R.string.edit_once_hint), style = MaterialTheme.typography.bodySmall)
+                error?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = { TextButton(enabled = !busy, onClick = {
             val parsedStart = ScheduleValidation.parseTime(start)
             val parsedEnd = ScheduleValidation.parseTime(end)
             if (title.isBlank() || parsedStart == null || parsedEnd == null || parsedStart == parsedEnd) {
-                error = "Enter a title and two different HH:mm times."
+                error = R.string.error_block_edit
             } else {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onSave(TimelineAction.SaveBlockEdit(block, title.trim(), parsedStart, parsedEnd, whole))
             }
-        }) { Text(if (busy) "Saving…" else "Save changes") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") } },
+        }) { Text(stringResource(if (busy) R.string.saving else R.string.save_changes)) } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

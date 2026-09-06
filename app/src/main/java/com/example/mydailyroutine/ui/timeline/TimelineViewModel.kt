@@ -3,7 +3,11 @@ package com.example.mydailyroutine.ui.timeline
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.mydailyroutine.domain.health.ScheduleHealthEngine
+import com.example.mydailyroutine.R
+import com.example.mydailyroutine.domain.health.*
+import com.example.mydailyroutine.domain.presets.PresetFactory
+import com.example.mydailyroutine.domain.repository.ExampleDataRepository
+import com.example.mydailyroutine.ui.theme.RoutineColors
 import com.example.mydailyroutine.domain.health.ScheduleMetrics
 import com.example.mydailyroutine.domain.model.*
 import com.example.mydailyroutine.domain.repository.PreferencesRepository
@@ -34,6 +38,7 @@ class TimelineViewModel(
     private val repository: TimelineRepository,
     private val settings: PreferencesRepository,
     private val savedState: SavedStateHandle,
+    private val exampleData: ExampleDataRepository,
     private val clock: Clock = Clock.systemUTC(),
 ) : ViewModel() {
     private fun today(): LocalDate = LocalDate.now(clock.withZone(ZoneId.systemDefault()))
@@ -43,8 +48,8 @@ class TimelineViewModel(
     private val retry = MutableStateFlow(0)
     private val panels = MutableStateFlow(TimelinePanels())
     private val operationLock = Mutex()
-    private val messages = Channel<String>(Channel.BUFFERED)
-    val effects: Flow<String> = messages.receiveAsFlow()
+    private val messages = Channel<TimelineEffect>(Channel.BUFFERED)
+    val effects: Flow<TimelineEffect> = messages.receiveAsFlow()
     private val resolver = TimelineResolver()
     private val healthEngine = ScheduleHealthEngine()
 
@@ -52,20 +57,21 @@ class TimelineViewModel(
         LocalDate.ofEpochDay(epoch) to TimelineMode.valueOf(mode)
     }.flatMapLatest { (date, mode) ->
         val (from, through) = range(date, mode)
-        repository.observeSnapshot(from, through)
-            .map { snapshot -> withContext(Dispatchers.Default) { resolveContent(date, mode, snapshot) } }
+        combine(repository.observeSnapshot(from, through), settings.preferences.map { it.health }.distinctUntilChanged()) { snapshot, config ->
+            withContext(Dispatchers.Default) { resolveContent(date, mode, snapshot, config) }
+        }
             .onStart { emit(TimelineContent(date, mode)) }
             .catch { error ->
                 if (error is CancellationException) throw error
-                emit(TimelineContent(date, mode, isLoading = false, error = "Could not open your local schedule. Your data has not been cleared."))
+                emit(TimelineContent(date, mode, isLoading = false, error = R.string.error_load))
             }
     }
 
-    val state: StateFlow<TimelineUiState> = combine(content, settings.preferences, panels) { data, preferences, panels ->
-        TimelineUiState(data, preferences, panels)
+    val state: StateFlow<TimelineUiState> = combine(content, settings.preferences, panels, exampleData.isLoaded) { data, preferences, panels, loaded ->
+        TimelineUiState(data, preferences, panels, loaded)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimelineUiState(TimelineContent(initialDate)))
 
-    private suspend fun resolveContent(date: LocalDate, mode: TimelineMode, snapshot: ScheduleSnapshot): TimelineContent {
+    private suspend fun resolveContent(date: LocalDate, mode: TimelineMode, snapshot: ScheduleSnapshot, config: HealthConfig): TimelineContent {
         val prepared = resolver.prepare(snapshot)
         val calendarByDate = snapshot.calendar.groupBy { it.date }
         val days = linkedMapOf<LocalDate, DayUi>()
@@ -76,7 +82,9 @@ class TimelineViewModel(
             days[current] = DayUi(
                 date = current,
                 items = items.toPersistentList(),
-                warnings = healthEngine.evaluate(items).map { WarningUi(it.type, it.message, it.relatedItemKeys.toPersistentSet()) }.toPersistentList(),
+                warnings = healthEngine.evaluate(items, config).map {
+                    WarningUi(it.type, it.relatedItemKeys.toPersistentSet(), it.atMinute, RecoveryPlanner().recommendedMinutes(it, config, items))
+                }.toPersistentList(),
                 calendar = calendarByDate[current].orEmpty().toPersistentList(),
                 cancelled = prepared.cancelledForDate(current).map {
                     CancelledOccurrenceUi(it.routineBlockId, it.occurrenceDate, it.title)
@@ -88,6 +96,7 @@ class TimelineViewModel(
         return TimelineContent(
             date = date, mode = mode, isLoading = false, days = days.toPersistentMap(),
             subjects = snapshot.subjects.toPersistentList(),
+            subjectPresets = PresetFactory.forSubjects(snapshot.subjects).toPersistentList(),
             calendar = snapshot.calendar.filter { it.date in snapshot.from..snapshot.through }.toPersistentList(),
             milestones = snapshot.milestones.sortedWith(compareBy<Milestone> { it.dueDate }.thenBy { it.dueTime ?: java.time.LocalTime.MIN }).toPersistentList(),
         )
@@ -125,18 +134,19 @@ class TimelineViewModel(
             is TimelineAction.SaveBlockEdit -> perform {
                 repository.editBlock(action.item.routineBlockId, action.item.occurrenceDate, action.title, action.start, action.end, action.wholeTemplate)
                 panels.update { it.copy(editingBlock = null) }
-                messages.send("Schedule updated")
+                messages.send(TimelineEffect.Message(R.string.message_updated))
             }
             is TimelineAction.ToggleComplete -> perform {
                 when (val item = action.item) {
                     is ResolvedTimelineItem.Block -> repository.setCompleted(item.routineBlockId, item.occurrenceDate, !item.isCompleted)
                     is ResolvedTimelineItem.Milestone -> repository.setMilestoneCompleted(item.milestoneId, !item.isCompleted)
                 }
+                if (!action.item.isCompleted) messages.send(TimelineEffect.Completed)
             }
             is TimelineAction.SetReminder -> perform { repository.setNotificationEnabled(action.routineId, action.enabled) }
             is TimelineAction.Skip -> perform {
                 repository.cancelOccurrence(action.item.routineBlockId, action.item.occurrenceDate)
-                messages.send("Occurrence skipped. Restore it below the timeline.")
+                messages.send(TimelineEffect.Message(R.string.message_skipped))
             }
             is TimelineAction.Restore -> perform { repository.restoreOccurrence(action.routineId, action.date) }
             is TimelineAction.ResetOverride -> perform { repository.resetOverride(action.item.routineBlockId, action.item.occurrenceDate) }
@@ -148,10 +158,10 @@ class TimelineViewModel(
                     is ResolvedTimelineItem.Milestone -> repository.deleteMilestone(target.milestoneId)
                 }
                 panels.update { it.copy(pendingDelete = null) }
-                messages.send("Deleted")
+                messages.send(TimelineEffect.Message(R.string.message_deleted))
             } }
             is TimelineAction.EditSubject -> panels.update {
-                it.copy(editingSubject = action.subject ?: Subject(name = "", colorHex = 0xFF6478C8, defaultDurationMinutes = 45))
+                it.copy(editingSubject = action.subject ?: Subject(name = "", colorHex = RoutineColors.subjectSwatches.first(), defaultDurationMinutes = 45))
             }
             TimelineAction.CloseSubjectEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingSubject = null) }
             is TimelineAction.SaveSubject -> perform {
@@ -159,14 +169,43 @@ class TimelineViewModel(
                 panels.update { it.copy(editingSubject = null) }
             }
             is TimelineAction.DeleteSubject -> perform { repository.deleteSubject(action.id) }
+            is TimelineAction.SetHaptics -> perform { settings.setHapticsEnabled(action.enabled) }
+            is TimelineAction.SetHealthConfig -> perform {
+                settings.setHealthConfig(action.config)
+                messages.send(TimelineEffect.Message(R.string.message_thresholds_saved))
+            }
+            TimelineAction.RequestDemo -> panels.update { it.copy(confirmDemo = true) }
+            TimelineAction.DismissDemo -> if (!panels.value.isSaving) panels.update { it.copy(confirmDemo = false) }
+            TimelineAction.LoadDemo -> perform {
+                val loaded = exampleData.load()
+                panels.update { it.copy(confirmDemo = false, showSettings = false) }
+                if (loaded) {
+                    savedState["date"] = LocalDate.of(2026, 9, 7).toEpochDay()
+                    savedState["mode"] = TimelineMode.DAY.name
+                }
+                messages.send(TimelineEffect.Message(if (loaded) R.string.demo_loaded_message else R.string.demo_already_message))
+            }
+            is TimelineAction.InsertRecovery -> perform {
+                val result = repository.insertRecovery(LocalDate.ofEpochDay(selectedDate.value), action.type, action.anchorKey,
+                    state.value.preferences.health, action.recoveryTitle, action.continuationSuffix)
+                result.date?.let { savedState["date"] = it.toEpochDay() }
+                val text = when (result.status) {
+                    RecoveryStatus.INSERTED -> R.string.recovery_inserted
+                    RecoveryStatus.FOCUS_SPLIT -> R.string.recovery_split
+                    RecoveryStatus.FOCUS_MOVED -> R.string.recovery_moved
+                    RecoveryStatus.ALREADY_HANDLED -> R.string.recovery_already
+                    RecoveryStatus.NO_SPACE -> R.string.recovery_no_space
+                }
+                messages.send(TimelineEffect.Message(text, result.minutes.takeIf { it > 0 }))
+            }
             is TimelineAction.SetMute -> perform { settings.setMuteDuringSchoolHours(action.muted) }
             is TimelineAction.SetSchoolWindow -> perform {
                 settings.setSchoolWindow(action.start, action.end)
-                messages.send("Quiet window saved")
+                messages.send(TimelineEffect.Message(R.string.message_quiet_saved))
             }
             is TimelineAction.SetTeachingEnd -> perform {
                 settings.setTeachingEndDate(action.date)
-                messages.send("School-year end date saved")
+                messages.send(TimelineEffect.Message(R.string.message_teaching_end_saved))
             }
         }
     }
@@ -187,7 +226,7 @@ class TimelineViewModel(
         }
         savedState["date"] = draft.date.toEpochDay()
         panels.update { it.copy(showAdd = false, editingMilestone = null) }
-        messages.send(if (draft.existingMilestoneId == 0L) "Added to your schedule" else "Milestone updated")
+        messages.send(TimelineEffect.Message(if (draft.existingMilestoneId == 0L) R.string.message_added else R.string.message_milestone_saved))
     }
 
     private fun perform(operation: suspend () -> Unit) {
@@ -196,8 +235,8 @@ class TimelineViewModel(
         viewModelScope.launch {
             try { operation() }
             catch (error: CancellationException) { throw error }
-            catch (error: IllegalArgumentException) { messages.send(error.message ?: "Please check the entered values.") }
-            catch (_: Exception) { messages.send("Could not save this change. Check the entry and try again; existing data was not cleared.") }
+            catch (_: IllegalArgumentException) { messages.send(TimelineEffect.Message(R.string.error_values)) }
+            catch (_: Exception) { messages.send(TimelineEffect.Message(R.string.error_save)) }
             finally {
                 panels.update { it.copy(isSaving = false) }
                 operationLock.unlock()

@@ -100,10 +100,11 @@ class ScheduleHealthEngineTest {
         assertEquals(engine.evaluate(blocks), engine.evaluate(blocks.reversed()))
     }
 
-    @Test fun `warnings have exact specified messages and related keys`() {
+    @Test fun `warnings carry stable facts for localized Android copy`() {
         val input = block(480, 571)
         val warning = engine.evaluate(listOf(input)).single { it.type == WarningType.CONCENTRATION_LIMIT }
-        assertEquals(ScheduleHealthEngine.messages.getValue(warning.type), warning.message)
+        assertEquals(WarningType.CONCENTRATION_LIMIT, warning.type)
+        assertEquals(570, warning.atMinute)
         assertEquals(setOf(input.key), warning.relatedItemKeys)
     }
 }

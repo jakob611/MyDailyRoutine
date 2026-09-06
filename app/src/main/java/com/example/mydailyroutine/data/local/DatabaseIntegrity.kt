@@ -8,6 +8,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 object DatabaseIntegrity {
     private val predicates = mapOf(
+        "demo_imports" to """
+            length(trim(NEW.key)) NOT BETWEEN 1 AND 80 OR NEW.importedAtEpochMillis < 0
+        """.trimIndent(),
         "subjects" to """
             length(trim(NEW.name)) NOT BETWEEN 1 AND 120
             OR NEW.defaultDurationMinutes NOT BETWEEN 1 AND 1439

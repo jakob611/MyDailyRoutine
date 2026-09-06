@@ -11,6 +11,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
@@ -20,6 +21,7 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.mydailyroutine.di.appGraph
+import com.example.mydailyroutine.platform.withSlovenianLocale
 import com.example.mydailyroutine.ui.settings.NotificationAccess
 import com.example.mydailyroutine.ui.theme.MyDailyRoutineTheme
 import com.example.mydailyroutine.ui.timeline.TimelineAction
@@ -30,16 +32,20 @@ import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<TimelineViewModel> {
-        viewModelFactory { initializer { TimelineViewModel(appGraph.repository, appGraph.preferences, createSavedStateHandle()) } }
+        viewModelFactory { initializer { TimelineViewModel(appGraph.repository, appGraph.preferences, createSavedStateHandle(), appGraph.exampleData) } }
     }
     private var access by mutableStateOf(NotificationAccess(false, false))
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         refreshAccess()
     }
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase.withSlovenianLocale())
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.BLACK))
         if (savedInstanceState == null) consumeIntent(intent)
         refreshAccess()
         setContent {

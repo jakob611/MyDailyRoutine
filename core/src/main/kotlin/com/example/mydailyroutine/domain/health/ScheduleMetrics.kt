@@ -61,3 +61,19 @@ object WeeklyLayout {
         return result
     }
 }
+
+/** Disjoint allocation slices for the load bar: overlaps cannot inflate its total. */
+data class CategoryAllocation(val category: RoutineCategory, val minutes: Int)
+
+fun categoryAllocation(items: List<ResolvedTimelineItem>): List<CategoryAllocation> {
+    val blocks = items.filterIsInstance<ResolvedTimelineItem.Block>().filterNot { it.isSuppressed }
+    val edges = blocks.flatMap { listOf(it.startMinute, it.endMinute) }.distinct().sorted()
+    val priorities = listOf(RoutineCategory.SCHOOL, RoutineCategory.FOCUS_STUDY, RoutineCategory.PROJECT,
+        RoutineCategory.PERSONAL, RoutineCategory.REST_BREAK)
+    val totals = mutableMapOf<RoutineCategory, Int>()
+    edges.zipWithNext().forEach { (from, until) ->
+        val category = priorities.firstOrNull { category -> blocks.any { it.category == category && it.startMinute <= from && it.endMinute >= until } }
+        if (category != null) totals[category] = totals.getOrDefault(category, 0) + until - from
+    }
+    return RoutineCategory.entries.map { CategoryAllocation(it, totals[it] ?: 0) }
+}

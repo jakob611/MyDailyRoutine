@@ -2,136 +2,112 @@ package com.example.mydailyroutine.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.longPreferencesKey
+import android.util.TypedValue
+import android.widget.RemoteViews
+import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.glance.Button
-import androidx.glance.GlanceId
-import androidx.glance.GlanceModifier
-import androidx.glance.GlanceTheme
-import androidx.glance.currentState
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.glance.*
 import androidx.glance.action.clickable
-import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.state.updateAppWidgetState
-import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.*
 import androidx.glance.appwidget.action.actionStartActivity
-import androidx.glance.appwidget.appWidgetBackground
-import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
-import androidx.glance.appwidget.provideContent
-import androidx.glance.background
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.layout.*
+import androidx.glance.material3.ColorProviders
 import androidx.glance.state.PreferencesGlanceStateDefinition
-import androidx.glance.text.FontWeight
-import androidx.glance.text.Text
-import androidx.glance.text.TextStyle
 import com.example.mydailyroutine.MainActivity
-import com.example.mydailyroutine.di.appGraph
+import com.example.mydailyroutine.R
 import com.example.mydailyroutine.di.AppGraph
+import com.example.mydailyroutine.di.appGraph
 import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
+import com.example.mydailyroutine.platform.Slovenian
+import com.example.mydailyroutine.platform.withSlovenianLocale
+import com.example.mydailyroutine.ui.theme.OledColorScheme
+import com.example.mydailyroutine.ui.theme.RoutineColors
+import com.example.mydailyroutine.ui.timeline.labelRes
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.*
 
-private data class WidgetRow(val title: String, val time: String, val status: String, val active: Boolean)
-private data class WidgetAgenda(
-    val date: LocalDate, val countdown: String, val rows: List<WidgetRow>, val updatedAt: String,
-    val error: Boolean = false, val loading: Boolean = false,
-)
-private data class WidgetSnapshot(
-    val date: LocalDate,
-    val items: List<ResolvedTimelineItem>,
-    val preferences: SchedulePreferences,
-    val error: Boolean = false,
-    val loading: Boolean = false,
-)
+private data class WidgetRow(val title: String, val time: String, val status: String, val active: Boolean, val next: Boolean)
+private data class WidgetAgenda(val date: LocalDate, val days: Long, val countdown: String, val rows: List<WidgetRow>, val updatedAt: String,
+    val error: Boolean = false, val loading: Boolean = false)
+private data class WidgetSnapshot(val date: LocalDate, val items: List<ResolvedTimelineItem>, val preferences: SchedulePreferences,
+    val error: Boolean = false, val loading: Boolean = false)
 
-// Only a render invalidation token is stored in Glance state. Agenda facts live exclusively in Room.
+// A render token, not a second agenda. Room remains the only source of scheduled items.
 private val renderRevision = longPreferencesKey("render_revision")
-private val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
+private val timeFormat = DateTimeFormatter.ofPattern("HH:mm", Slovenian)
+private val widgetColors = ColorProviders(light = OledColorScheme, dark = OledColorScheme)
 
 class AgendaWidget : GlanceAppWidget() {
     override val stateDefinition = PreferencesGlanceStateDefinition
     override val sizeMode = SizeMode.Responsive(setOf(DpSize(250.dp, 180.dp), DpSize(300.dp, 300.dp), DpSize(360.dp, 420.dp)))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val localized = context.withSlovenianLocale()
         val graph = context.appGraph
-        val firstDate = LocalDate.now()
-        val initial = agendaFlow(graph, firstDate).first()
+        val initial = agendaFlow(graph, LocalDate.now()).first()
         provideContent {
-            GlanceTheme {
+            GlanceTheme(colors = widgetColors) {
                 val revision = currentState<Preferences>()[renderRevision] ?: 0L
-                // update() does not restart an already-running provideGlance session. A revision
-                // explicitly refreshes the clock/zone at a boundary, even if Room data is unchanged.
                 val moment = remember(revision) { Instant.now() to ZoneId.systemDefault() }
                 val date = moment.first.atZone(moment.second).toLocalDate()
                 key(date) {
                     val updates = remember(date, graph, revision) { agendaFlow(graph, date) }
-                    // Collect only within Glance's bounded composition session, never in a service.
-                    val snapshot by updates.collectAsState(initial = if (initial.date == date) initial else
-                        WidgetSnapshot(date, emptyList(), initial.preferences, loading = true))
-                    val agenda = remember(snapshot, moment) { resolveAgenda(snapshot, moment.first, moment.second) }
-                    AgendaContent(context, agenda)
+                    val snapshot by updates.collectAsState(initial = if (initial.date == date) initial else WidgetSnapshot(date, emptyList(), initial.preferences, loading = true))
+                    val agenda = remember(snapshot, moment) { resolveAgenda(localized, snapshot, moment.first, moment.second) }
+                    AgendaContent(localized, agenda)
                 }
             }
         }
     }
 }
 
-private fun agendaFlow(graph: AppGraph, date: LocalDate): Flow<WidgetSnapshot> = combine(
-    graph.repository.getTimelineForDate(date), graph.preferences.preferences,
-) { items, preferences -> WidgetSnapshot(date, items, preferences) }.catch { error ->
+private fun agendaFlow(graph: AppGraph, date: LocalDate): Flow<WidgetSnapshot> = combine(graph.repository.getTimelineForDate(date), graph.preferences.preferences) { items, preferences ->
+    WidgetSnapshot(date, items, preferences)
+}.catch { error ->
     if (error is CancellationException) throw error
     emit(WidgetSnapshot(date, emptyList(), SchedulePreferences(), error = true))
 }
 
-private fun resolveAgenda(snapshot: WidgetSnapshot, now: Instant, zone: ZoneId): WidgetAgenda {
-    val remaining = snapshot.items.filter { item ->
-        !item.isCompleted && when (item) {
-            is ResolvedTimelineItem.Block -> !item.isSuppressed && OccurrenceTimes.window(item, zone).end > now
-            is ResolvedTimelineItem.Milestone -> true
+private fun resolveAgenda(context: Context, snapshot: WidgetSnapshot, now: Instant, zone: ZoneId): WidgetAgenda {
+    val remaining = snapshot.items.filter { item -> !item.isCompleted && when (item) {
+        is ResolvedTimelineItem.Block -> !item.isSuppressed && OccurrenceTimes.window(item, zone).end > now
+        is ResolvedTimelineItem.Milestone -> true
+    } }
+    val nextKey = remaining.filterIsInstance<ResolvedTimelineItem.Block>().filter { OccurrenceTimes.window(it, zone).start > now }
+        .minByOrNull { OccurrenceTimes.window(it, zone).start }?.key
+    val rows = remaining.map { item -> when (item) {
+        is ResolvedTimelineItem.Block -> {
+            val window = OccurrenceTimes.window(item, zone)
+            val active = now >= window.start && now < window.end
+            val next = item.key == nextKey
+            WidgetRow(item.title, context.getString(R.string.time_range, window.start.atZone(zone).format(timeFormat), window.end.atZone(zone).format(timeFormat)),
+                context.getString(when { active -> R.string.now; next -> R.string.up_next; else -> item.category.labelRes() }), active, next)
         }
-    }
-    val nextKey = remaining.filterIsInstance<ResolvedTimelineItem.Block>()
-        .filter { OccurrenceTimes.window(it, zone).start > now }.minByOrNull { OccurrenceTimes.window(it, zone).start }?.key
-    val rows = remaining.map { item ->
-        when (item) {
-            is ResolvedTimelineItem.Block -> {
-                val window = OccurrenceTimes.window(item, zone)
-                val active = now >= window.start && now < window.end
-                WidgetRow(item.title,
-                    "${window.start.atZone(zone).format(timeFormat)}–${window.end.atZone(zone).format(timeFormat)}",
-                    when { active -> "● NOW"; item.key == nextKey -> "UP NEXT"; else -> item.category.name.replace('_', ' ').lowercase() }, active)
-            }
-            is ResolvedTimelineItem.Milestone -> WidgetRow(item.title, item.dueTime?.format(timeFormat) ?: "All day", if (item.isExam) "EXAM" else "DEADLINE", false)
-        }
-    }
+        is ResolvedTimelineItem.Milestone -> WidgetRow(item.title, item.dueTime?.format(timeFormat) ?: context.getString(R.string.all_day),
+            context.getString(if (item.isExam) R.string.category_exam else R.string.category_milestone), false, false)
+    } }
     val days = SlovenianAcademicCalendar.daysRemaining(snapshot.date, snapshot.preferences.teachingEndDate)
-    return WidgetAgenda(snapshot.date,
-        if (snapshot.loading) "Updating your day…" else if (days > 0) "$days days to school-year end" else "Teaching year complete",
-        rows, now.atZone(zone).format(timeFormat), error = snapshot.error, loading = snapshot.loading)
+    val countdown = if (snapshot.loading) context.getString(R.string.widget_updating) else if (days > 0)
+        context.resources.getQuantityString(R.plurals.days_to_teaching_end, days.toInt(), days) else context.getString(R.string.widget_complete)
+    return WidgetAgenda(snapshot.date, days, countdown, rows, now.atZone(zone).format(timeFormat), snapshot.error, snapshot.loading)
 }
 
-/** Notify both existing Glance sessions and cold widgets; updating the revision is not an agenda cache. */
+/** Updates both active Glance sessions and cold widgets; updates never depend on a periodic timer. */
 suspend fun refreshAgendaWidgets(context: Context) {
     val widget = AgendaWidget()
     GlanceAppWidgetManager(context).getGlanceIds(AgendaWidget::class.java).forEach { id ->
@@ -146,53 +122,60 @@ suspend fun refreshAgendaWidgets(context: Context) {
 @Composable
 private fun AgendaContent(context: Context, agenda: WidgetAgenda) {
     val openDay = actionStartActivity(MainActivity.openDayIntent(context, agenda.date))
-    Column(GlanceModifier.fillMaxSize().appWidgetBackground().background(GlanceTheme.colors.widgetBackground).cornerRadius(24.dp).padding(16.dp)) {
-        Text(agenda.date.format(DateTimeFormatter.ofPattern("EEE, d MMM")), modifier = GlanceModifier.clickable(openDay),
-            style = TextStyle(color = GlanceTheme.colors.onSurface, fontWeight = FontWeight.Bold, fontSize = 18.sp))
-        Text(agenda.countdown, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp))
+    val roomy = LocalSize.current.height >= 260.dp
+    Column(GlanceModifier.fillMaxSize().appWidgetBackground().background(RoutineColors.Background).cornerRadius(16.dp).padding(16.dp)) {
+        WidgetText(context, agenda.date.format(DateTimeFormatter.ofPattern("EEE, d. MMM", Slovenian)), 18f, bold = true, modifier = GlanceModifier.fillMaxWidth().clickable(openDay))
+        if (roomy && agenda.days > 0) WidgetText(context, agenda.days.toString(), 36f, bold = true)
+        WidgetText(context, agenda.countdown, 12f, RoutineColors.TextSecondary)
         Spacer(GlanceModifier.height(10.dp))
         LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
             if (agenda.error || agenda.loading || agenda.rows.isEmpty()) item {
-                Text(when {
-                    agenda.error -> "Open the app to check your local schedule."
-                    agenda.loading -> "Updating your agenda…"
-                    else -> "Room to breathe. No remaining blocks today."
-                },
-                    modifier = GlanceModifier.padding(vertical = 10.dp).clickable(openDay),
-                    style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 14.sp))
+                WidgetText(context, context.getString(when { agenda.error -> R.string.widget_error; agenda.loading -> R.string.widget_updating; else -> R.string.widget_empty }),
+                    14f, modifier = GlanceModifier.padding(vertical = 8.dp).clickable(openDay))
             }
-            // Bound RemoteViews size even if the user imports an unusually large daily agenda.
             items(agenda.rows.take(60)) { row ->
-                Column(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).cornerRadius(12.dp)
-                    .background(if (row.active) GlanceTheme.colors.primaryContainer else GlanceTheme.colors.surfaceVariant)
+                Column(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).cornerRadius(16.dp)
+                    .background(if (row.active) RoutineColors.Focus.container else if (row.next) RoutineColors.School.container else RoutineColors.Surface1)
                     .clickable(openDay).padding(10.dp)) {
                     Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(row.time, modifier = GlanceModifier.defaultWeight(), style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp))
-                        Text(row.status, style = TextStyle(color = GlanceTheme.colors.primary, fontWeight = FontWeight.Bold, fontSize = 10.sp))
+                        WidgetText(context, row.time, 12f, RoutineColors.TextSecondary, modifier = GlanceModifier.defaultWeight())
+                        WidgetText(context, row.status, 11f, if (row.active) RoutineColors.Amber else if (row.next) RoutineColors.School.content else RoutineColors.TextMuted, bold = true)
                     }
-                    Text(row.title, maxLines = 2, style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium))
+                    WidgetText(context, row.title, 15f, bold = true)
                 }
             }
             if (agenda.rows.size > 60) item {
-                Text("Open app for ${agenda.rows.size - 60} more entries", modifier = GlanceModifier.clickable(openDay), style = TextStyle(color = GlanceTheme.colors.primary))
+                WidgetText(context, context.getString(R.string.widget_more, agenda.rows.size - 60), 12f, RoutineColors.Amber, modifier = GlanceModifier.clickable(openDay))
             }
         }
         Spacer(GlanceModifier.height(8.dp))
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("As of ${agenda.updatedAt}", modifier = GlanceModifier.defaultWeight(), style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp))
-            Button(text = "+ Add", onClick = actionStartActivity(MainActivity.fastAddIntent(context)))
+            WidgetText(context, context.getString(R.string.widget_as_of, agenda.updatedAt), 10f, RoutineColors.TextMuted, modifier = GlanceModifier.defaultWeight())
+            Box(GlanceModifier.background(RoutineColors.Focus.container).cornerRadius(24.dp).clickable(actionStartActivity(MainActivity.fastAddIntent(context))).padding(10.dp)) {
+                WidgetText(context, context.getString(R.string.widget_add), 12f, RoutineColors.Focus.content, bold = true)
+            }
         }
     }
 }
 
+/** Glance TextStyle has no fontFeatureSettings. TextView interop guarantees bundled font + tnum on API 24+. */
+@Composable
+private fun WidgetText(context: Context, text: String, size: Float, color: Color = RoutineColors.TextPrimary,
+    bold: Boolean = false, modifier: GlanceModifier = GlanceModifier) {
+    val views = RemoteViews(context.packageName, if (bold) R.layout.widget_text_bold else R.layout.widget_text).apply {
+        setTextViewText(R.id.widget_text, text)
+        setTextColor(R.id.widget_text, color.toArgb())
+        setTextViewTextSize(R.id.widget_text, TypedValue.COMPLEX_UNIT_SP, size)
+    }
+    AndroidRemoteViews(views, modifier.wrapContentHeight())
+}
+
 class AgendaWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = AgendaWidget()
-
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
         context.appGraph.requestRefresh()
     }
-
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
         context.appGraph.requestRefresh()

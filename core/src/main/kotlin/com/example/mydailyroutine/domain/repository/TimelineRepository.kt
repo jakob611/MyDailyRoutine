@@ -1,6 +1,9 @@
 package com.example.mydailyroutine.domain.repository
 
 import com.example.mydailyroutine.domain.model.*
+import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.health.WarningType
+import com.example.mydailyroutine.domain.health.RecoveryResult
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import java.time.LocalTime
@@ -23,6 +26,8 @@ interface TimelineRepository {
     suspend fun saveMilestone(milestone: Milestone): Long
     suspend fun setMilestoneCompleted(id: Long, completed: Boolean)
     suspend fun deleteMilestone(id: Long)
+    suspend fun insertRecovery(date: LocalDate, type: WarningType, anchorKey: String, config: HealthConfig,
+        recoveryTitle: String, continuationSuffix: String): RecoveryResult
 }
 
 interface PreferencesRepository {
@@ -30,4 +35,12 @@ interface PreferencesRepository {
     suspend fun setMuteDuringSchoolHours(muted: Boolean)
     suspend fun setSchoolWindow(start: LocalTime, end: LocalTime)
     suspend fun setTeachingEndDate(date: LocalDate)
+    suspend fun setHapticsEnabled(enabled: Boolean)
+    suspend fun setHealthConfig(config: HealthConfig)
+}
+
+/** Opt-in sample import, separate from application/database initialization. */
+interface ExampleDataRepository {
+    val isLoaded: Flow<Boolean>
+    suspend fun load(): Boolean
 }

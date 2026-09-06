@@ -1,5 +1,13 @@
 name: Android verification
-on: [push, pull_request, workflow_dispatch]
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -14,8 +22,14 @@ jobs:
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
-      - run: python3 tools/check_sqlite_integrity.py
-      - run: ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --stacktrace
+      - run: python3 tools/check_sqlite_integrity.py && python3 tools/check_presentation.py
+      - name: Build, unit tests and lint
+        run: |
+          set -o pipefail
+          ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --stacktrace 2>&1 | tee ci-build.log
+      - name: Publish compiler and test diagnostics
+        if: always()
+        run: python3 tools/report_ci_failures.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -49,9 +63,16 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_6
-          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+          disable-animations: true
+          script: bash tools/ci-device-tests.sh
+      - name: Publish device diagnostics
+        if: always()
+        run: python3 tools/report_ci_failures.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: device-test-reports
-          path: app/build/reports/androidTests/
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            ci-device.log

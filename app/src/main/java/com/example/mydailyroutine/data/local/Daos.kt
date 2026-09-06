@@ -83,3 +83,12 @@ interface AlarmDeliveryDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun claim(delivery: AlarmDeliveryEntity): Long
     @Query("DELETE FROM alarm_deliveries WHERE occurrenceDate < :before") suspend fun prune(before: LocalDate)
 }
+
+@Dao
+interface DemoImportDao {
+    @Query("SELECT EXISTS(SELECT 1 FROM demo_imports WHERE `key` = :key)")
+    fun observeImported(key: String): kotlinx.coroutines.flow.Flow<Boolean>
+    @Query("SELECT EXISTS(SELECT 1 FROM demo_imports WHERE `key` = :key)")
+    suspend fun isImported(key: String): Boolean
+    @Insert suspend fun insert(receipt: DemoImportEntity)
+}
