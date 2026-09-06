@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">MyDailyRoutine</string>
+    <string name="app_name">My Daily Routine</string>
+    <string name="widget_name">Your daily agenda</string>
+    <string name="widget_description">Today’s remaining blocks, school-year countdown, and quick add. Fully offline.</string>
 </resources>

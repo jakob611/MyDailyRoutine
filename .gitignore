@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Generated build output and local verification tools
+**/build/
+.kotlin/
+.tools/
+*.apk
+*.aab
