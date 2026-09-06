@@ -39,7 +39,7 @@ class ConnectedFeaturesTest {
     }
     @After fun after() { db.close() }
 
-    @Test fun demoIsExplicitAtomicIdempotentAndSilent() = runBlocking {
+    @Test fun demoIsExplicitAtomicIdempotentAndSilent(): Unit = runBlocking {
         val demo = DemoDataSeeder(context, db, prefs, {})
         assertTrue(repo.snapshot(date, date).routines.isEmpty())
         assertFalse(demo.isLoaded.first())
@@ -54,7 +54,7 @@ class ConnectedFeaturesTest {
         assertTrue(demo.isLoaded.first())
     }
 
-    @Test fun persistedSubjectsDriveReusablePresetsAndRealExamEntries() = runBlocking {
+    @Test fun persistedSubjectsDriveReusablePresetsAndRealExamEntries(): Unit = runBlocking {
         val id = repo.saveSubject(Subject(name = "Matematika", colorHex = 0xFF3B82F6, defaultDurationMinutes = 45))
         suspend fun presets() = PresetFactory.forSubjects(repo.observeSnapshot(date, date).first().subjects)
         assertEquals(3, presets().size)
@@ -68,7 +68,7 @@ class ConnectedFeaturesTest {
         assertNull(repo.snapshot(date, date).milestones.single().subjectId)
     }
 
-    @Test fun warningActionPersistsOneOffRecoveryAndPreservesNextWeek() = runBlocking {
+    @Test fun warningActionPersistsOneOffRecoveryAndPreservesNextWeek(): Unit = runBlocking {
         repo.saveRoutine(RoutineBlueprint(subjectId = null, title = "Učenje", category = RoutineCategory.FOCUS_STUDY,
             dayOfWeek = date.dayOfWeek, startTime = LocalTime.of(8, 0), endTime = LocalTime.of(10, 0), isNotificationEnabled = false))
         val original = repo.getTimelineForDate(date).first().single()
@@ -85,7 +85,7 @@ class ConnectedFeaturesTest {
         assertEquals(RecoveryStatus.ALREADY_HANDLED, duplicate.status)
     }
 
-    @Test fun thresholdPreferenceChangeRecomputesViewModelWithoutDatabaseEdit() = runBlocking {
+    @Test fun thresholdPreferenceChangeRecomputesViewModelWithoutDatabaseEdit(): Unit = runBlocking {
         repo.saveRoutine(RoutineBlueprint(subjectId = null, title = "Fokus", category = RoutineCategory.FOCUS_STUDY, dayOfWeek = date.dayOfWeek,
             startTime = LocalTime.of(8, 0), endTime = LocalTime.of(9, 15), isNotificationEnabled = false))
         val model = withContext(Dispatchers.Main) { TimelineViewModel(repo, prefs, SavedStateHandle(mapOf("date" to date.toEpochDay())), DemoDataSeeder(context, db, prefs, {})) }
@@ -102,7 +102,7 @@ class ConnectedFeaturesTest {
         }
     }
 
-    @Test fun versionOneMigratesWithoutLosingUserRows() = runBlocking(Dispatchers.IO) {
+    @Test fun versionOneMigratesWithoutLosingUserRows(): Unit = runBlocking(Dispatchers.IO) {
         val name = "migration-${UUID.randomUUID()}.db"
         try {
             context.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { legacy ->

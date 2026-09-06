@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedback
@@ -98,7 +99,7 @@ fun TimelineScreen(viewModel: TimelineViewModel, access: NotificationAccess,
                 }
             }, snackbarHost = { SnackbarHost(snackbars) },
             floatingActionButton = {
-                ExtendedFloatingActionButton(onClick = { onAction(TimelineAction.OpenAdd) }, shape = RoutineShapes.Pill,
+                ExtendedFloatingActionButton(onClick = { onAction(TimelineAction.OpenAdd) }, modifier = Modifier.testTag("fast-add"), shape = RoutineShapes.Pill,
                     containerColor = RoutineColors.Amber, contentColor = RoutineColors.Background,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp, pressedElevation = 0.dp, focusedElevation = 0.dp, hoveredElevation = 0.dp),
                     icon = { Icon(Icons.Default.Add, null) }, text = { Text(stringResource(R.string.add_block)) })
@@ -127,8 +128,10 @@ fun TimelineScreen(viewModel: TimelineViewModel, access: NotificationAccess,
             }
         }
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
-        if (state.panels.showAdd) EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.panels.editingMilestone, state.panels.isSaving,
-            onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) })
+        if (state.panels.showAdd) key(state.panels.addSession) {
+            EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.panels.editingMilestone, state.panels.isSaving,
+                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) })
+        }
         if (state.panels.showSettings) SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, onAction,
             onDismiss = { onAction(TimelineAction.CloseSettings) }, requestNotifications = requestNotifications, requestExactAlarms = requestExactAlarms, openNotificationSettings = openNotificationSettings)
         state.panels.editingBlock?.let { BlockEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseEditor) }, onSave = onAction) }

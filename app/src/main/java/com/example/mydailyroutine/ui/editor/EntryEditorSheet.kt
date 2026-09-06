@@ -119,8 +119,14 @@ fun EntryEditorSheet(
                         colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(subject.colorHex.toInt()).copy(alpha = 0.2f)),
                         onClick = {
                             subjectId = subject.id
-                            val desired = if (kind == EntryKind.BLOCK && editing == null) PresetKind.SUBJECT_LESSON else PresetKind.SUBJECT_TEST
-                            subjectPresets.firstOrNull { it.subjectId == subject.id && it.kind == desired }?.let(::applyPreset)
+                            if (editing != null || kind == EntryKind.DEADLINE) {
+                                // Associating a subject must not turn an EE/IA deadline into an exam,
+                                // or overwrite a title/date/time in an existing milestone editor.
+                                haptics.tap()
+                            } else {
+                                val desired = if (kind == EntryKind.BLOCK) PresetKind.SUBJECT_LESSON else PresetKind.SUBJECT_TEST
+                                subjectPresets.firstOrNull { it.subjectId == subject.id && it.kind == desired }?.let(::applyPreset)
+                            }
                         }, label = { Text(subject.name) })
                 }
                 item { SuggestionChip(onClick = onNewSubject, enabled = !busy, label = { Text(stringResource(R.string.new_subject)) }, shape = RoutineShapes.Chip) }

@@ -21,7 +21,7 @@ class TimelineUiTest {
         click(R.string.nav_week); awaitText(R.string.week_heading)
         click(R.string.nav_month); awaitText(R.string.month_heading)
         click(R.string.nav_year); awaitText(R.string.year_big_picture)
-        click(R.string.nav_day); click(R.string.add_block); awaitText(R.string.fast_add_title)
+        click(R.string.nav_day); compose.onNodeWithTag("fast-add").performClick(); awaitText(R.string.fast_add_title)
         compose.onNodeWithText(text(R.string.preset_deep_work)).assertIsDisplayed()
     }
     @Test fun settingsExposeAdvancedRulesAndOptInDemo() {
@@ -30,6 +30,13 @@ class TimelineUiTest {
         compose.onNodeWithText(text(R.string.advanced_settings)).performScrollTo().performClick()
         compose.onNodeWithText(text(R.string.threshold_focus)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(text(R.string.demo_heading)).performScrollTo().assertIsDisplayed()
+    }
+    @Test fun warmWidgetQuickAddDismissesSettingsAndOpensOneFreshSheet() {
+        compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
+        awaitText(R.string.settings_title)
+        compose.activityRule.scenario.onActivity { activity -> activity.startActivity(MainActivity.fastAddIntent(activity)) }
+        awaitText(R.string.fast_add_title)
+        compose.onNodeWithText(text(R.string.settings_title)).assertDoesNotExist()
     }
     @Test fun languageAndMergedPrivacyPermissionsAreCorrect() {
         assertEquals("sl", compose.activity.resources.configuration.locales[0].language)

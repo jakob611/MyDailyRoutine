@@ -1,6 +1,6 @@
 # My Daily Routine
 
-An offline-first Android time-blocking app for school, focused study, personal routines, recovery, and IB milestones. Kotlin 2.x, Jetpack Compose / Material 3, Room, Coroutines / Flow, AlarmManager, and Glance. No account, HTTP client, telemetry, or runtime network permission.
+A Slovenian-language, OLED-dark-first Android time-blocking app for school, focused study, personal routines, recovery, and IB milestones. Kotlin 2.x, Jetpack Compose / Material 3, Room, Coroutines / Flow, AlarmManager, and Glance. No account, HTTP client, telemetry, or runtime network permission.
 
 ## What is implemented
 
@@ -13,7 +13,19 @@ An offline-first Android time-blocking app for school, focused study, personal r
 - **Notifications:** five-minute previews for ordinary blocks; recovery reminders at their start. Configurable silent school window, runtime permission handling, and an explicit approximate fallback when precise alarm access is unavailable.
 - **Home-screen widget:** remaining agenda, NOW / UP NEXT labels, school-year countdown, and a direct Fast-Add activity action.
 
-No sample timetable or invented IB deadlines are inserted. Add your own subjects and blocks. The **verified 2026/27 Slovenian Western-region secondary-school calendar** is bundled; see [calendar sources and scope](docs/CALENDAR.md).
+No example timetable is inserted at startup. Settings offers a confirmed, one-time **Naloži primer podatkov** action: 6 sample subjects, 63 weekly blocks and 15 explicitly unofficial example deadlines, with all sample reminders off. Existing data is preserved. The **verified 2026/27 Slovenian Western-region secondary-school calendar** is bundled; see [calendar sources and scope](docs/CALENDAR.md).
+
+## Connected Slovenian / OLED integration
+
+- Shared OLED palette, hairline cards, bundled Roboto Flex, tabular clock/countdown figures, and 180 ms period transitions.
+- Agent3's adapted components replace the older daily card, navigator, load bar and calendar/warning UI; there is no second model or navigation stack.
+- Live NOW spine, real 15-minute-step long-press rescheduling, and distinct opt-out haptics for tap, drag, completion and new warnings.
+- Each saved subject automatically provides **Pouk / Učenje / Test** presets. Presets react to name, color and duration edits; deletion removes them without orphan rows. The milestone adder offers one-tap **Predpisan test** entries for the selected date/time.
+- **Napredne nastavitve** exposes every rule's threshold and on/off switch. DataStore changes re-evaluate health warnings without requiring a database edit.
+- A health badge requests transactional recovery insertion. It can split/move focus while preserving study minutes and the weekly template; it never displaces fixed commitments. When unsafe, it uses a real free slot or reports that nothing changed.
+- All app-owned display copy is Slovenian Android resources, including notices, errors, presets, notifications and widget text. User-entered titles are never silently translated.
+
+See [source integration and behavior](docs/SOURCE_INTEGRATION.md) for the exact source commits and adaptations.
 
 ## Build and run
 
@@ -75,7 +87,7 @@ immutable StateFlow ← resolved snapshot ← Room transaction + invalidation Fl
 - All-day milestones sort at midnight, timed milestones at their due time, with deterministic tie-breaking. Markers do not reserve duration or send block reminders.
 - Room table invalidations cause one transactional snapshot read, preventing mixed blueprint/override states. UI transformations run off the main thread. Presentation uses persistent collections and immutable state; collectors stop when the UI is not subscribed.
 
-The database is version 1: no previous Room schema exists in the starter. Schema export is configured under `app/schemas`; KSP generates the initial JSON during the first Android build. Commit that generated schema before a future version bump and ship explicit migrations. There is deliberately **no destructive migration fallback**.
+The database is version 2. The explicit v1→v2 migration adds only the atomic demo-import receipt and preserves existing data. Schema export remains configured under `app/schemas`. A baseline v1 SQL fixture and a device migration test exercise the upgrade. Retain generated schema JSON before a future version bump. There is deliberately **no destructive migration fallback**.
 
 ## Scheduling and battery policy
 
@@ -89,13 +101,14 @@ Health thresholds are **planning heuristics, not medical advice or universal cog
 
 ## Verification status
 
-- **49 core JVM tests passed** with the standalone runner.
-- **11 SQLite / resource smoke tests passed** (`python3 tools/check_sqlite_integrity.py`).
-- All 46 Kotlin source files passed compiler PSI syntax parsing.
-- Five Android-module converter unit tests, seven Room instrumentation tests, and two Compose navigation tests are included, plus GitHub Actions build/lint/device-test jobs.
-- **Full Android compilation, lint, and device tests are not yet verified in this sandbox.** The Gradle distribution download failed with `SSLHandshakeException`; Google/Maven artifact downloads were also unavailable. No APK or device-rendered screenshot is claimed.
+- **74 core JVM tests passed** locally, including custom thresholds, per-rule switches, preset lifecycle/identity, overlap-aware load bars and conservative break insertion.
+- **11 SQLite / resource smoke tests passed**, plus presentation checks for **384 Slovenian string resources**, a single domain model, bundled font and tabular widget text.
+- Kotlin compiler PSI syntax parsing passed for **63 source files**.
+- The canonical base's GitHub CI build passed. The first integration run reached Android lint and reported suspicious indentation in the adapted demo seeder; that formatting is corrected locally without suppressing lint.
+- The sandbox still cannot download Gradle/Google artifacts directly. The first integration emulator run exposed a JUnit return-type issue in a legacy Room test and an unstable FAB semantics lookup. Both are corrected in the follow-up, along with warm-widget navigation and deadline-editor preservation. Follow-up CI verification is **pending**; no all-green claim is made.
+- CI now publishes compiler, lint and JUnit diagnostics as annotations, alongside APK/reports artifacts on a successful build.
 
-See [validation details and device checklist](docs/VALIDATION.md). No generated toolchains, binaries, or build outputs are tracked.
+See [validation details and device checklist](docs/VALIDATION.md). No downloaded toolchains or generated build outputs are tracked.
 
 ## Local-data privacy
 

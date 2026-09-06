@@ -1,8 +1,14 @@
 # Deterministic schedule-health semantics
 
-`ScheduleHealthEngine.evaluate(List<ResolvedTimelineItem>)` is pure Kotlin and accepts **one display date**. It performs no I/O, reads no clock, and changes no schedule. The requested text is emitted verbatim, but the UI explicitly describes these as **planning heuristics, not medical advice or universal scientific limits**.
+`ScheduleHealthEngine.evaluate(List<ResolvedTimelineItem>)` is pure Kotlin and accepts **one display date**. It performs no I/O, reads no clock, and changes no schedule. Warnings carry typed facts; all displayed copy is in Slovenian Android resources, and the UI describes these as **planning heuristics, not medical advice or universal scientific limits**.
 
-## Exact boundaries
+## Configurable rules
+
+`HealthConfig` stores all seven numeric thresholds and six independent on/off switches. Defaults retain the original rules below. DataStore stores the settings atomically; `TimelineViewModel` combines the config flow with the same Room snapshot flow before evaluation. Advanced edits therefore change live warnings, not just labels. Invalid settings are rejected; corrupt persisted config falls back without overwriting storage. Recovery reset thresholds remain 20 minutes for cognition and 5 for deskwork.
+
+`RecoveryPlanner` consumes these same thresholds. A badge re-evaluates the warning inside a Room transaction, then creates a real one-off break and, if safe, per-date focus changes/continuation. It never changes the next week's blueprint or drops study minutes. A free-slot fallback may leave the original guidance visible; breaks do not reduce the daily deep-work total. If no safe slot exists, no schedule rows change.
+
+## Default boundaries
 
 | Warning | Trigger | Does not trigger at |
 |---|---|---|

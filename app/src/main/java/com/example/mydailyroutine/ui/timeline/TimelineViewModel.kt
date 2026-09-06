@@ -106,7 +106,11 @@ class TimelineViewModel(
         when (action) {
             is TimelineAction.SelectDate -> {
                 savedState["date"] = action.date.coerceIn(ScheduleValidation.firstUiDate, ScheduleValidation.lastUiDate).toEpochDay()
-                if (action.openDay) savedState["mode"] = TimelineMode.DAY.name
+                if (action.openDay) {
+                    savedState["mode"] = TimelineMode.DAY.name
+                    panels.update { it.copy(showAdd = false, showSettings = false, editingBlock = null,
+                        editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false) }
+                }
             }
             is TimelineAction.SelectMode -> savedState.set("mode", action.mode.name)
             is TimelineAction.Shift -> {
@@ -121,14 +125,15 @@ class TimelineViewModel(
             }
             TimelineAction.Today -> savedState.set("date", today().toEpochDay())
             TimelineAction.Retry -> retry.update { it + 1 }
-            TimelineAction.OpenAdd -> panels.update { it.copy(showAdd = true, editingMilestone = null) }
-            TimelineAction.OpenSettings -> panels.update { it.copy(showSettings = true) }
+            TimelineAction.OpenAdd -> panels.update { it.copy(showAdd = true, addSession = it.addSession + 1,
+                showSettings = false, editingMilestone = null, editingBlock = null, editingSubject = null, pendingDelete = null, confirmDemo = false) }
+            TimelineAction.OpenSettings -> panels.update { it.copy(showSettings = true, showAdd = false, editingBlock = null, editingMilestone = null) }
             TimelineAction.CloseAdd -> if (!panels.value.isSaving) panels.update { it.copy(showAdd = false, editingMilestone = null) }
             TimelineAction.CloseSettings -> if (!panels.value.isSaving) panels.update { it.copy(showSettings = false) }
             TimelineAction.CloseEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingBlock = null) }
             is TimelineAction.Edit -> when (val item = action.item) {
                 is ResolvedTimelineItem.Block -> panels.update { it.copy(editingBlock = item) }
-                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true) }
+                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, showSettings = false) }
             }
             is TimelineAction.SaveEntry -> saveEntry(action.draft)
             is TimelineAction.SaveBlockEdit -> perform {

@@ -1,69 +1,61 @@
-# Validation record and release checklist
+# Integration validation (2026-09-06)
 
-## Executed in the coding sandbox
+## Current local results
 
-| Check | Result |
-|---|---|
-| Pure Kotlin recurrence, health, calendar, interval/layout, and alarm-planner tests | **49 passed** |
-| SQLite integrity / indexed-query / XML / privacy-manifest smoke tests | **11 passed** |
-| Kotlin compiler PSI syntax parsing across app + core sources/tests | **46 files passed** |
-| `git diff --check` | Passed |
+- 74 core JVM tests passed (Kotlin 2.0.21/JDK 17 standalone; project still pins Kotlin 2.2.10).
+- 11 SQLite/manifest/resource tests passed.
+- Presentation check passed: 384 Slovenian string resources, no direct literal UI copy,
+  bundled font, tabular widget text, one canonical domain model and no Android imports in `core`.
+- Compiler PSI syntax parsing passed for all 63 Kotlin files. This is not an Android typecheck.
+- Added 4 Android-module health preference codec tests (9 local Android-module unit tests total).
+- Added 5 connected tests for opt-in/idempotent demo data, persisted subject presets/tests,
+  transactional recovery, live threshold changes, and preservation during the v1→v2 migration.
+- Updated the Compose tests to use Slovenian resources and verify advanced Settings, merged
+  privacy permissions, and the warm widget → fresh fast-add route. Along with the 7 original
+  Room tests, the connected suite now contains 16 tests.
 
-The standalone core suite was compiled and executed using an available **Kotlin 2.0.21 compiler and JDK 17**, with the JUnit 4.13.2 release sources. The project itself is pinned to **Kotlin 2.2.10**; the declared Gradle toolchain is not claimed verified by that standalone run. Downloaded verification tools stayed outside tracked source in the workspace cache.
+## Remote build status
 
-Reproduce the pure SQLite checks with Python 3 (no SDK or third-party package needed):
+- Canonical base `839b840`: GitHub build job passed; its emulator job failed.
+- Integration `0e7c067`, run `34050382229`: build reached Android lint, which reported
+  `SuspiciousIndentation` in the selectively ported demo seeder. The indentation is corrected
+  in the local follow-up; lint has not been disabled.
+- The first integration emulator run reported two failures: a legacy expression-bodied Room
+  test did not return `Unit`, and the FAB label was not found in the merged semantics tree.
+  Tests now explicitly return `Unit` and target the FAB's stable test tag. Warm widget navigation
+  and deadline-type preservation are also corrected. Follow-up CI is pending.
+- A temporary GitHub authentication error cleared on retry; it was not a workflow-file rejection.
+- Direct local `./gradlew :core:test :app:testDebugUnitTest --stacktrace` remains blocked by
+  a TLS handshake failure downloading Gradle 8.13. No successful build of the latest changes
+  or all-green connected suite is claimed yet.
+
+## Reproduction
 
 ```bash
 python3 tools/check_sqlite_integrity.py
+python3 tools/check_presentation.py
+./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+./gradlew :app:connectedDebugAndroidTest
 ```
 
-That script derives table columns/FKs/indexes from `Entities.kt`, executes the application's actual trigger predicates, and tests referential integrity, unique overrides/claims, invalid inputs, cascade/SET NULL deletion, negative epoch weekdays, indexed queries, XML validity, and explicit removal of network permissions. It does **not** exercise Room's generated implementation.
+`tools/test-core.sh` is the SDK-free alternative with locally supplied Kotlin/JUnit jars.
+The GitHub workflow publishes structured compiler/lint/JUnit annotations via
+`tools/report_ci_failures.py`, so diagnostics do not depend on downloading log archives.
 
-An optional SDK/Gradle-free Kotlin runner is also included. Supply your locally installed Kotlin 2.x compiler and test jars; it downloads nothing:
+## Remaining device / release checklist
 
-```bash
-JAVA_HOME=/path/to/jdk17 \
-KOTLINC=/path/to/kotlinc/bin/kotlinc \
-JUNIT_JAR=/path/to/junit-4.13.2.jar \
-HAMCREST_JAR=/path/to/hamcrest-core-1.3.jar \
-./tools/test-core.sh
-```
-
-`COROUTINES_JAR` can override the compiler distribution's bundled coroutines jar. Results are written to ignored `core/build/standalone`.
-
-## Blocked here, not represented as passed
-
-The full command attempted was:
-
-```bash
-./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --stacktrace
-```
-
-It failed before Gradle configuration because `services.gradle.org` terminated the TLS handshake while downloading Gradle 8.13 (`SSLHandshakeException`, caused by EOF). Direct Google/Maven and SDK downloads were also unavailable. Therefore:
-
-- Android compilation, Room KSP generation, and R8 **have not been validated here**.
-- Android lint **has not run**.
-- No emulator/device was available; UI rendering, widget host behavior, actual permission flows, alarms during Doze, and reboot delivery **have not been device-tested**.
-- No built APK is claimed.
-
-`.github/workflows/android.yml` contains the standard JDK-17 / API-36 build, unit/lint checks, and an API-35 emulator job. Those jobs are provided, **not claimed to have run**. KSP's initial schema export should be retained from the first successful build before a later database version bump.
-
-## Additional tests included for Android builds
-
-- **5 converter unit tests:** nullable time/date round trips, pre-1970 dates, weekday/category encoding, minute precision, invalid stored minutes.
-- **7 Room instrumentation tests:** synchronous calendar seeding; FK enablement/orphan rejection; subject detachment/routine cascades; unique override updates; raw-SQL invariants; delivery-claim deduplication; transactional reactive resolution and subject changes.
-- **2 Compose tests:** navigation through all four views and fast-add; accessing Settings without granting a permission.
-
-## Device checklist before a release
-
-1. Install fresh; verify a genuinely empty agenda and the populated 2026/27 holiday calendar. No account or permission should be required to plan.
-2. Add/edit/delete a subject; verify deletion detaches, rather than removes, its routines and milestones.
-3. Add a one-off and a weekly block; reschedule just one occurrence and compare the following week. Skip/restore an overnight carry-in from either day.
-4. Complete a block and verify the next week is not completed. Test app recreation and reopening to confirm persisted data and selected-date restoration.
-5. Add timed/all-day exams and IB markers. Check day ordering, month dots, yearly radar, and large-font accessibility.
-6. Check the exact 90/180/300/120-minute rule boundaries, school transition, overlaps, and real versus overlapping recovery.
-7. Deny notification/exact-alarm access, then grant each through Settings. Verify no crash, clear fallback status, correct cancellation/rearming, and silent school-window delivery.
-8. Schedule reminders across midnight and the Ljubljana DST transitions; change the device zone/time and verify the same occurrence is not delivered twice.
-9. Reboot/unlock and verify upcoming reminders are reconstructed. Force-stop/open and verify the documented platform limitation.
-10. Add/resize/delete the Glance widget on multiple launchers. Check NOW / UP NEXT, scrollability, non-wakeup boundary updates, stale timestamp, and cold/warm Fast-Add launches.
-11. Inspect the merged release manifest for absence of Internet/network-state permissions, run lint/R8, retain Room schema JSON, and inspect Compose reports on a physical low-end device.
+1. Verify empty first launch, fixed OLED colors, Slovenian labels and accessible font scaling.
+2. Create a subject; check its three presets, rename/recolor/change duration, save a one-tap
+   test, and delete the subject without deleting its linked milestones.
+3. Check editing an IA/EE deadline does not convert it to an exam when selecting a subject.
+4. Change each advanced threshold/switch without editing the database; observe changed badges.
+5. Tap a badge: verify real recovery, preserved focus minutes, untouched next week/fixed
+   commitments, and clear behavior when no safe slot exists. Long-press drag in 15-minute steps.
+6. Verify demo loading is explicit, confirmed, idempotent, unofficially labelled and silent.
+7. Verify system + app haptic opt-out and tap/drag/completion/warning patterns on hardware.
+8. Grant/deny exact alarm and notification access; test quiet windows, Doze, reboot/unlock,
+   force-stop/reopen, time-zone changes, midnight and Ljubljana DST transitions.
+9. Add/resize the Glance widget, check live-session DB refresh, NOW/UP-NEXT, date rollover,
+   tabular figures and a cold/warm quick-add launch. Non-wakeup refresh may be deferred by Android.
+10. Retain generated Room schema JSON; run release R8 and inspect Compose performance reports
+    on a lower-end device before claiming a production-ready release.

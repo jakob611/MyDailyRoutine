@@ -48,6 +48,7 @@ data class TimelineContent(
 @Immutable
 data class TimelinePanels(
     val showAdd: Boolean = false,
+    val addSession: Int = 0,
     val showSettings: Boolean = false,
     val editingBlock: ResolvedTimelineItem.Block? = null,
     val editingMilestone: ResolvedTimelineItem.Milestone? = null,

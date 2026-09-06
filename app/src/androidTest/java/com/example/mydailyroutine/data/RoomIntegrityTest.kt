@@ -39,7 +39,7 @@ class RoomIntegrityTest {
     }
     @After fun tearDown() { db.close() }
 
-    @Test fun calendarIsCompleteOnFirstRead() = runBlocking {
+    @Test fun calendarIsCompleteOnFirstRead(): Unit = runBlocking {
         val entries = db.calendar().inRange(LocalDate.of(2027, 2, 22), LocalDate.of(2027, 2, 26))
         assertEquals(5, entries.count { it.title.startsWith("Zimske") })
         assertTrue(entries.all { it.isWorkFreeDay })
@@ -48,7 +48,7 @@ class RoomIntegrityTest {
         }
     }
 
-    @Test fun subjectDeletionDetachesButRoutineDeletionCascades() = runBlocking {
+    @Test fun subjectDeletionDetachesButRoutineDeletionCascades(): Unit = runBlocking {
         val subjectId = repository.saveSubject(Subject(name = "Math HL", colorHex = 0xFF4499CC, defaultDurationMinutes = 45))
         val routineId = repository.saveRoutine(template.copy(subjectId = subjectId))
         repository.saveOverride(EventOverride(routineBlockId = routineId, overrideDate = date, customTitle = "Revision"))
@@ -69,7 +69,7 @@ class RoomIntegrityTest {
         }
     }
 
-    @Test fun foreignKeysRejectOrphans() = runBlocking {
+    @Test fun foreignKeysRejectOrphans(): Unit = runBlocking {
         constraint { repository.saveRoutine(template.copy(subjectId = 9999)) }
         constraint { db.overrides().insert(EventOverrideEntity(routineBlockId = 9999, overrideDate = date, isCancelled = false,
             customStartTime = null, customEndTime = null, customTitle = null)) }
@@ -77,7 +77,7 @@ class RoomIntegrityTest {
         constraint { repository.saveMilestone(Milestone(subjectId = 9999, title = "Orphan", dueDate = date, dueTime = null, isExam = false)) }
     }
 
-    @Test fun oneOverridePerDateAndRepositoryUpdatesWithoutReplace() = runBlocking {
+    @Test fun oneOverridePerDateAndRepositoryUpdatesWithoutReplace(): Unit = runBlocking {
         val id = repository.saveRoutine(template)
         repository.saveOverride(EventOverride(routineBlockId = id, overrideDate = date, customTitle = "First"))
         val storedId = db.overrides().get(id, date)!!.id
@@ -88,7 +88,7 @@ class RoomIntegrityTest {
             customStartTime = null, customEndTime = null, customTitle = "Duplicate")) }
     }
 
-    @Test fun sqliteTriggersProtectEvenRawWrites() = runBlocking {
+    @Test fun sqliteTriggersProtectEvenRawWrites(): Unit = runBlocking {
         val id = repository.saveRoutine(template)
         constraint { db.openHelper.writableDatabase.execSQL("UPDATE routine_blocks SET endTime = startTime WHERE id = ?", arrayOf(id)) }
         constraint { db.openHelper.writableDatabase.execSQL("UPDATE routine_blocks SET category = 'INVALID' WHERE id = ?", arrayOf(id)) }
@@ -97,14 +97,14 @@ class RoomIntegrityTest {
         assertEquals("Study", db.routines().get(id)!!.title)
     }
 
-    @Test fun alarmClaimsAreIdempotent() = runBlocking {
+    @Test fun alarmClaimsAreIdempotent(): Unit = runBlocking {
         val id = repository.saveRoutine(template)
         val claim = AlarmDeliveryEntity(id, date, "BLOCK_PREVIEW", 1000)
         assertNotEquals(-1L, db.alarmDeliveries().claim(claim))
         assertEquals(-1L, db.alarmDeliveries().claim(claim))
     }
 
-    @Test fun reactiveResolutionSeesAtomicTransactionsAndSubjectChanges() = runBlocking {
+    @Test fun reactiveResolutionSeesAtomicTransactionsAndSubjectChanges(): Unit = runBlocking {
         val emissions = Channel<List<ResolvedTimelineItem>>(Channel.UNLIMITED)
         val collector = launch(Dispatchers.Default) { repository.getTimelineForDate(date).collect { emissions.send(it) } }
         suspend fun next(predicate: (List<ResolvedTimelineItem>) -> Boolean): List<ResolvedTimelineItem> = withTimeout(5000) {
