@@ -108,7 +108,7 @@ fun TimelineBlockCard(
                 border = if (activeAmount > 0.01f) BorderStroke(1.5.dp, style.accent.copy(alpha = 0.6f * activeAmount))
                     else BorderStroke(1.dp, RoutineColors.CardBorder),
             ) {
-                Column(Modifier.fillMaxWidth().heightIn(min = maxOf(112.dp, block.durationMinutes.dp))
+                Column(Modifier.fillMaxWidth().heightIn(min = maxOf(112.dp, 2.dp * block.durationMinutes))
                     .drawBehind {
                         val x = if (layoutDirection == LayoutDirection.Rtl) size.width - 4.dp.toPx() else 0f
                         drawRect(barColor.copy(alpha = if (past || block.isSuppressed) 0.35f else 1f), Offset(x, 0f), androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height))

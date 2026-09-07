@@ -113,7 +113,7 @@ idempotent while their generated tasks remain.
 
 ## UI and background behavior
 
-The existing Slovenian OLED UI exposes actual completion minutes, elastic block parameters,
+The existing Slovenian OLED UI uses a minute-proportional 2 dp/min block body with a 112 dp accessibility minimum for short blocks, and exposes actual completion minutes, elastic block parameters,
 calibration preview, a one-tap delay repair, reserve creation, backlog scheduling, learning topics,
 review planning, milestone effort and terminal exams. Planning settings control capacity, study
 window, dip center/spread, default delay, focus target and school recovery. Guidance is calm and
