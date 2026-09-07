@@ -6,6 +6,8 @@ import com.example.mydailyroutine.core.database.entities.*
 import com.example.mydailyroutine.core.database.daos.*
 import com.example.mydailyroutine.domain.model.*
 import com.example.mydailyroutine.domain.health.*
+import com.example.mydailyroutine.domain.planning.BacklogEntry
+import com.example.mydailyroutine.domain.planning.BacklogReason
 import com.example.mydailyroutine.domain.repository.TimelineRepository
 import com.example.mydailyroutine.domain.repository.TimelineResolver
 import java.time.LocalDate
@@ -197,8 +199,37 @@ class RoomTimelineRepository(
         val clean = milestone.copy(title = milestone.title.trim())
         ScheduleValidation.milestone(clean)
         if (clean.id == 0L) db.milestones().insert(clean.entity()) else {
+            val previous = checkNotNull(db.milestones().get(clean.id)).domain()
             check(db.milestones().update(clean.entity()) == 1) { "This milestone was deleted." }
+            if (previous.dueDate != clean.dueDate || previous.dueTime != clean.dueTime || previous.isExam != clean.isExam || previous.isTerminalExam != clean.isTerminalExam)
+                reconcileChangedDeadline(clean)
             clean.id
+        }
+    }
+
+    private suspend fun reconcileChangedDeadline(goal: Milestone) {
+        val cutoff = goal.dueTime?.let { goal.dueDate.atTime(it) } ?: goal.dueDate.plusDays(1).atStartOfDay()
+        for (entity in db.routines().linkedToMilestone(goal.id)) {
+            val origin = entity.validFrom ?: continue
+            if (entity.validUntil != origin || entity.isFixedCommitment || entity.category == RoutineCategory.SCHOOL || entity.category == RoutineCategory.REST_BUFFER) continue
+            if (db.completions().get(entity.id,origin) != null) continue // Observed history is not rewritten.
+            val exception = db.overrides().get(entity.id,origin)?.domain()
+                ?: EventOverride(routineBlockId=entity.id,overrideDate=origin)
+            if (exception.isCancelled) continue
+            val base = entity.domain()
+            val start = origin.plusDays(exception.dayShift.toLong()).atTime(exception.customStartTime ?: base.startTime)
+            val duration = nominalMinutes(exception.customStartTime ?: base.startTime,exception.customEndTime ?: base.endTime)
+            val review = db.learning().reviewForBlock(entity.id)
+            val reviewTooLate = review != null && (goal.isExam || goal.isTerminalExam) && start.toLocalDate() >= goal.dueDate
+            if (start.plusMinutes(duration.toLong()) <= cutoff && !reviewTooLate) continue
+            requireNotRunning(entity.id,origin)
+            val reserve = entity.category == RoutineCategory.EMERGENCY_RESERVE
+            saveOverrideInTransaction(exception.copy(isCancelled=true,cancellationReason=if(reserve) CancellationReason.BUFFER_CONSUMED else CancellationReason.BACKLOG))
+            if (!reserve) db.backlog().insert(BacklogEntry(title=exception.customTitle ?: entity.title,category=entity.category,
+                durationMinutes=duration,minDurationMinutes=minOf(entity.minDurationMinutes,duration),elasticity=entity.elasticity,
+                priorityWeight=entity.priorityWeight,subjectId=entity.subjectId,sourceRoutineId=entity.id,occurrenceDate=origin,
+                milestoneId=goal.id,topicId=entity.topicId,reviewId=review?.id,reason=BacklogReason.CAPACITY,
+                rawDurationMinutes=entity.rawDurationMinutes,stageOrder=entity.stageOrder).entity())
         }
     }
 

@@ -281,7 +281,7 @@
     <string name="message_teaching_end_saved">Datum zaključka pouka je shranjen.</string>
     <string name="message_thresholds_saved">Pravila so shranjena; opozorila so preračunana.</string>
     <string name="message_added">Dodano v tvoj urnik.</string>
-    <string name="message_milestone_saved">Rok je posodobljen.</string>
+    <string name="message_milestone_saved">Rok je posodobljen. Morebitna prepozno načrtovana priprava je varno v čakalni vrsti.</string>
     <string name="notification_channel_normal">Prihajajoči bloki</string>
     <string name="notification_channel_normal_description">Opomniki za učenje in počitek izven tihega okna</string>
     <string name="notification_channel_quiet">Tiho med poukom</string>
@@ -411,7 +411,7 @@
     <string name="model_disclaimer">To so nastavljive matematične hevristike, ne meritev tvojega telesnega ritma ali medicinski nasvet.</string>
     <string name="actual_title">Koliko časa si dejansko porabil?</string>
     <string name="actual_minutes">Dejanske minute</string>
-    <string name="actual_hint">Tvoja ocena izboljša prihodnje načrte za ta predmet. Časa ne merimo v ozadju.</string>
+    <string name="actual_hint">Tvoja potrditev izboljša prihodnje načrte. Pri začetem merjenju računamo čas iz začetka in konca; dejavnosti v ozadju ne spremljamo.</string>
     <string name="actual_save">Zaključi in shrani</string>
     <string name="actual_invalid">Vnesi od 1 do 10080 minut.</string>
     <string name="elastic_settings">Prilagodljivost bloka</string>

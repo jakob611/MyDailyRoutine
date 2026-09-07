@@ -20,6 +20,7 @@ This follow-up checks behavior, not only syntax or file organization. It builds 
 | Start a later stage | Checking only earlier backlog ignored unfinished scheduled prerequisites. | Check both backlog and unfinished earlier stage work. |
 | Capacity-based deferral after normal repair | Stage dependencies could be broken outside the engine's normal deferral pass. | Apply one shared dependency-closure rule to both paths. |
 | Work crossing midnight | Entire duration could be charged to the start date. | Apply destination-day capacity accounting to clipped minutes on each date. |
+| Move an external deadline earlier | Existing generated preparation could remain after its deadline. | Requeue only affected unfinished flexible preparation/reviews transactionally, preserve completed work and fixed commitments, and keep the updated goal linked. |
 | Record work across a DST fold | Civil-time arithmetic could invent an extra hour. | Room v6 preserves measured start/end instants and recording zone; old records retain their documented fallback. Clock labels use the measured interval, while the timeline remains a civil-minute view. |
 
 ## Safety and scope

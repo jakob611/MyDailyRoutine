@@ -84,7 +84,7 @@ class FullPaperIntegrationTest {
     }
     @Test fun backlogCannotBeAutomaticallyPlacedAfterItsDeadline(): Unit = runBlocking {
         val id=timeline.saveMilestone(Milestone(subjectId=null,title="Rok",dueDate=date.plusDays(2),dueTime=LocalTime.of(9,0),isExam=true,
-            estimatedEffortHours=100,isTerminalExam=true))
+            estimatedEffortHours=100.0,isTerminalExam=true))
         planning.planMilestone(id,date,PlanningConfig(),context.getString(R.string.preparation_title_pattern),context.getString(R.string.reserve_title))
         val entry=planning.backlog.first().first()
         val result=planning.scheduleBacklog(entry.id,date.plusDays(3),PlanningConfig())
@@ -168,6 +168,21 @@ class FullPaperIntegrationTest {
         assertEquals(started,block.actualTiming!!.startedAt)
         assertEquals(localClock.current,block.actualTiming!!.endedAt)
         assertEquals(LocalTime.of(2,15),block.actualTiming!!.endedAt.atZone(zone).toLocalTime())
+    }
+    @Test fun movingADeadlineEarlierRequeuesInvalidFuturePreparationWithoutLosingWork(): Unit = runBlocking {
+        val goal=Milestone(subjectId=null,title="Rok",dueDate=date.plusDays(10),dueTime=LocalTime.of(12,0),isExam=true,isTerminalExam=true)
+        val goalId=timeline.saveMilestone(goal)
+        val taskDay=date.plusDays(8)
+        val task=timeline.saveRoutine(RoutineBlueprint(subjectId=null,title="Priprava",category=RoutineCategory.FOCUS_ANALYTICAL,
+            dayOfWeek=taskDay.dayOfWeek,startTime=LocalTime.of(9,0),endTime=LocalTime.of(10,0),isNotificationEnabled=false,
+            validFrom=taskDay,validUntil=taskDay,milestoneId=goalId,stageOrder=1))
+        timeline.saveMilestone(goal.copy(id=goalId,dueDate=date.plusDays(5)))
+        assertFalse(timeline.getTimelineForDate(taskDay).first().filterIsInstance<ResolvedTimelineItem.Block>().any { it.routineBlockId==task })
+        val entry=planning.backlog.first().single()
+        assertEquals(60,entry.durationMinutes)
+        assertEquals(goalId,entry.milestoneId)
+        assertEquals(PlacementFailure.DEADLINE,planning.scheduleBacklog(entry.id,taskDay,PlanningConfig()).failure)
+        assertEquals(1,planning.backlog.first().size)
     }
     private class MutableClock(var current: Instant, private val timeZone: ZoneId=ZoneId.systemDefault()): Clock() {
         override fun instant(): Instant=current

@@ -7,6 +7,8 @@ import java.time.LocalDate
 
 @Dao
 interface TimeBlockDao {
+    @Query("SELECT * FROM routine_blocks WHERE milestoneId = :goal ORDER BY validFrom, startMinutes, id")
+    suspend fun linkedToMilestone(goal: Long): List<TimeBlockEntity>
     @Query("SELECT * FROM routine_blocks WHERE milestoneId = :goal AND topicId IS NULL AND stageOrder IS NOT NULL ORDER BY stageOrder, validFrom, startMinutes")
     suspend fun goalStages(goal: Long): List<TimeBlockEntity>
     @Query("""SELECT EXISTS(SELECT 1 FROM routine_blocks b WHERE b.milestoneId = :goal AND b.topicId IS NULL
