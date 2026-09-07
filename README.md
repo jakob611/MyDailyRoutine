@@ -2,37 +2,30 @@
 
 A Slovenian-language, OLED-dark-first Android time-blocking app for school, focused study, personal routines, recovery, and IB milestones. Kotlin 2.x, Jetpack Compose / Material 3, Room, Coroutines / Flow, AlarmManager, and Glance. No account, HTTP client, telemetry, or runtime network permission.
 
-## Latest operational review
+## Complete-PDF review and operational fixes
 
-The follow-up [logic audit](docs/audits/LOGIC_REVIEW.md) addresses active-session safety,
-stage ordering, review metadata, overnight budgets and measured timestamps through DST.
-Room v6 preserves legacy records through explicit migrations. Local core/SQLite checks pass;
-Android verification of this latest follow-up is being rerun, not inferred from prior green runs.
+The exact **19-page research PDF** has been read and retained under `docs/research/`.
+The [page-by-page audit](docs/audits/FULL_PDF_REVIEW.md) records contradictions and differences;
+the [logic review](docs/audits/LOGIC_REVIEW.md) records concrete behavior fixes.
 
-## Complete PDF audit and feature-first architecture
+- Feature-first Android packages, shared Room/design primitives, and a separate app coordinator.
+- max(1, ν) calibration; compact review fallback; effective review capacity; protected recovery;
+  ordered deliverable stages and preserved dependencies.
+- Explicit start/finish with foreground/resume auto-healing, measured completion geometry, safe
+  fixed-boundary stopping and actual timestamps through DST.
+- A quicker editor with category icons, collapsed technical options and a persistent save footer.
+- Transactional backlog/review consistency and safe handling of an earlier external deadline.
 
-The user's complete 19-page PDF is now retained in `docs/research/` and has been read in full.
-[The page-by-page audit](docs/audits/FULL_PDF_REVIEW.md) identifies both previous implementation gaps
-and contradictions in the paper's example code; unsafe fixed-boundary movement is not copied.
-
-The current review adds max(1, ν) calibration, compact review fallback, real daily review capacity,
-protected recovery, ordered deliverable stages, explicit start/finish with foreground/resume healing,
-actual completion geometry and a faster editor with a persistent save footer. App packages are now
-feature-first with shared persistence/design primitives; see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-Local checks currently pass **117 core tests**, **14 SQLite checks**, **480 Slovenian resources**
-and syntax parsing for **103 Kotlin files**. Android compilation and connected verification of
-this latest audit are being rerun; the prior CI records below are not claimed to verify new changes.
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for package ownership and stable Android entrypoints.
 
 ## Computational planning extension
 
-The current branch adds minute-duration blocks with explicit Room v3/v4 migrations, explicit actual-time history, five-phase
+The current branch adds minute-duration blocks with explicit Room migrations through v6, explicit actual-time history, five-phase
 slippage recovery, RSEM reserves, calibrated estimates, Gaussian circadian costs, capacity-limited
 spaced reviews, reverse milestone preparation and a persistent backlog. All features reuse the
 existing app/resolver/alarms/widget. See [the mathematical model and integration policies](docs/CHRONOBIOLOGY_ENGINE.md).
 
-Current local research-extension checks: **107 core tests**, **13 SQLite checks**, **458 Slovenian
-resources**, and syntax parsing for **85 Kotlin files**. All research changes are verified in [CI run 34097272103](https://github.com/jakob611/MyDailyRoutine/actions/runs/34097272103), code commit `f9241d7`: APK assembly, lint, core/app JVM tests and API-35 connected tests passed.
+The latest verification is listed below; older commits are not used as proof of new changes.
 
 ## What is implemented
 
@@ -119,7 +112,7 @@ immutable StateFlow ← resolved snapshot ← Room transaction + invalidation Fl
 - All-day milestones sort at midnight, timed milestones at their due time, with deterministic tie-breaking. Markers do not reserve duration or send block reminders.
 - Room table invalidations cause one transactional snapshot read, preventing mixed blueprint/override states. UI transformations run off the main thread. Presentation uses persistent collections and immutable state; collectors stop when the UI is not subscribed.
 
-The database is version 4. Explicit v1→v2→v3→v4 migrations preserve IDs, overrides, completions and alarm claims; introduce minute-duration blocks, learning/history/backlog tables; and preserve raw estimates across backlog restoration. No destructive fallback is used. Schema export remains configured under `app/schemas`. A baseline v1 SQL fixture and a device migration test exercise the upgrade. Retain generated schema JSON before a future version bump. There is deliberately **no destructive migration fallback**.
+The database is version 6. Explicit v1→v2→v3→v4→v5→v6 migrations preserve IDs, overrides, completions and alarm claims; introduce minute-duration blocks, learning/history/backlog tables; and preserve raw estimates across backlog restoration. No destructive fallback is used. Schema export remains configured under `app/schemas`. A baseline v1 SQL fixture and a device migration test exercise the upgrade. Retain generated schema JSON before a future version bump. There is deliberately **no destructive migration fallback**.
 
 ## Scheduling and battery policy
 
@@ -133,16 +126,16 @@ Health thresholds are **planning heuristics, not medical advice or universal cog
 
 ## Verification status
 
-**Verified in GitHub Actions:** [run 34097272103](https://github.com/jakob611/MyDailyRoutine/actions/runs/34097272103), application/test code commit `f9241d7`.
+**Verified code `143ed6b`: [CI run 34157205599](https://github.com/jakob611/MyDailyRoutine/actions/runs/34157205599) succeeded in both jobs.**
 
-- Android debug APK assembly and Android lint **passed** with Kotlin 2.2.10 / JDK 17 / API 36.
-- **107 core JVM tests** and **12 app JVM tests passed**.
-- **24 connected tests passed on the API-35 emulator**: Room integrity, migrations through v4, actual-time velocity, backlog preservation/restoration, real review blocks, topic cascades, linked review/preparation plans, locale/privacy, four-view navigation and warm widget quick-add.
-- **13 SQLite checks** and presentation checks for **458 Slovenian strings**, bundled font, tabular text and a single canonical domain model passed.
-- Local standalone core tests and syntax parsing for **85 Kotlin files** also passed. Direct sandbox Gradle/SDK downloads remain TLS-blocked; full Android verification was performed in CI, not claimed locally.
+- Debug APK assembly and Android lint passed with Kotlin 2.2.10 / JDK 17 / API 36.
+- **122 core JVM tests + 12 app JVM tests passed.**
+- **36 connected tests passed on the API-35 emulator.**
+- **15 SQLite checks** and presentation checks for **487 Slovenian resources** passed.
 
-[Download the test APK artifact (ZIP)](https://github.com/jakob611/MyDailyRoutine/actions/runs/34097272103/artifacts/10009372989).
-The run also retains test/lint reports and actual Room/KSP schema exports. Its success is not a guarantee about every vendor's Doze behavior, launcher rendering or physical haptic hardware; those, and release R8/signing, remain on the [release checklist](docs/VALIDATION.md).
+[Download the test APK (ZIP)](https://github.com/jakob611/MyDailyRoutine/actions/runs/34157205599/artifacts/10031493805).
+The [verification record](docs/VALIDATION.md) distinguishes tested behavior from hardware/vendor
+checks, restricted local downloads, and screenshots not visually inspected in this sandbox.
 
 ## Local-data privacy
 
