@@ -12,6 +12,7 @@ data class DailyMetrics(
     val blockCount: Int,
     val milestoneCount: Int,
     val examCount: Int,
+    val reserveMinutes: Int = 0,
 )
 
 object ScheduleMetrics {
@@ -22,14 +23,15 @@ object ScheduleMetrics {
         )
         val milestones = items.filterIsInstance<ResolvedTimelineItem.Milestone>()
         return DailyMetrics(
-            focusMinutes = minutes(RoutineCategory.FOCUS_STUDY),
+            focusMinutes = Intervals.minutes(blocks.filter { it.category.isDeepWork }.map { MinuteInterval(it.startMinute, it.endMinute) }),
             schoolMinutes = minutes(RoutineCategory.SCHOOL),
-            recoveryMinutes = minutes(RoutineCategory.REST_BREAK),
+            recoveryMinutes = minutes(RoutineCategory.REST_BUFFER),
             occupiedMinutes = minutes(),
             completedCount = blocks.count { it.isCompleted },
             blockCount = blocks.size,
             milestoneCount = milestones.count { !it.isCompleted },
             examCount = milestones.count { it.isExam && !it.isCompleted },
+            reserveMinutes = minutes(RoutineCategory.EMERGENCY_RESERVE),
         )
     }
 }
@@ -68,8 +70,8 @@ data class CategoryAllocation(val category: RoutineCategory, val minutes: Int)
 fun categoryAllocation(items: List<ResolvedTimelineItem>): List<CategoryAllocation> {
     val blocks = items.filterIsInstance<ResolvedTimelineItem.Block>().filterNot { it.isSuppressed }
     val edges = blocks.flatMap { listOf(it.startMinute, it.endMinute) }.distinct().sorted()
-    val priorities = listOf(RoutineCategory.SCHOOL, RoutineCategory.FOCUS_STUDY, RoutineCategory.PROJECT,
-        RoutineCategory.PERSONAL, RoutineCategory.REST_BREAK)
+    val priorities = listOf(RoutineCategory.SCHOOL, RoutineCategory.FOCUS_ANALYTICAL, RoutineCategory.FOCUS_SYNTHESIZING,
+        RoutineCategory.ADMIN, RoutineCategory.REST_BUFFER, RoutineCategory.EMERGENCY_RESERVE)
     val totals = mutableMapOf<RoutineCategory, Int>()
     edges.zipWithNext().forEach { (from, until) ->
         val category = priorities.firstOrNull { category -> blocks.any { it.category == category && it.startMinute <= from && it.endMinute >= until } }

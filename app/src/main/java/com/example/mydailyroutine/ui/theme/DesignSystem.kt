@@ -23,7 +23,7 @@ object RoutineColors {
     val Cobalt = Color(0xFF3B82F6)
     val Amber = Color(0xFFF59E0B)
     val Sage = Color(0xFF10B981)
-    val Crimson = Color(0xFFEF4444)
+    val Crimson = Color(0xFFFB7185)
     val Violet = Color(0xFF8B5CF6)
     val Warning = Color(0xFFFB923C)
     val WarningContainer = Color(0xFF341A0B)
@@ -41,10 +41,11 @@ data class CategoryStyle(val accent: Color, val container: Color, val content: C
 
 fun categoryStyle(category: RoutineCategory, subjectColor: Long? = null): CategoryStyle = when (category) {
     RoutineCategory.SCHOOL -> RoutineColors.School.let { style -> subjectColor?.let { style.copy(accent = Color(it.toInt())) } ?: style }
-    RoutineCategory.FOCUS_STUDY -> RoutineColors.Focus
-    RoutineCategory.REST_BREAK -> RoutineColors.Recovery
-    RoutineCategory.PROJECT -> RoutineColors.Project
-    RoutineCategory.PERSONAL -> RoutineColors.Personal
+    RoutineCategory.FOCUS_ANALYTICAL -> RoutineColors.Focus
+    RoutineCategory.EMERGENCY_RESERVE -> RoutineColors.Recovery
+    RoutineCategory.REST_BUFFER -> RoutineColors.Recovery
+    RoutineCategory.FOCUS_SYNTHESIZING -> RoutineColors.Project
+    RoutineCategory.ADMIN -> RoutineColors.Personal
 }
 
 object RoutineShapes {

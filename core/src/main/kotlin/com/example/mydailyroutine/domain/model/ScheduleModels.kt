@@ -7,7 +7,13 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 /** All schedule times are local wall-clock times, at minute precision. */
-enum class RoutineCategory { SCHOOL, FOCUS_STUDY, REST_BREAK, PROJECT, PERSONAL }
+enum class RoutineCategory { SCHOOL, FOCUS_ANALYTICAL, FOCUS_SYNTHESIZING, ADMIN, REST_BUFFER, EMERGENCY_RESERVE;
+    val isDeepWork: Boolean get() = this == FOCUS_ANALYTICAL || this == FOCUS_SYNTHESIZING
+    val isBuffer: Boolean get() = this == REST_BUFFER || this == EMERGENCY_RESERVE
+}
+fun nominalMinutes(start: LocalTime, end: LocalTime): Int = Math.floorMod(end.toSecondOfDay() / 60 - start.toSecondOfDay() / 60, 1440)
+const val MAX_OCCURRENCE_SHIFT_DAYS = 7
+enum class CancellationReason { MANUAL, AUTO_HEAL, BACKLOG, BUFFER_CONSUMED }
 
 data class Subject(
     val id: Long = 0,
@@ -28,6 +34,15 @@ data class RoutineBlueprint(
     // A bounded template supports a genuinely one-off fast-add without fake cancellations.
     val validFrom: LocalDate? = null,
     val validUntil: LocalDate? = null,
+    val minDurationMinutes: Int = if (category == RoutineCategory.SCHOOL) nominalMinutes(startTime, endTime)
+        else if (category == RoutineCategory.EMERGENCY_RESERVE) 0 else minOf(25, nominalMinutes(startTime, endTime)),
+    val elasticity: Double = if (category == RoutineCategory.SCHOOL) 0.0 else 1.0,
+    val priorityWeight: Double = if (category.isDeepWork) 3.0 else 1.0,
+    val isFixedCommitment: Boolean = category == RoutineCategory.SCHOOL,
+    val completedActualMinutes: Int? = null,
+    val rawDurationMinutes: Int = nominalMinutes(startTime, endTime),
+    val topicId: Long? = null,
+    val milestoneId: Long? = null,
 ) {
     fun occursOn(date: LocalDate): Boolean = date.dayOfWeek == dayOfWeek &&
         (validFrom == null || !date.isBefore(validFrom)) &&
@@ -42,6 +57,8 @@ data class EventOverride(
     val customStartTime: LocalTime? = null,
     val customEndTime: LocalTime? = null,
     val customTitle: String? = null,
+    val dayShift: Int = 0,
+    val cancellationReason: CancellationReason = CancellationReason.MANUAL,
 )
 
 data class CalendarEntry(
@@ -59,9 +76,11 @@ data class Milestone(
     val dueTime: LocalTime?,
     val isExam: Boolean,
     val isCompleted: Boolean = false,
+    val estimatedEffortHours: Double = 0.0,
+    val isTerminalExam: Boolean = false,
 )
 
-data class OccurrenceCompletion(val routineBlockId: Long, val date: LocalDate)
+data class OccurrenceCompletion(val routineBlockId: Long, val date: LocalDate, val actualMinutes: Int? = null)
 data class CancelledOccurrence(val routineBlockId: Long, val occurrenceDate: LocalDate, val title: String)
 
 /** A transactionally consistent database read, not a composition of independent DAO emissions. */
@@ -74,6 +93,7 @@ data class ScheduleSnapshot(
     val calendar: List<CalendarEntry> = emptyList(),
     val milestones: List<Milestone> = emptyList(),
     val completions: List<OccurrenceCompletion> = emptyList(),
+    val reviews: List<com.example.mydailyroutine.domain.learning.SpacedReview> = emptyList(),
 )
 
 sealed interface ResolvedTimelineItem {
@@ -103,13 +123,22 @@ sealed interface ResolvedTimelineItem {
         val holidayTitle: String?,
         val hasOverride: Boolean,
         val isOneOff: Boolean,
+        val minDurationMinutes: Int = minOf(25, endMinute - startMinute),
+        val elasticity: Double = if (category == RoutineCategory.SCHOOL) 0.0 else 1.0,
+        val priorityWeight: Double = 1.0,
+        val isFixedCommitment: Boolean = category == RoutineCategory.SCHOOL,
+        val completedActualMinutes: Int? = null,
+        val rawDurationMinutes: Int = endMinute - startMinute,
+        val topicId: Long? = null,
+        val milestoneId: Long? = null,
+        val reviewId: Long? = null,
     ) : ResolvedTimelineItem {
         override val key: String get() = "block:$routineBlockId:$occurrenceDate:$date"
         val occurrenceKey: String get() = "block:$routineBlockId:$occurrenceDate"
         override val startTime: LocalTime get() = LocalTime.ofSecondOfDay(startMinute * 60L)
         val durationMinutes: Int get() = endMinute - startMinute
         val isSuppressed: Boolean get() = category == RoutineCategory.SCHOOL && holidayTitle != null
-        val isCarryIn: Boolean get() = occurrenceDate != date
+        val isCarryIn: Boolean get() = startsAt.toLocalDate() < date
     }
 
     data class Milestone(
@@ -120,6 +149,8 @@ sealed interface ResolvedTimelineItem {
         val dueTime: LocalTime?,
         val isExam: Boolean,
         override val isCompleted: Boolean,
+        val estimatedEffortHours: Double = 0.0,
+        val isTerminalExam: Boolean = false,
     ) : ResolvedTimelineItem {
         override val key: String get() = "milestone:$milestoneId"
         // All-day markers are deliberately sorted at midnight, not assigned a fictitious deadline.
@@ -135,6 +166,7 @@ data class SchedulePreferences(
     val teachingEndDate: LocalDate = LocalDate.of(2027, 6, 24),
     val hapticsEnabled: Boolean = true,
     val health: HealthConfig = HealthConfig(),
+    val planning: com.example.mydailyroutine.domain.planning.PlanningConfig = com.example.mydailyroutine.domain.planning.PlanningConfig(),
 ) {
     /** Half-open window. Overnight quiet windows are supported; equal endpoints are rejected. */
     fun isQuietAt(time: LocalTime): Boolean = muteDuringSchoolHours && when {

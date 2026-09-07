@@ -30,13 +30,13 @@ class RoomTimelineRepository(
 
     override fun observeSnapshot(from: LocalDate, through: LocalDate): Flow<ScheduleSnapshot> =
         db.invalidationTracker.createFlow(
-            "subjects", "routine_blocks", "event_overrides", "school_calendar", "milestones", "routine_completions",
+            "subjects", "routine_blocks", "event_overrides", "school_calendar", "milestones", "routine_completions", "spaced_reviews",
             emitInitialState = true,
         ).map { snapshot(from, through) }.distinctUntilChanged()
 
     override suspend fun snapshot(from: LocalDate, through: LocalDate): ScheduleSnapshot = withContext(io) {
         require(through >= from && ChronoUnit.DAYS.between(from, through) <= 731) { "Choose at most two years." }
-        val firstOrigin = from.minusDays(1)
+        val firstOrigin = from.minusDays((MAX_OCCURRENCE_SHIFT_DAYS + 1).toLong())
         val weekdays = (0L..minOf(6L, ChronoUnit.DAYS.between(firstOrigin, through)))
             .map { firstOrigin.plusDays(it).dayOfWeek }
         db.withTransaction {
@@ -48,7 +48,8 @@ class RoomTimelineRepository(
                 overrides = db.overrides().inRange(firstOrigin, through).map { it.domain() },
                 calendar = db.calendar().inRange(firstOrigin, through).map { it.domain() },
                 milestones = db.milestones().inRange(from, through).map { it.domain() },
-                completions = db.completions().inRange(firstOrigin, through).map { OccurrenceCompletion(it.routineBlockId, it.date) },
+                completions = db.completions().inRange(firstOrigin, through).map { OccurrenceCompletion(it.routineBlockId, it.date, it.actualMinutes) },
+                reviews = db.learning().reviews(firstOrigin.toEpochDay(), through.toEpochDay()).map { it.domain() },
             )
         }
     }
@@ -73,7 +74,10 @@ class RoomTimelineRepository(
     override suspend fun deleteSubject(id: Long) = write { db.subjects().delete(id) }
 
     override suspend fun saveRoutine(routine: RoutineBlueprint): Long = write {
-        saveRoutineInTransaction(routine.copy(title = routine.title.trim()))
+        val duration = nominalMinutes(routine.startTime, routine.endTime)
+        val clean = if (routine.isFixedCommitment || routine.category == RoutineCategory.SCHOOL) routine.copy(
+            minDurationMinutes = duration, elasticity = 0.0, isFixedCommitment = true) else routine
+        saveRoutineInTransaction(clean.copy(title = clean.title.trim()))
     }
 
     private suspend fun saveRoutineInTransaction(routine: RoutineBlueprint): Long {
@@ -109,11 +113,12 @@ class RoomTimelineRepository(
 
     override suspend fun cancelOccurrence(routineId: Long, date: LocalDate) = write {
         val existing = db.overrides().get(routineId, date)?.domain() ?: EventOverride(routineBlockId = routineId, overrideDate = date)
-        saveOverrideInTransaction(existing.copy(isCancelled = true))
+        saveOverrideInTransaction(existing.copy(isCancelled = true, cancellationReason = CancellationReason.MANUAL))
     }
 
     override suspend fun restoreOccurrence(routineId: Long, date: LocalDate) = write {
         db.overrides().get(routineId, date)?.let { saveOverrideInTransaction(it.domain().copy(isCancelled = false)) }
+        db.backlog().deleteOccurrence(routineId, date)
         Unit
     }
 
@@ -123,7 +128,10 @@ class RoomTimelineRepository(
         routineId: Long, date: LocalDate, title: String, start: LocalTime, end: LocalTime, wholeTemplate: Boolean,
     ) = write {
         if (wholeTemplate) {
-            saveRoutineInTransaction(routine(routineId).copy(title = title.trim(), startTime = start, endTime = end))
+            val base = routine(routineId)
+            val duration = nominalMinutes(start, end)
+            saveRoutineInTransaction(base.copy(title = title.trim(), startTime = start, endTime = end,
+                minDurationMinutes = if (base.isFixedCommitment) duration else minOf(base.minDurationMinutes, duration), rawDurationMinutes = duration))
         } else {
             val previous = db.overrides().get(routineId, date)?.domain()
                 ?: EventOverride(routineBlockId = routineId, overrideDate = date)
@@ -132,10 +140,27 @@ class RoomTimelineRepository(
         Unit
     }
 
-    override suspend fun setCompleted(routineId: Long, date: LocalDate, completed: Boolean) = write {
-        require(routine(routineId).occursOn(date)) { "This routine does not occur on that date." }
-        if (completed) db.completions().insert(RoutineCompletionEntity(routineId, date))
-        else db.completions().delete(routineId, date)
+    override suspend fun setCompleted(routineId: Long, date: LocalDate, completed: Boolean, actualMinutes: Int?) = write {
+        val base = routine(routineId)
+        require(base.occursOn(date)) { "This routine does not occur on that date." }
+        require(actualMinutes == null || actualMinutes in 1..10080)
+        if (completed) {
+            val row = RoutineCompletionEntity(routineId, date, actualMinutes)
+            if (db.completions().get(routineId, date) == null) db.completions().insert(row) else db.completions().update(row)
+            if (actualMinutes != null && base.subjectId != null && base.category.isDeepWork) {
+                val previous = db.learning().sample(routineId, date)
+                val sample = HistoricalVelocityEntity(previous?.id ?: 0, base.subjectId, base.rawDurationMinutes,
+                    actualMinutes, java.time.Instant.now().toEpochMilli(), routineId, date)
+                if (previous == null) db.learning().insertSample(sample) else db.learning().updateSample(sample)
+            }
+        } else {
+            db.completions().delete(routineId, date)
+            db.learning().deleteSample(routineId, date)
+        }
+        if (base.validFrom == base.validUntil && base.validFrom != null) {
+            db.routines().update(base.copy(completedActualMinutes = if (completed) actualMinutes else null).entity())
+        }
+        db.learning().setReviewCompleted(routineId, completed)
         Unit
     }
 
@@ -185,7 +210,7 @@ class RoomTimelineRepository(
                     ))
                 }
                 saveRoutineInTransaction(RoutineBlueprint(
-                    subjectId = null, title = recoveryTitle, category = RoutineCategory.REST_BREAK,
+                    subjectId = null, title = recoveryTitle, category = RoutineCategory.REST_BUFFER,
                     dayOfWeek = plan.start.dayOfWeek, startTime = plan.start.toLocalTime(), endTime = plan.end.toLocalTime(),
                     isNotificationEnabled = true, validFrom = plan.start.toLocalDate(), validUntil = plan.start.toLocalDate(),
                 ))

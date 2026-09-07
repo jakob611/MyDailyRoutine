@@ -35,7 +35,7 @@ class RecoveryPlanner {
         WarningType.INSUFFICIENT_TRANSITION -> config.transitionMinutes.coerceAtLeast(HealthConfig.SUGGESTED_BREAK_MINUTES)
         WarningType.FRAGMENTED_TIME -> {
             val following = items.filterIsInstance<ResolvedTimelineItem.Block>()
-                .filter { it.category == RoutineCategory.FOCUS_STUDY && it.startMinute > warning.atMinute }
+                .filter { it.category.isDeepWork && it.startMinute > warning.atMinute }
                 .minOfOrNull { it.startMinute }
             ((following ?: (warning.atMinute + 15)) - warning.atMinute).coerceAtLeast(1)
         }
@@ -55,12 +55,12 @@ class RecoveryPlanner {
                 it.isExam && !it.isCompleted && it.dueTime != null && it.date.atTime(it.dueTime) >= start && it.date.atTime(it.dueTime) < end
             }
         fun alreadyResting(at: LocalDateTime): Boolean = blocks.any {
-            it.category == RoutineCategory.REST_BREAK && Duration.between(it.startsAt, it.endsAt).toMinutes() >= minutes &&
+            it.category == RoutineCategory.REST_BUFFER && Duration.between(it.startsAt, it.endsAt).toMinutes() >= minutes &&
                 it.startsAt <= at && it.endsAt >= at
         }
 
         if (warning.type == WarningType.INSUFFICIENT_TRANSITION) {
-            val study = blocks.firstOrNull { it.key in warning.relatedItemKeys && it.category == RoutineCategory.FOCUS_STUDY && !it.isCompleted }
+            val study = blocks.firstOrNull { it.key in warning.relatedItemKeys && it.category.isDeepWork && !it.isCompleted }
             val school = study?.let { focus -> blocks.filter { it.category == RoutineCategory.SCHOOL && it.startsAt <= focus.startsAt }.maxByOrNull { it.endsAt } }
             if (study != null && school != null) {
                 target = school.endsAt
@@ -75,7 +75,7 @@ class RecoveryPlanner {
         }
 
         val focus = blocks.firstOrNull {
-            it.key in warning.relatedItemKeys && it.category == RoutineCategory.FOCUS_STUDY && !it.isCompleted &&
+            it.key in warning.relatedItemKeys && it.category.isDeepWork && !it.isCompleted &&
                 (warning.type == WarningType.CONCENTRATION_LIMIT || (it.startsAt < target && it.endsAt > target))
         }
         if (focus != null && warning.type != WarningType.FRAGMENTED_TIME && warning.type != WarningType.INSUFFICIENT_TRANSITION) {

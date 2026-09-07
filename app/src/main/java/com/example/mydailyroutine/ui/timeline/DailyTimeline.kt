@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.planning.PlanningConfig
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
 import com.example.mydailyroutine.ui.components.*
@@ -25,7 +26,7 @@ import com.example.mydailyroutine.ui.theme.*
 import java.time.ZonedDateTime
 
 @Composable
-fun DailyTimeline(day: DayUi, now: ZonedDateTime, busy: Boolean, health: HealthConfig, onAction: (TimelineAction) -> Unit) {
+fun DailyTimeline(day: DayUi, now: ZonedDateTime, busy: Boolean, health: HealthConfig, planning: PlanningConfig, backlogCount: Int, onAction: (TimelineAction) -> Unit) {
     val today = day.date == now.toLocalDate()
     val nowMinute = now.hour * 60 + now.minute
     val activeKey = remember(day.items, now) {
@@ -44,6 +45,15 @@ fun DailyTimeline(day: DayUi, now: ZonedDateTime, busy: Boolean, health: HealthC
                     MetricTile(stringResource(R.string.metric_completed), stringResource(R.string.completed_count, day.metrics.completedCount, day.metrics.blockCount), Modifier.weight(1f))
                 }
                 DayLoadBar(day.items)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilledTonalButton(enabled = !busy && day.items.isNotEmpty() && day.date >= java.time.LocalDate.now(), onClick = {
+                        val actual = if (today) nowMinute else (day.items.filterIsInstance<ResolvedTimelineItem.Block>().filter { !it.isCompleted && !it.isSuppressed }.minOfOrNull { it.startMinute } ?: 0) + planning.defaultSlipMinutes
+                        onAction(TimelineAction.AutoHeal(day.date, actual.coerceIn(0,2879)))
+                    }) { Text(stringResource(R.string.auto_heal)) }
+                    TextButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Text(stringResource(R.string.backlog_count, backlogCount)) }
+                }
+                Text(stringResource(R.string.auto_heal_hint), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary)
+                Text(stringResource(R.string.reserve_remaining, day.metrics.reserveMinutes), style = MaterialTheme.typography.labelMedium, color = RoutineColors.Sage)
                 if (day.warnings.isNotEmpty()) Text(stringResource(R.string.health_suggestion_count, day.warnings.size), style = MaterialTheme.typography.labelMedium, color = RoutineColors.Warning)
             }
         }

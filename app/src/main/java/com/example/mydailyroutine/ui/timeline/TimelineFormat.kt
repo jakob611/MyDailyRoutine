@@ -26,10 +26,11 @@ fun minuteLabel(minute: Int): String = String.format(Slovenian, "%02d:%02d", min
 }
 @StringRes fun RoutineCategory.labelRes(): Int = when (this) {
     RoutineCategory.SCHOOL -> R.string.category_school
-    RoutineCategory.FOCUS_STUDY -> R.string.category_focus
-    RoutineCategory.REST_BREAK -> R.string.category_recovery
-    RoutineCategory.PROJECT -> R.string.category_project
-    RoutineCategory.PERSONAL -> R.string.category_personal
+    RoutineCategory.FOCUS_ANALYTICAL -> R.string.category_focus
+    RoutineCategory.REST_BUFFER -> R.string.category_recovery
+    RoutineCategory.EMERGENCY_RESERVE -> R.string.category_reserve
+    RoutineCategory.FOCUS_SYNTHESIZING -> R.string.category_project
+    RoutineCategory.ADMIN -> R.string.category_personal
 }
 @Composable fun RoutineCategory.label(): String = stringResource(labelRes())
 @StringRes fun WarningType.labelRes(): Int = when (this) {
@@ -56,6 +57,7 @@ fun categoryColor(category: RoutineCategory, subjectColor: Long? = null): Color 
     PresetKind.WALK -> R.string.preset_walk
     PresetKind.IB_REVISION -> R.string.preset_ib
     PresetKind.EXAM -> R.string.preset_exam
+    PresetKind.RESERVE -> R.string.preset_reserve
     PresetKind.SUBJECT_LESSON -> R.string.preset_lessons
     PresetKind.SUBJECT_STUDY -> R.string.preset_study
     PresetKind.SUBJECT_TEST -> R.string.preset_test
@@ -76,6 +78,7 @@ fun QuickAddPreset.title(context: Context): String {
         PresetKind.POMODORO -> R.string.title_pomodoro
         PresetKind.WALK -> R.string.title_walk
         PresetKind.IB_REVISION -> R.string.title_ib
+        PresetKind.RESERVE -> R.string.reserve_title
         else -> R.string.title_exam
     })
 }

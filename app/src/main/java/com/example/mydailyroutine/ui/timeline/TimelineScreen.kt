@@ -34,6 +34,8 @@ import com.example.mydailyroutine.ui.components.DateNavigator
 import com.example.mydailyroutine.ui.editor.*
 import com.example.mydailyroutine.ui.feedback.*
 import com.example.mydailyroutine.ui.overview.*
+import com.example.mydailyroutine.ui.planning.*
+import androidx.compose.material.icons.outlined.AutoAwesome
 import com.example.mydailyroutine.ui.settings.NotificationAccess
 import com.example.mydailyroutine.ui.settings.SettingsSheet
 import com.example.mydailyroutine.ui.theme.*
@@ -67,7 +69,7 @@ fun TimelineScreen(viewModel: TimelineViewModel, access: NotificationAccess,
     LaunchedEffect(viewModel, haptics, context) {
         viewModel.effects.collect { effect -> when (effect) {
             TimelineEffect.Completed -> haptics.complete()
-            is TimelineEffect.Message -> snackbars.showSnackbar(if (effect.minutes == null) context.getString(effect.resource) else context.getString(effect.resource, effect.minutes))
+            is TimelineEffect.Message -> snackbars.showSnackbar(if (effect.count != null) context.getString(effect.resource, effect.minutes, effect.count) else if (effect.minutes == null) context.getString(effect.resource) else context.getString(effect.resource, effect.minutes))
         } }
     }
     val warningKeys = data.days[data.date]?.warnings.orEmpty().map { "${it.type}:${it.itemKeys}:${it.atMinute}" }.toSet()
@@ -86,7 +88,9 @@ fun TimelineScreen(viewModel: TimelineViewModel, access: NotificationAccess,
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
                         Text(stringResource(R.string.app_tagline), style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary)
                     } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = RoutineColors.Background),
-                        actions = { IconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings)) } })
+                        actions = {
+                            IconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open)) }
+                            IconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings)) } })
                     DateNavigator(periodTitle(data), onPrevious = { onAction(TimelineAction.Shift(-1)) }, onNext = { onAction(TimelineAction.Shift(1)) },
                         onToday = { onAction(TimelineAction.Today) }, onPick = { haptics.tap(); choosingDate = true })
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
@@ -118,7 +122,7 @@ fun TimelineScreen(viewModel: TimelineViewModel, access: NotificationAccess,
                             TextButton(onClick = { onAction(TimelineAction.Retry) }) { Text(stringResource(R.string.retry)) }
                         }
                         else -> when (shown.mode) {
-                            TimelineMode.DAY -> shown.days[shown.date]?.let { DailyTimeline(it, now, state.panels.isSaving, state.preferences.health, onAction) }
+                            TimelineMode.DAY -> shown.days[shown.date]?.let { DailyTimeline(it, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, onAction) }
                             TimelineMode.WEEK -> WeeklyOverview(shown) { onAction(TimelineAction.SelectDate(it, true)) }
                             TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
                             TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
@@ -129,11 +133,14 @@ fun TimelineScreen(viewModel: TimelineViewModel, access: NotificationAccess,
         }
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
         if (state.panels.showAdd) key(state.panels.addSession) {
-            EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.panels.editingMilestone, state.panels.isSaving,
+            EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, state.panels.editingMilestone, state.panels.isSaving,
                 onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) })
         }
         if (state.panels.showSettings) SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, onAction,
             onDismiss = { onAction(TimelineAction.CloseSettings) }, requestNotifications = requestNotifications, requestExactAlarms = requestExactAlarms, openNotificationSettings = openNotificationSettings)
+        if (state.panels.showPlanning) PlanningSheet(state, onAction)
+        if (state.panels.showTopicEditor) TopicEditorSheet(state, onAction)
+        state.panels.completionTarget?.let { ActualCompletionDialog(it, state.panels.isSaving, onAction) }
         state.panels.editingBlock?.let { BlockEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseEditor) }, onSave = onAction) }
         state.panels.editingSubject?.let { SubjectEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) }, onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) }) }
         state.panels.pendingDelete?.let { item ->

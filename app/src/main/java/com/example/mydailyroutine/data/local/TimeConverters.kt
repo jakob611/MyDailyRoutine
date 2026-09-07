@@ -8,6 +8,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 class TimeConverters {
+    @TypeConverter fun encodeCancellation(value: com.example.mydailyroutine.domain.model.CancellationReason): String = value.name
+    @TypeConverter fun decodeCancellation(value: String): com.example.mydailyroutine.domain.model.CancellationReason = com.example.mydailyroutine.domain.model.CancellationReason.valueOf(value)
     @TypeConverter fun encodeDate(value: LocalDate?): Long? = value?.toEpochDay()
     @TypeConverter fun decodeDate(value: Long?): LocalDate? = value?.let(LocalDate::ofEpochDay)
 

@@ -29,7 +29,7 @@ class RoomIntegrityTest {
     private lateinit var db: RoutineDatabase
     private lateinit var repository: RoomTimelineRepository
     private val date = LocalDate.of(2026, 9, 7)
-    private val template = RoutineBlueprint(subjectId = null, title = "Study", category = RoutineCategory.FOCUS_STUDY,
+    private val template = RoutineBlueprint(subjectId = null, title = "Study", category = RoutineCategory.FOCUS_ANALYTICAL,
         dayOfWeek = DayOfWeek.MONDAY, startTime = LocalTime.of(8, 0), endTime = LocalTime.of(9, 0), isNotificationEnabled = true)
 
     @Before fun setUp() {
@@ -90,7 +90,7 @@ class RoomIntegrityTest {
 
     @Test fun sqliteTriggersProtectEvenRawWrites(): Unit = runBlocking {
         val id = repository.saveRoutine(template)
-        constraint { db.openHelper.writableDatabase.execSQL("UPDATE routine_blocks SET endTime = startTime WHERE id = ?", arrayOf(id)) }
+        constraint { db.openHelper.writableDatabase.execSQL("UPDATE routine_blocks SET durationMinutes = 0 WHERE id = ?", arrayOf(id)) }
         constraint { db.openHelper.writableDatabase.execSQL("UPDATE routine_blocks SET category = 'INVALID' WHERE id = ?", arrayOf(id)) }
         constraint { db.openHelper.writableDatabase.execSQL("UPDATE routine_blocks SET title = '  ' WHERE id = ?", arrayOf(id)) }
         constraint { db.completions().insert(RoutineCompletionEntity(id, date.plusDays(1))) }

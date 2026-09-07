@@ -14,7 +14,7 @@ class PresetFactoryTest {
         assertEquals(listOf(PresetKind.SUBJECT_LESSON, PresetKind.SUBJECT_STUDY, PresetKind.SUBJECT_TEST), presets.map { it.kind })
         assertTrue(presets.all { it.subjectId == 42L && it.subjectName == "Matematika" && it.colorHex == subject.colorHex && it.durationMinutes == 45 })
         assertEquals(RoutineCategory.SCHOOL, presets[0].category)
-        assertEquals(RoutineCategory.FOCUS_STUDY, presets[1].category)
+        assertEquals(RoutineCategory.FOCUS_ANALYTICAL, presets[1].category)
         assertTrue(presets[2].isExam)
     }
     @Test fun `IDs are unique across subjects and purposes`() {
@@ -43,7 +43,7 @@ class PresetFactoryTest {
         assertEquals(90, presets.single { it.kind == PresetKind.DEEP_WORK }.durationMinutes)
         assertEquals(45, presets.single { it.kind == PresetKind.POMODORO }.durationMinutes)
         assertEquals(15, presets.single { it.kind == PresetKind.WALK }.durationMinutes)
-        assertEquals(RoutineCategory.REST_BREAK, presets.single { it.kind == PresetKind.WALK }.category)
+        assertEquals(RoutineCategory.REST_BUFFER, presets.single { it.kind == PresetKind.WALK }.category)
         assertTrue(presets.single { it.kind == PresetKind.EXAM }.isExam)
     }
 }

@@ -9,7 +9,7 @@ import org.junit.Test
 class AlarmPlannerTest {
     private val planner = AlarmPlanner()
     private val utc = ZoneId.of("UTC")
-    private val routine = RoutineBlueprint(1, null, "Study", RoutineCategory.FOCUS_STUDY,
+    private val routine = RoutineBlueprint(1, null, "Study", RoutineCategory.FOCUS_ANALYTICAL,
         monday.dayOfWeek, LocalTime.of(8, 0), LocalTime.of(9, 0), true)
     private fun snapshot(routines: List<RoutineBlueprint> = listOf(routine), overrides: List<EventOverride> = emptyList(),
         completions: List<OccurrenceCompletion> = emptyList(), calendar: List<CalendarEntry> = emptyList()) =
@@ -17,7 +17,7 @@ class AlarmPlannerTest {
 
     @Test fun `focus pre alert is five minutes before but recovery is at start`() {
         val focus = planner.forOccurrence(block(480, 540), utc)!!
-        val rest = planner.forOccurrence(block(480, 540, RoutineCategory.REST_BREAK), utc)!!
+        val rest = planner.forOccurrence(block(480, 540, RoutineCategory.REST_BUFFER), utc)!!
         assertEquals(monday.atTime(7, 55).toInstant(ZoneOffset.UTC), focus.triggerAt)
         assertEquals(monday.atTime(8, 0).toInstant(ZoneOffset.UTC), rest.triggerAt)
         assertEquals(AlarmKind.RECOVERY_START, rest.kind)
@@ -26,7 +26,7 @@ class AlarmPlannerTest {
     @Test fun `earliest next day pre alert is found across midnight`() {
         val tomorrow = routine.copy(id = 2, dayOfWeek = monday.plusDays(1).dayOfWeek,
             startTime = LocalTime.of(0, 2), endTime = LocalTime.of(1, 0))
-        val tonight = routine.copy(category = RoutineCategory.REST_BREAK, startTime = LocalTime.of(23, 59), endTime = LocalTime.of(0, 30))
+        val tonight = routine.copy(category = RoutineCategory.REST_BUFFER, startTime = LocalTime.of(23, 59), endTime = LocalTime.of(0, 30))
         val now = monday.atTime(23, 50).toInstant(ZoneOffset.UTC)
         val next = planner.next(snapshot(listOf(tonight, tomorrow)), now, utc)!!
         assertEquals(monday.atTime(23, 57).toInstant(ZoneOffset.UTC), next.triggerAt)

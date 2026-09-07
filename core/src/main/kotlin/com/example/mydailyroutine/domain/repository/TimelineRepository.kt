@@ -22,7 +22,7 @@ interface TimelineRepository {
     suspend fun restoreOccurrence(routineId: Long, date: LocalDate)
     suspend fun resetOverride(routineId: Long, date: LocalDate)
     suspend fun editBlock(routineId: Long, date: LocalDate, title: String, start: LocalTime, end: LocalTime, wholeTemplate: Boolean)
-    suspend fun setCompleted(routineId: Long, date: LocalDate, completed: Boolean)
+    suspend fun setCompleted(routineId: Long, date: LocalDate, completed: Boolean, actualMinutes: Int? = null)
     suspend fun saveMilestone(milestone: Milestone): Long
     suspend fun setMilestoneCompleted(id: Long, completed: Boolean)
     suspend fun deleteMilestone(id: Long)
@@ -37,6 +37,7 @@ interface PreferencesRepository {
     suspend fun setTeachingEndDate(date: LocalDate)
     suspend fun setHapticsEnabled(enabled: Boolean)
     suspend fun setHealthConfig(config: HealthConfig)
+    suspend fun setPlanningConfig(config: com.example.mydailyroutine.domain.planning.PlanningConfig)
 }
 
 /** Opt-in sample import, separate from application/database initialization. */

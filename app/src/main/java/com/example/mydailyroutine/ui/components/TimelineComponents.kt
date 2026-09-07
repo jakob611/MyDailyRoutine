@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.planning.CircadianPenalty
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.RoutineCategory
 import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
@@ -107,7 +108,7 @@ fun TimelineBlockCard(
                 border = if (activeAmount > 0.01f) BorderStroke(1.5.dp, style.accent.copy(alpha = 0.6f * activeAmount))
                     else BorderStroke(1.dp, RoutineColors.CardBorder),
             ) {
-                Column(Modifier.fillMaxWidth().heightIn(min = (block.durationMinutes * 0.55f + 84).coerceIn(108f, 230f).dp)
+                Column(Modifier.fillMaxWidth().heightIn(min = maxOf(112.dp, block.durationMinutes.dp))
                     .drawBehind {
                         val x = if (layoutDirection == LayoutDirection.Rtl) size.width - 4.dp.toPx() else 0f
                         drawRect(barColor.copy(alpha = if (past || block.isSuppressed) 0.35f else 1f), Offset(x, 0f), androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height))
@@ -131,6 +132,9 @@ fun TimelineBlockCard(
                     }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         MetaChip(block.category.label(), style)
+                        if (block.reviewId != null) MetaChip(stringResource(R.string.review_badge), RoutineColors.School)
+                        if (block.category.isDeepWork && CircadianPenalty().kernel(block.startMinute + block.durationMinutes / 2.0) > 0.45)
+                            MetaChip(stringResource(R.string.circadian_hint), RoutineColors.Recovery)
                         if (active) MetaChip(stringResource(R.string.now), style)
                         if (block.hasOverride) MetaChip(stringResource(R.string.moved_today))
                         if (!block.isNotificationEnabled) MetaChip(stringResource(R.string.notifications_off))
@@ -149,7 +153,7 @@ fun TimelineBlockCard(
                                 block.occurrenceDate.format(DateTimeFormatter.ofPattern("EEEE", Slovenian))), style = MaterialTheme.typography.bodySmall)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(stringResource(if (block.category == RoutineCategory.REST_BREAK) R.string.reminder_at_recovery else R.string.reminder_before), style = MaterialTheme.typography.bodySmall)
+                                    Text(stringResource(if (block.category == RoutineCategory.REST_BUFFER) R.string.reminder_at_recovery else R.string.reminder_before), style = MaterialTheme.typography.bodySmall)
                                     if (!block.isOneOff) Text(stringResource(R.string.applies_every_week), style = MaterialTheme.typography.labelSmall)
                                 }
                                 Switch(block.isNotificationEnabled, { onAction(TimelineAction.SetReminder(block.routineBlockId, it)) }, enabled = !busy)

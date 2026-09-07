@@ -36,7 +36,7 @@ class RecoveryPlannerTest {
         assertEquals(items[1], plan.change.original)
     }
     @Test fun `fixed commitments cannot be displaced by extending a focus block`() {
-        val items = listOf(block(480, 600), block(600, 660, RoutineCategory.PERSONAL))
+        val items = listOf(block(480, 600), block(600, 660, RoutineCategory.ADMIN))
         val plan = (planner.plan(monday, items, warning(items, WarningType.CONCENTRATION_LIMIT), HealthConfig()) as RecoveryDecision.Insert).plan
         assertNull(plan.change)
         assertTrue(plan.start >= monday.atTime(11, 0))
@@ -55,7 +55,7 @@ class RecoveryPlannerTest {
         assertNull(plan.change)
     }
     @Test fun `existing rest is not duplicated`() {
-        val items = listOf(block(480, 700, RoutineCategory.SCHOOL), block(700, 720, RoutineCategory.REST_BREAK))
+        val items = listOf(block(480, 700, RoutineCategory.SCHOOL), block(700, 720, RoutineCategory.REST_BUFFER))
         assertEquals(RecoveryDecision.AlreadyHandled, planner.plan(monday, items, warning(items, WarningType.HIGH_COGNITIVE_LOAD), HealthConfig()))
     }
     @Test fun `full fixed day has no safe mutation`() {

@@ -38,10 +38,10 @@ object OccurrenceTimes {
 /** One upcoming notification batch keeps AlarmManager usage O(1), even for a very dense timetable. */
 class AlarmPlanner(private val resolver: TimelineResolver = TimelineResolver()) {
     fun forOccurrence(block: ResolvedTimelineItem.Block, zone: ZoneId): PlannedAlarm? {
-        if (block.isCarryIn || block.isSuppressed || block.isCompleted || !block.isNotificationEnabled) return null
+        if (block.category == RoutineCategory.EMERGENCY_RESERVE || block.isCarryIn || block.isSuppressed || block.isCompleted || !block.isNotificationEnabled) return null
         val window = OccurrenceTimes.window(block, zone)
         if (window.end <= window.start) return null
-        val kind = if (block.category == RoutineCategory.REST_BREAK) AlarmKind.RECOVERY_START else AlarmKind.BLOCK_PREVIEW
+        val kind = if (block.category == RoutineCategory.REST_BUFFER) AlarmKind.RECOVERY_START else AlarmKind.BLOCK_PREVIEW
         val trigger = if (kind == AlarmKind.RECOVERY_START) window.start else window.start.minusSeconds(5 * 60)
         return PlannedAlarm(block, kind, trigger)
     }

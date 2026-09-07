@@ -7,6 +7,7 @@ import com.example.mydailyroutine.data.local.RoutineDatabase
 import com.example.mydailyroutine.data.seed.DemoDataSeeder
 import com.example.mydailyroutine.data.preferences.DataStorePreferencesRepository
 import com.example.mydailyroutine.data.repository.RoomTimelineRepository
+import com.example.mydailyroutine.data.repository.RoomPlanningRepository
 import com.example.mydailyroutine.scheduling.ScheduleAlarmScheduler
 import com.example.mydailyroutine.scheduling.ScheduleCoordinator
 import com.example.mydailyroutine.scheduling.ScheduleNotifier
@@ -23,6 +24,7 @@ class AppGraph(context: Context) {
     private val refreshRequests = Channel<Unit>(Channel.CONFLATED)
     val database = RoutineDatabase.create(context)
     val repository = RoomTimelineRepository(database, ::requestRefresh)
+    val planning = RoomPlanningRepository(database, repository, ::requestRefresh)
     val preferences = DataStorePreferencesRepository(context, ::requestRefresh)
     val exampleData = DemoDataSeeder(context, database, preferences, ::requestRefresh)
     val scheduler = ScheduleAlarmScheduler(context)

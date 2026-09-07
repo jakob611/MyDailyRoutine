@@ -11,29 +11,32 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 
 @Database(
-    entities = [SubjectEntity::class, RoutineBlockEntity::class, EventOverrideEntity::class,
+    entities = [SubjectEntity::class, TimeBlockEntity::class, EventOverrideEntity::class,
         SchoolCalendarEntryEntity::class, MilestoneEntity::class, RoutineCompletionEntity::class,
-        AlarmDeliveryEntity::class, DemoImportEntity::class],
-    version = 2,
+        AlarmDeliveryEntity::class, DemoImportEntity::class, HistoricalVelocityEntity::class,
+        StudyTopicEntity::class, SpacedReviewEntity::class, BacklogEntryEntity::class],
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(TimeConverters::class)
 abstract class RoutineDatabase : RoomDatabase() {
     abstract fun subjects(): SubjectDao
-    abstract fun routines(): RoutineDao
+    abstract fun routines(): TimeBlockDao
     abstract fun overrides(): OverrideDao
     abstract fun calendar(): CalendarDao
     abstract fun milestones(): MilestoneDao
     abstract fun completions(): CompletionDao
     abstract fun alarmDeliveries(): AlarmDeliveryDao
     abstract fun demoImports(): DemoImportDao
+    abstract fun learning(): LearningDao
+    abstract fun backlog(): BacklogDao
 
     companion object {
         fun create(context: Context): RoutineDatabase = Room.databaseBuilder(
             context.applicationContext, RoutineDatabase::class.java, "daily-routine.db",
         )
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(DatabaseMigrations.MIGRATION_1_2)
+            .addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3)
             .addCallback(SeedAndIntegrityCallback(context.resources))
             // No destructive migration fallback: schema changes must ship an explicit migration.
             .build()

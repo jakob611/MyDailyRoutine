@@ -83,7 +83,7 @@ class ConnectedFeaturesTest {
     }
 
     @Test fun warningActionPersistsOneOffRecoveryAndPreservesNextWeek(): Unit = runBlocking {
-        repo.saveRoutine(RoutineBlueprint(subjectId = null, title = "Učenje", category = RoutineCategory.FOCUS_STUDY,
+        repo.saveRoutine(RoutineBlueprint(subjectId = null, title = "Učenje", category = RoutineCategory.FOCUS_ANALYTICAL,
             dayOfWeek = date.dayOfWeek, startTime = LocalTime.of(8, 0), endTime = LocalTime.of(10, 0), isNotificationEnabled = false))
         val original = repo.getTimelineForDate(date).first().single()
         val result = repo.insertRecovery(date, WarningType.CONCENTRATION_LIMIT, original.key, HealthConfig(), context.getString(R.string.auto_recovery_title), context.getString(R.string.continuation_suffix))
@@ -100,9 +100,9 @@ class ConnectedFeaturesTest {
     }
 
     @Test fun thresholdPreferenceChangeRecomputesViewModelWithoutDatabaseEdit(): Unit = runBlocking {
-        repo.saveRoutine(RoutineBlueprint(subjectId = null, title = "Fokus", category = RoutineCategory.FOCUS_STUDY, dayOfWeek = date.dayOfWeek,
+        repo.saveRoutine(RoutineBlueprint(subjectId = null, title = "Fokus", category = RoutineCategory.FOCUS_ANALYTICAL, dayOfWeek = date.dayOfWeek,
             startTime = LocalTime.of(8, 0), endTime = LocalTime.of(9, 15), isNotificationEnabled = false))
-        val model = withContext(Dispatchers.Main) { TimelineViewModel(repo, prefs, SavedStateHandle(mapOf("date" to date.toEpochDay())), DemoDataSeeder(context, db, prefs, {})) }
+        val model = withContext(Dispatchers.Main) { TimelineViewModel(repo, prefs, SavedStateHandle(mapOf("date" to date.toEpochDay())), DemoDataSeeder(context, db, prefs, {}), com.example.mydailyroutine.data.repository.RoomPlanningRepository(db, repo, {})) }
         val collector = launch { model.state.collect() }
         try {
             val initial = withTimeout(10000) { model.state.first { !it.content.isLoading } }
@@ -126,7 +126,7 @@ class ConnectedFeaturesTest {
                 statements.forEach { legacy.execSQL(it.value.trim().removeSuffix(";")) }
                 legacy.execSQL("INSERT INTO subjects VALUES (1, 'Matematika', 4282090230, 45)")
             }
-            val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2)
+            val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3)
                 .addCallback(SeedAndIntegrityCallback(context.resources)).build()
             try {
                 assertEquals("Matematika", migrated.subjects().getAll().single().name)
@@ -142,6 +142,7 @@ class ConnectedFeaturesTest {
         override suspend fun setSchoolWindow(start: LocalTime, end: LocalTime) { preferences.update { it.copy(schoolStart = start, schoolEnd = end) } }
         override suspend fun setTeachingEndDate(date: LocalDate) { preferences.update { it.copy(teachingEndDate = date) } }
         override suspend fun setHapticsEnabled(enabled: Boolean) { preferences.update { it.copy(hapticsEnabled = enabled) } }
+        override suspend fun setPlanningConfig(config: com.example.mydailyroutine.domain.planning.PlanningConfig) { preferences.update { it.copy(planning = config) } }
         override suspend fun setHealthConfig(config: HealthConfig) { preferences.update { it.copy(health = config) } }
     }
 }

@@ -2,6 +2,17 @@
 
 A Slovenian-language, OLED-dark-first Android time-blocking app for school, focused study, personal routines, recovery, and IB milestones. Kotlin 2.x, Jetpack Compose / Material 3, Room, Coroutines / Flow, AlarmManager, and Glance. No account, HTTP client, telemetry, or runtime network permission.
 
+## Computational planning extension
+
+The current branch adds Room v3 minute-duration blocks, explicit actual-time history, five-phase
+slippage recovery, RSEM reserves, calibrated estimates, Gaussian circadian costs, capacity-limited
+spaced reviews, reverse milestone preparation and a persistent backlog. All features reuse the
+existing app/resolver/alarms/widget. See [the mathematical model and integration policies](docs/CHRONOBIOLOGY_ENGINE.md).
+
+Current local research-extension checks: **102 core tests**, **13 SQLite checks**, **458 Slovenian
+resources**, and syntax parsing for **83 Kotlin files**. The previous successful CI run below
+predates this extension; its Android build/device verification is being rerun, not assumed passed.
+
 ## What is implemented
 
 - **Daily timeline:** time-scaled gaps, subject colors, deep-work borders, muted recovery cards, current-block highlighting, inline health guidance, haptics, spring placement and expansion animations.

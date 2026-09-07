@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.health.*
 import com.example.mydailyroutine.domain.presets.PresetFactory
+import com.example.mydailyroutine.domain.repository.PlanningRepository
+import com.example.mydailyroutine.domain.model.nominalMinutes
 import com.example.mydailyroutine.domain.repository.ExampleDataRepository
 import com.example.mydailyroutine.ui.theme.RoutineColors
 import com.example.mydailyroutine.domain.health.ScheduleMetrics
@@ -39,6 +41,7 @@ class TimelineViewModel(
     private val settings: PreferencesRepository,
     private val savedState: SavedStateHandle,
     private val exampleData: ExampleDataRepository,
+    private val planningRepository: PlanningRepository,
     private val clock: Clock = Clock.systemUTC(),
 ) : ViewModel() {
     private fun today(): LocalDate = LocalDate.now(clock.withZone(ZoneId.systemDefault()))
@@ -67,8 +70,11 @@ class TimelineViewModel(
             }
     }
 
-    val state: StateFlow<TimelineUiState> = combine(content, settings.preferences, panels, exampleData.isLoaded) { data, preferences, panels, loaded ->
-        TimelineUiState(data, preferences, panels, loaded)
+    private val planning = combine(planningRepository.backlog, planningRepository.history, planningRepository.topics, planningRepository.milestones) { backlog, history, topics, milestones ->
+        PlanningUiState(backlog.toPersistentList(), history.toPersistentList(), topics.toPersistentList(), milestones.toPersistentList())
+    }.catch { error -> if (error is CancellationException) throw error else emit(PlanningUiState()) }
+    val state: StateFlow<TimelineUiState> = combine(content, settings.preferences, panels, exampleData.isLoaded, planning) { data, preferences, panels, loaded, planning ->
+        TimelineUiState(data, preferences, panels, loaded, planning)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimelineUiState(TimelineContent(initialDate)))
 
     private suspend fun resolveContent(date: LocalDate, mode: TimelineMode, snapshot: ScheduleSnapshot, config: HealthConfig): TimelineContent {
@@ -109,7 +115,7 @@ class TimelineViewModel(
                 if (action.openDay) {
                     savedState["mode"] = TimelineMode.DAY.name
                     panels.update { it.copy(showAdd = false, showSettings = false, editingBlock = null,
-                        editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false) }
+                        editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false, showTopicEditor = false, completionTarget = null) }
                 }
             }
             is TimelineAction.SelectMode -> savedState.set("mode", action.mode.name)
@@ -125,9 +131,47 @@ class TimelineViewModel(
             }
             TimelineAction.Today -> savedState.set("date", today().toEpochDay())
             TimelineAction.Retry -> retry.update { it + 1 }
+            TimelineAction.OpenPlanning -> panels.update { it.copy(showPlanning = true, showAdd = false, showSettings = false) }
+            TimelineAction.ClosePlanning -> if (!panels.value.isSaving) panels.update { it.copy(showPlanning = false) }
+            TimelineAction.NewTopic -> panels.update { it.copy(showTopicEditor = true) }
+            TimelineAction.CloseTopic -> if (!panels.value.isSaving) panels.update { it.copy(showTopicEditor = false) }
+            TimelineAction.CloseActual -> if (!panels.value.isSaving) panels.update { it.copy(completionTarget = null) }
+            is TimelineAction.RecordActual -> perform {
+                repository.setCompleted(action.item.routineBlockId, action.item.occurrenceDate, true, action.minutes)
+                panels.update { it.copy(completionTarget = null) }
+                messages.send(TimelineEffect.Completed)
+            }
+            is TimelineAction.AutoHeal -> perform {
+                val result = planningRepository.autoHeal(action.date, action.actualStartMinutes, state.value.preferences.planning.defaultSlipMinutes, state.value.preferences.planning)
+                messages.send(TimelineEffect.Message(R.string.healed_summary, result.bufferUsedMinutes + result.compressionMinutes + result.slackUsedMinutes, result.deferredCount))
+            }
+            is TimelineAction.AddReserve -> perform {
+                val minutes = planningRepository.ensureReserve(action.date, state.value.preferences.planning, action.title)
+                messages.send(TimelineEffect.Message(R.string.reserve_added, minutes))
+            }
+            is TimelineAction.ScheduleBacklog -> perform {
+                val result = planningRepository.scheduleBacklog(action.id, action.date, state.value.preferences.planning)
+                if (result.placed) savedState["date"] = action.date.toEpochDay()
+                messages.send(TimelineEffect.Message(if (result.placed) R.string.backlog_scheduled else R.string.backlog_no_space))
+            }
+            is TimelineAction.DeleteBacklog -> perform { planningRepository.deleteBacklog(action.id) }
+            is TimelineAction.SaveTopic -> perform {
+                val result = planningRepository.createTopic(action.topic, state.value.preferences.planning, action.titlePattern)
+                panels.update { it.copy(showTopicEditor = false) }
+                messages.send(TimelineEffect.Message(R.string.review_plan_summary, result.reviews, result.deferredMinutes))
+            }
+            is TimelineAction.DeleteTopic -> perform { planningRepository.deleteTopic(action.id) }
+            is TimelineAction.PlanMilestone -> perform {
+                val result = planningRepository.planMilestone(action.id, action.initialDate, state.value.preferences.planning, action.titlePattern, action.reserveTitle, action.category)
+                messages.send(TimelineEffect.Message(R.string.preparation_summary, result.studyMinutes, result.deferredMinutes))
+            }
+            is TimelineAction.SetPlanningConfig -> perform {
+                settings.setPlanningConfig(action.config)
+                messages.send(TimelineEffect.Message(R.string.planning_saved))
+            }
             TimelineAction.OpenAdd -> panels.update { it.copy(showAdd = true, addSession = it.addSession + 1,
-                showSettings = false, editingMilestone = null, editingBlock = null, editingSubject = null, pendingDelete = null, confirmDemo = false) }
-            TimelineAction.OpenSettings -> panels.update { it.copy(showSettings = true, showAdd = false, editingBlock = null, editingMilestone = null) }
+                showSettings = false, editingMilestone = null, editingBlock = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false) }
+            TimelineAction.OpenSettings -> panels.update { it.copy(showSettings = true, showAdd = false, showPlanning = false, editingBlock = null, editingMilestone = null) }
             TimelineAction.CloseAdd -> if (!panels.value.isSaving) panels.update { it.copy(showAdd = false, editingMilestone = null) }
             TimelineAction.CloseSettings -> if (!panels.value.isSaving) panels.update { it.copy(showSettings = false) }
             TimelineAction.CloseEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingBlock = null) }
@@ -141,7 +185,9 @@ class TimelineViewModel(
                 panels.update { it.copy(editingBlock = null) }
                 messages.send(TimelineEffect.Message(R.string.message_updated))
             }
-            is TimelineAction.ToggleComplete -> perform {
+            is TimelineAction.ToggleComplete -> if (action.item is ResolvedTimelineItem.Block && action.item.category.isDeepWork && !action.item.isCompleted) {
+                panels.update { it.copy(completionTarget = action.item) }
+            } else perform {
                 when (val item = action.item) {
                     is ResolvedTimelineItem.Block -> repository.setCompleted(item.routineBlockId, item.occurrenceDate, !item.isCompleted)
                     is ResolvedTimelineItem.Milestone -> repository.setMilestoneCompleted(item.milestoneId, !item.isCompleted)
@@ -217,16 +263,25 @@ class TimelineViewModel(
 
     private fun saveEntry(draft: EntryDraft) = perform {
         when (draft.kind) {
-            EntryKind.BLOCK -> repository.saveRoutine(RoutineBlueprint(
-                subjectId = draft.subjectId, title = draft.title, category = draft.category,
-                dayOfWeek = draft.date.dayOfWeek, startTime = requireNotNull(draft.start), endTime = requireNotNull(draft.end),
-                isNotificationEnabled = draft.notificationsEnabled, validFrom = draft.date,
-                validUntil = if (draft.repeatWeekly) null else draft.date,
-            ))
+            EntryKind.BLOCK -> {
+                val start = requireNotNull(draft.start)
+                val raw = nominalMinutes(start, requireNotNull(draft.end))
+                val fixed = draft.isFixedCommitment || draft.category == RoutineCategory.SCHOOL
+                val calibrated = if (draft.calibrateDuration && draft.category.isDeepWork && !fixed && draft.subjectId != null)
+                    planningRepository.getCalibratedDuration(raw, draft.subjectId.toString()) else raw
+                val minimum = draft.minDurationMinutes ?: if (fixed) raw else if (draft.category == RoutineCategory.EMERGENCY_RESERVE) 0 else minOf(25, raw)
+                val duration = maxOf(calibrated, minimum)
+                repository.saveRoutine(RoutineBlueprint(subjectId = draft.subjectId, title = draft.title, category = draft.category,
+                    dayOfWeek = draft.date.dayOfWeek, startTime = start, endTime = start.plusMinutes(duration.toLong()),
+                    isNotificationEnabled = draft.notificationsEnabled && draft.category != RoutineCategory.EMERGENCY_RESERVE,
+                    validFrom = draft.date, validUntil = if (draft.repeatWeekly) null else draft.date,
+                    minDurationMinutes = if (fixed) duration else minimum, elasticity = if (fixed) 0.0 else draft.elasticity,
+                    priorityWeight = draft.priorityWeight, isFixedCommitment = fixed, rawDurationMinutes = raw))
+            }
             EntryKind.DEADLINE, EntryKind.EXAM -> repository.saveMilestone(Milestone(
                 id = draft.existingMilestoneId, subjectId = draft.subjectId, title = draft.title,
                 dueDate = draft.date, dueTime = draft.start, isExam = draft.kind == EntryKind.EXAM,
-                isCompleted = draft.isCompleted,
+                isCompleted = draft.isCompleted, estimatedEffortHours = draft.estimatedEffortHours, isTerminalExam = draft.isTerminalExam,
             ))
         }
         savedState["date"] = draft.date.toEpochDay()

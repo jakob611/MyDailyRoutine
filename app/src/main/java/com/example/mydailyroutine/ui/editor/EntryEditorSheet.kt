@@ -25,6 +25,9 @@ import com.example.mydailyroutine.domain.model.RoutineCategory
 import com.example.mydailyroutine.domain.model.ScheduleValidation
 import com.example.mydailyroutine.domain.model.Subject
 import com.example.mydailyroutine.domain.presets.*
+import com.example.mydailyroutine.domain.learning.HistoricalVelocity
+import com.example.mydailyroutine.domain.learning.VelocityCalibrator
+import com.example.mydailyroutine.domain.model.nominalMinutes
 import com.example.mydailyroutine.ui.feedback.LocalRoutineHaptics
 import com.example.mydailyroutine.ui.theme.*
 import com.example.mydailyroutine.ui.timeline.*
@@ -35,7 +38,7 @@ import java.time.LocalTime
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EntryEditorSheet(
-    selectedDate: LocalDate, subjects: List<Subject>, subjectPresets: List<QuickAddPreset>,
+    selectedDate: LocalDate, subjects: List<Subject>, subjectPresets: List<QuickAddPreset>, history: List<HistoricalVelocity>,
     editing: ResolvedTimelineItem.Milestone?, busy: Boolean,
     onDismiss: () -> Unit, onSave: (EntryDraft) -> Unit, onNewSubject: () -> Unit,
 ) {
@@ -49,7 +52,7 @@ fun EntryEditorSheet(
     var dateText by rememberSaveable(editing?.key) { mutableStateOf(initial.toLocalDate().toString()) }
     var startText by rememberSaveable(editing?.key) { mutableStateOf(initial.toLocalTime().clockLabel()) }
     var endText by rememberSaveable(editing?.key) { mutableStateOf(initial.toLocalTime().plusMinutes(90).clockLabel()) }
-    var category by rememberSaveable { mutableStateOf(RoutineCategory.FOCUS_STUDY) }
+    var category by rememberSaveable { mutableStateOf(RoutineCategory.FOCUS_ANALYTICAL) }
     var kind by rememberSaveable(editing?.key) { mutableStateOf(if (editing == null) EntryKind.BLOCK else if (editing.isExam) EntryKind.EXAM else EntryKind.DEADLINE) }
     var subjectId by rememberSaveable(editing?.key) { mutableStateOf(editing?.subject?.id) }
     var weekly by rememberSaveable { mutableStateOf(false) }
@@ -57,6 +60,14 @@ fun EntryEditorSheet(
     var allDay by rememberSaveable(editing?.key) { mutableStateOf(editing != null && editing.dueTime == null) }
     var error by rememberSaveable { mutableStateOf<Int?>(null) }
     var pickingDate by rememberSaveable { mutableStateOf(false) }
+    var minimum by rememberSaveable { mutableStateOf("") }
+    var elasticity by rememberSaveable { mutableStateOf("1.0") }
+    var priority by rememberSaveable { mutableStateOf("3.0") }
+    var fixed by rememberSaveable { mutableStateOf(false) }
+    var calibrate by rememberSaveable { mutableStateOf(true) }
+    var effort by rememberSaveable(editing?.key) { mutableStateOf(editing?.estimatedEffortHours?.takeIf { it > 0 }?.toString().orEmpty()) }
+    var terminal by rememberSaveable(editing?.key) { mutableStateOf(editing?.isTerminalExam ?: false) }
+    val velocity = remember(history) { VelocityCalibrator(history) }
     val haptics = LocalRoutineHaptics.current
     val context = LocalContext.current
     val standardPresets = remember { PresetFactory.standard() }
@@ -79,17 +90,27 @@ fun EntryEditorSheet(
         val date = ScheduleValidation.parseDate(dateText)
         val start = if (chosenKind != EntryKind.BLOCK && allDay) null else ScheduleValidation.parseTime(startText)
         val end = if (chosenKind == EntryKind.BLOCK) ScheduleValidation.parseTime(endText) else null
+        val minimumValue = if (minimum.isBlank()) null else minimum.toIntOrNull()
+        val elasticityValue = elasticity.replace(',', '.').toDoubleOrNull()
+        val priorityValue = priority.replace(',', '.').toDoubleOrNull()
+        val effortValue = if (effort.isBlank()) 0.0 else effort.replace(',', '.').toDoubleOrNull()
+        val raw = if (start != null && end != null) nominalMinutes(start, end) else 0
         error = when {
             chosenTitle.isBlank() -> R.string.error_title
             date == null -> R.string.error_date
             (chosenKind == EntryKind.BLOCK || !allDay) && start == null -> R.string.error_time
             chosenKind == EntryKind.BLOCK && (end == null || end == start) -> R.string.error_time_range
+            chosenKind == EntryKind.BLOCK && ((minimum.isNotBlank() && (minimumValue == null || minimumValue !in 0..raw)) ||
+                elasticityValue == null || !elasticityValue.isFinite() || elasticityValue !in 0.0..1000000.0 ||
+                priorityValue == null || !priorityValue.isFinite() || priorityValue <= 0 || priorityValue > 1000000) -> R.string.elastic_invalid
+            chosenKind != EntryKind.BLOCK && (effortValue == null || !effortValue.isFinite() || effortValue !in 0.0..1000.0) -> R.string.effort_invalid
             else -> null
         }
         if (error == null && date != null) {
             val chosenSubject = preset?.subjectId ?: subjectId
             onSave(EntryDraft(chosenTitle, chosenSubject?.takeIf { id -> subjects.any { it.id == id } }, chosenKind, date, start, end,
-                preset?.category ?: category, weekly, notifications, editing?.milestoneId ?: 0, editing?.isCompleted ?: false))
+                preset?.category ?: category, weekly, notifications, editing?.milestoneId ?: 0, editing?.isCompleted ?: false,
+                minimumValue, elasticityValue ?: 1.0, priorityValue ?: 3.0, fixed, calibrate, effortValue ?: 0.0, terminal && chosenKind == EntryKind.EXAM))
         }
     }
 
@@ -162,6 +183,32 @@ fun EntryEditorSheet(
             }
             if (kind == EntryKind.BLOCK) {
                 Text(stringResource(R.string.entry_overnight_hint), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.elastic_settings), style = MaterialTheme.typography.titleSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(fixed || category == RoutineCategory.SCHOOL, { fixed = it }, enabled = !busy && category != RoutineCategory.SCHOOL)
+                    Text(stringResource(R.string.fixed_commitment))
+                }
+                Text(stringResource(R.string.fixed_hint), style = MaterialTheme.typography.bodySmall)
+                if (!fixed && category != RoutineCategory.SCHOOL) {
+                    OutlinedTextField(minimum, { minimum = it.filter(Char::isDigit).take(4) }, label = { Text(stringResource(R.string.minimum_duration)) }, singleLine = true, enabled = !busy)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(elasticity, { elasticity = it }, label = { Text(stringResource(R.string.elasticity)) }, modifier = Modifier.weight(1f), singleLine = true, enabled = !busy)
+                        OutlinedTextField(priority, { priority = it }, label = { Text(stringResource(R.string.priority_weight)) }, modifier = Modifier.weight(1f), singleLine = true, enabled = !busy)
+                    }
+                    Text(stringResource(R.string.elastic_hint), style = MaterialTheme.typography.bodySmall)
+                }
+                if (category.isDeepWork && subjectId != null && !fixed) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(calibrate, { calibrate = it }, enabled = !busy)
+                        Text(stringResource(R.string.calibrate_duration))
+                    }
+                    val from = ScheduleValidation.parseTime(startText)
+                    val until = ScheduleValidation.parseTime(endText)
+                    if (from != null && until != null && from != until) {
+                        val raw = nominalMinutes(from, until)
+                        Text(stringResource(R.string.velocity_preview, raw, if (calibrate) velocity.getCalibratedDuration(raw, subjectId.toString()) else raw), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Sage)
+                    }
+                }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(RoutineCategory.entries, key = { it.name }) { option -> FilterChip(category == option, { category = option; haptics.tap() }, enabled = !busy,
                         label = { Text(option.label()) }, shape = RoutineShapes.Chip) }
@@ -176,12 +223,18 @@ fun EntryEditorSheet(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.entry_reminder), style = MaterialTheme.typography.titleSmall)
-                        Text(stringResource(if (category == RoutineCategory.REST_BREAK) R.string.reminder_at_recovery else R.string.reminder_before), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(if (category == RoutineCategory.REST_BUFFER) R.string.reminder_at_recovery else R.string.reminder_before), style = MaterialTheme.typography.bodySmall)
                     }
                     Switch(notifications, { notifications = it; haptics.tap() }, enabled = !busy)
                 }
             } else {
                 Text(stringResource(R.string.marker_hint), style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(effort, { effort = it }, label = { Text(stringResource(R.string.milestone_effort)) }, singleLine = true, enabled = !busy)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(terminal, { terminal = it; if (it) kind = EntryKind.EXAM }, enabled = !busy)
+                    Text(stringResource(R.string.terminal_exam))
+                }
+                Text(stringResource(R.string.effort_hint), style = MaterialTheme.typography.bodySmall)
                 if (editing == null && subjects.isNotEmpty()) {
                     Text(stringResource(R.string.scheduled_test_hint), style = MaterialTheme.typography.bodySmall)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

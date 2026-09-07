@@ -35,6 +35,12 @@ object ScheduleValidation {
     fun routine(block: RoutineBlueprint) {
         require(block.id >= 0)
         require(block.subjectId == null || block.subjectId > 0)
+        val duration = nominalMinutes(block.startTime, block.endTime)
+        require(block.minDurationMinutes in 0..duration && (block.category.isBuffer || block.minDurationMinutes > 0))
+        require(block.elasticity.isFinite() && block.elasticity in 0.0..1_000_000.0)
+        require(block.priorityWeight.isFinite() && block.priorityWeight > 0.0 && block.priorityWeight <= 1_000_000.0)
+        require(block.rawDurationMinutes in 1..1439)
+        require(block.category != RoutineCategory.SCHOOL || (block.isFixedCommitment && block.elasticity == 0.0 && block.minDurationMinutes == duration))
         title(block.title)
         times(block.startTime, block.endTime)
         require(block.validFrom == null || block.validUntil == null || block.validUntil >= block.validFrom) {
@@ -46,6 +52,7 @@ object ScheduleValidation {
         require(override.routineBlockId == base.id && base.occursOn(override.overrideDate)) {
             "This template does not occur on that date."
         }
+        require(override.dayShift in 0..MAX_OCCURRENCE_SHIFT_DAYS)
         override.customTitle?.let(::title)
         times(override.customStartTime ?: base.startTime, override.customEndTime ?: base.endTime)
     }
@@ -53,6 +60,8 @@ object ScheduleValidation {
     fun milestone(milestone: Milestone) {
         require(milestone.id >= 0)
         require(milestone.subjectId == null || milestone.subjectId > 0)
+        require(milestone.estimatedEffortHours.isFinite() && milestone.estimatedEffortHours in 0.0..1000.0)
+        require(!milestone.isTerminalExam || milestone.isExam)
         title(milestone.title)
         milestone.dueTime?.let(::minutePrecision)
     }

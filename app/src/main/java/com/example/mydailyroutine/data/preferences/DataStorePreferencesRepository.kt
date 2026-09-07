@@ -38,6 +38,7 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             schoolEnd = time(values[endKey], defaults.schoolEnd),
             hapticsEnabled = values[hapticsKey] ?: true,
             health = HealthPreferenceCodec.read(values),
+            planning = PlanningPreferenceCodec.read(values),
             teachingEndDate = values[teachingEndKey]?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
                 ?: defaults.teachingEndDate,
         )
@@ -72,6 +73,11 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
 
     override suspend fun setHealthConfig(config: HealthConfig) {
         store.edit { HealthPreferenceCodec.write(it, config) }
+        onChanged()
+    }
+
+    override suspend fun setPlanningConfig(config: com.example.mydailyroutine.domain.planning.PlanningConfig) {
+        store.edit { PlanningPreferenceCodec.write(it, config) }
         onChanged()
     }
 }

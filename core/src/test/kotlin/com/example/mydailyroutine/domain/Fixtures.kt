@@ -6,7 +6,7 @@ import java.time.LocalDate
 
 internal val monday: LocalDate = LocalDate.of(2026, 9, 7)
 internal fun block(
-    start: Int, end: Int, category: RoutineCategory = RoutineCategory.FOCUS_STUDY,
+    start: Int, end: Int, category: RoutineCategory = RoutineCategory.FOCUS_ANALYTICAL,
     id: Long = start.toLong() + 1, suppressed: Boolean = false,
 ): ResolvedTimelineItem.Block = ResolvedTimelineItem.Block(
     routineBlockId = id, occurrenceDate = monday, date = monday, title = "Block $id",

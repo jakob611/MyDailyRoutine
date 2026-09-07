@@ -43,7 +43,7 @@ class TimelineResolverTest {
     }
 
     @Test fun `holidays tag school without suppressing personal study`() {
-        val data = snapshot(routines = listOf(routine, routine.copy(id = 2, category = RoutineCategory.FOCUS_STUDY)),
+        val data = snapshot(routines = listOf(routine, routine.copy(id = 2, category = RoutineCategory.FOCUS_ANALYTICAL)),
             calendar = listOf(CalendarEntry(date = monday, title = "Vacation", isWorkFreeDay = true)))
         val items = resolver.resolve(monday, data).filterIsInstance<ResolvedTimelineItem.Block>()
         assertTrue(items.single { it.routineBlockId == 1L }.isSuppressed)
@@ -65,7 +65,7 @@ class TimelineResolverTest {
     }
 
     @Test fun `overnight block carries into next day and keeps completion ownership`() {
-        val data = snapshot(routines = listOf(routine.copy(startTime = LocalTime.of(23, 0), endTime = LocalTime.of(7, 0), category = RoutineCategory.PERSONAL)),
+        val data = snapshot(routines = listOf(routine.copy(startTime = LocalTime.of(23, 0), endTime = LocalTime.of(7, 0), category = RoutineCategory.ADMIN)),
             completions = listOf(OccurrenceCompletion(1, monday)))
         val start = resolver.resolve(monday, data).single() as ResolvedTimelineItem.Block
         val next = resolver.resolve(monday.plusDays(1), data).single() as ResolvedTimelineItem.Block

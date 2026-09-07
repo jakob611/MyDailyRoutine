@@ -106,6 +106,8 @@ fun SettingsSheet(
                 AdvancedHealthSettings(preferences.health, busy) { onAction(TimelineAction.SetHealthConfig(it)) }
             }
             HorizontalDivider()
+            PlanningSettings(preferences.planning, busy) { onAction(TimelineAction.SetPlanningConfig(it)) }
+            HorizontalDivider()
             Text(stringResource(R.string.demo_heading), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(R.string.demo_description), style = MaterialTheme.typography.bodySmall)
             OutlinedButton(enabled = !busy && !exampleLoaded, onClick = { onAction(TimelineAction.RequestDemo) }) {

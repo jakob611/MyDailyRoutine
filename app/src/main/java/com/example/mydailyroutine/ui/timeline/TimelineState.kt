@@ -1,6 +1,8 @@
 package com.example.mydailyroutine.ui.timeline
 
 import androidx.compose.runtime.Immutable
+import com.example.mydailyroutine.domain.planning.*
+import com.example.mydailyroutine.domain.learning.*
 import androidx.annotation.StringRes
 import com.example.mydailyroutine.domain.health.HealthConfig
 import com.example.mydailyroutine.domain.presets.QuickAddPreset
@@ -56,6 +58,9 @@ data class TimelinePanels(
     val pendingDelete: ResolvedTimelineItem? = null,
     val isSaving: Boolean = false,
     val confirmDemo: Boolean = false,
+    val showPlanning: Boolean = false,
+    val completionTarget: ResolvedTimelineItem.Block? = null,
+    val showTopicEditor: Boolean = false,
 )
 
 @Immutable
@@ -64,6 +69,7 @@ data class TimelineUiState(
     val preferences: SchedulePreferences = SchedulePreferences(),
     val panels: TimelinePanels = TimelinePanels(),
     val exampleLoaded: Boolean = false,
+    val planning: PlanningUiState = PlanningUiState(),
 )
 
 @Immutable
@@ -79,6 +85,13 @@ data class EntryDraft(
     val notificationsEnabled: Boolean,
     val existingMilestoneId: Long = 0,
     val isCompleted: Boolean = false,
+    val minDurationMinutes: Int? = null,
+    val elasticity: Double = 1.0,
+    val priorityWeight: Double = 3.0,
+    val isFixedCommitment: Boolean = false,
+    val calibrateDuration: Boolean = true,
+    val estimatedEffortHours: Double = 0.0,
+    val isTerminalExam: Boolean = false,
 )
 
 sealed interface TimelineAction {
@@ -88,6 +101,20 @@ sealed interface TimelineAction {
     data object Today : TimelineAction
     data object Retry : TimelineAction
     data object OpenAdd : TimelineAction
+    data object OpenPlanning : TimelineAction
+    data object ClosePlanning : TimelineAction
+    data object NewTopic : TimelineAction
+    data object CloseTopic : TimelineAction
+    data class SaveTopic(val topic: StudyTopic, val titlePattern: String) : TimelineAction
+    data class DeleteTopic(val id: Long) : TimelineAction
+    data class AutoHeal(val date: LocalDate, val actualStartMinutes: Int) : TimelineAction
+    data class AddReserve(val date: LocalDate, val title: String) : TimelineAction
+    data class ScheduleBacklog(val id: Long, val date: LocalDate) : TimelineAction
+    data class DeleteBacklog(val id: Long) : TimelineAction
+    data class PlanMilestone(val id: Long, val initialDate: LocalDate, val titlePattern: String, val reserveTitle: String, val category: RoutineCategory = RoutineCategory.FOCUS_ANALYTICAL) : TimelineAction
+    data class RecordActual(val item: ResolvedTimelineItem.Block, val minutes: Int) : TimelineAction
+    data object CloseActual : TimelineAction
+    data class SetPlanningConfig(val config: PlanningConfig) : TimelineAction
     data object OpenSettings : TimelineAction
     data object CloseAdd : TimelineAction
     data object CloseSettings : TimelineAction
@@ -119,6 +146,14 @@ sealed interface TimelineAction {
 }
 
 sealed interface TimelineEffect {
-    data class Message(@StringRes val resource: Int, val minutes: Int? = null) : TimelineEffect
+    data class Message(@StringRes val resource: Int, val minutes: Int? = null, val count: Int? = null) : TimelineEffect
     data object Completed : TimelineEffect
 }
+
+@Immutable
+data class PlanningUiState(
+    val backlog: PersistentList<BacklogEntry> = persistentListOf(),
+    val history: PersistentList<HistoricalVelocity> = persistentListOf(),
+    val topics: PersistentList<StudyTopic> = persistentListOf(),
+    val milestones: PersistentList<Milestone> = persistentListOf(),
+)

@@ -23,29 +23,29 @@ class ScheduleHealthEngineTest {
 
     @Test fun `nineteen minute recovery is insufficient but twenty resets cognitive load`() {
         assertTrue(WarningType.HIGH_COGNITIVE_LOAD in types(
-            block(480, 580, SCHOOL), block(580, 599, REST_BREAK), block(599, 699),
+            block(480, 580, SCHOOL), block(580, 599, REST_BUFFER), block(599, 699),
         ))
         assertFalse(WarningType.HIGH_COGNITIVE_LOAD in types(
-            block(480, 580, SCHOOL), block(580, 600, REST_BREAK), block(600, 700),
+            block(480, 580, SCHOOL), block(580, 600, REST_BUFFER), block(600, 700),
         ))
     }
 
     @Test fun `adjacent rest blocks can form a twenty minute recovery`() {
         assertFalse(WarningType.HIGH_COGNITIVE_LOAD in types(
-            block(480, 580), block(580, 590, REST_BREAK), block(590, 600, REST_BREAK), block(600, 700),
+            block(480, 580), block(580, 590, REST_BUFFER), block(590, 600, REST_BUFFER), block(600, 700),
         ))
     }
 
     @Test fun `real unallocated recovery resets but a project is not a break`() {
         assertFalse(WarningType.HIGH_COGNITIVE_LOAD in types(block(480, 580), block(600, 700)))
         assertTrue(WarningType.HIGH_COGNITIVE_LOAD in types(
-            block(480, 580), block(580, 640, PROJECT), block(640, 740),
+            block(480, 580), block(580, 640, FOCUS_SYNTHESIZING), block(640, 740),
         ))
     }
 
     @Test fun `rest overlapping work cannot reset fatigue`() {
         assertTrue(WarningType.HIGH_COGNITIVE_LOAD in types(
-            block(480, 580), block(570, 600, REST_BREAK), block(580, 690, SCHOOL),
+            block(480, 580), block(570, 600, REST_BUFFER), block(580, 690, SCHOOL),
         ))
     }
 
@@ -67,22 +67,22 @@ class ScheduleHealthEngineTest {
     }
 
     @Test fun `sedentary threshold is strict and projects count`() {
-        assertFalse(WarningType.PHYSICAL_RESET in types(block(480, 600, PROJECT)))
-        assertTrue(WarningType.PHYSICAL_RESET in types(block(480, 601, PROJECT)))
-        assertFalse(WarningType.PHYSICAL_RESET in types(block(480, 1000, PERSONAL)))
+        assertFalse(WarningType.PHYSICAL_RESET in types(block(480, 600, FOCUS_SYNTHESIZING)))
+        assertTrue(WarningType.PHYSICAL_RESET in types(block(480, 601, FOCUS_SYNTHESIZING)))
+        assertFalse(WarningType.PHYSICAL_RESET in types(block(480, 1000, ADMIN)))
     }
 
     @Test fun `five minute walk resets deskwork span`() {
         assertFalse(WarningType.PHYSICAL_RESET in types(
-            block(480, 550), block(550, 555, REST_BREAK), block(555, 625),
+            block(480, 550), block(550, 555, REST_BUFFER), block(555, 625),
         ))
     }
 
     @Test fun `fragmentation includes boundaries only when unallocated`() {
         for (gap in listOf(45, 90)) assertTrue(WarningType.FRAGMENTED_TIME in types(block(480, 540), block(540 + gap, 690)))
         for (gap in listOf(44, 91)) assertFalse(WarningType.FRAGMENTED_TIME in types(block(480, 540), block(540 + gap, 690)))
-        assertFalse(WarningType.FRAGMENTED_TIME in types(block(480, 540), block(540, 600, REST_BREAK), block(600, 660)))
-        assertFalse(WarningType.FRAGMENTED_TIME in types(block(480, 540), block(570, 580, PERSONAL), block(600, 660)))
+        assertFalse(WarningType.FRAGMENTED_TIME in types(block(480, 540), block(540, 600, REST_BUFFER), block(600, 660)))
+        assertFalse(WarningType.FRAGMENTED_TIME in types(block(480, 540), block(570, 580, ADMIN), block(600, 660)))
     }
 
     @Test fun `holiday school and zero duration milestones never add cognitive load`() {

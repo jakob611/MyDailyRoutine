@@ -49,9 +49,9 @@ class HealthConfigTest {
     @Test(expected = IllegalArgumentException::class) fun `inverted fragment range is rejected`() { HealthConfig(fragmentedMinMinutes = 90, fragmentedMaxMinutes = 45) }
     @Test(expected = IllegalArgumentException::class) fun `invalid threshold is rejected`() { HealthConfig(focusLimitMinutes = 0) }
     @Test fun `load bar is disjoint across overlapping categories`() {
-        val input = listOf(block(480, 600, RoutineCategory.SCHOOL), block(500, 650), block(600, 630, RoutineCategory.REST_BREAK))
+        val input = listOf(block(480, 600, RoutineCategory.SCHOOL), block(500, 650), block(600, 630, RoutineCategory.REST_BUFFER))
         val allocation = categoryAllocation(input)
         assertEquals(170, allocation.sumOf { it.minutes })
-        assertEquals(0, allocation.single { it.category == RoutineCategory.REST_BREAK }.minutes)
+        assertEquals(0, allocation.single { it.category == RoutineCategory.REST_BUFFER }.minutes)
     }
 }

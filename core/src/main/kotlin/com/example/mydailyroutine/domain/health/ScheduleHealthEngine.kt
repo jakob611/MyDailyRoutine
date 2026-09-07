@@ -21,8 +21,8 @@ data class HealthWarning(
  * - Per-day totals use clipped, unioned intervals (overlap never counts twice).
  * - Completed work still contributes load; holiday-suppressed school and milestones do not.
  * - >=20 min of explicit REST or genuinely unallocated time resets cognitive accumulation.
- * - >=5 min of the same recovery resets the deskwork span; PROJECT is assumed deskwork.
- * - A recovery booked over work is NOT recovery. PERSONAL isn't presumed sedentary or restorative.
+ * - >=5 min of the same recovery resets the deskwork span; FOCUS_SYNTHESIZING is assumed deskwork.
+ * - A recovery booked over work is NOT recovery. ADMIN isn't presumed sedentary or restorative.
  * - Defaults: strict >90, >180, >300, >120; transition <30; fragmentation 45..90 inclusive.
  *   A HealthConfig customizes thresholds and enables/disables each rule without changing interval accounting.
  * - Warnings carry facts only. All displayed copy is localized by the Android resource layer.
@@ -35,12 +35,12 @@ class ScheduleHealthEngine {
             .distinctBy { it.key }
             .sortedWith(compareBy<ResolvedTimelineItem.Block> { it.startMinute }.thenBy { it.key })
         if (blocks.isEmpty()) return emptyList()
-        val focus = blocks.filter { it.category == RoutineCategory.FOCUS_STUDY }
+        val focus = blocks.filter { it.category.isDeepWork }
         val school = blocks.filter { it.category == RoutineCategory.SCHOOL }
         val cognitive = blocks.filter { it.category in cognitiveCategories }
         val seated = blocks.filter { it.category in seatedCategories }
-        val nonRest = blocks.filter { it.category != RoutineCategory.REST_BREAK }.map { it.interval() }
-        val rest = blocks.filter { it.category == RoutineCategory.REST_BREAK }.map { it.interval() }
+        val nonRest = blocks.filter { !it.category.isBuffer }.map { it.interval() }
+        val rest = blocks.filter { it.category.isBuffer }.map { it.interval() }
         val free = Intervals.subtract(listOf(MinuteInterval(0, 1440)), blocks.map { it.interval() })
         val recovery = Intervals.union(Intervals.subtract(rest, nonRest) + free)
         val warnings = mutableListOf<HealthWarning>()
@@ -103,8 +103,8 @@ class ScheduleHealthEngine {
     }
 
     companion object {
-        private val cognitiveCategories = setOf(RoutineCategory.SCHOOL, RoutineCategory.FOCUS_STUDY)
-        private val seatedCategories = cognitiveCategories + RoutineCategory.PROJECT
+        private val cognitiveCategories = setOf(RoutineCategory.SCHOOL, RoutineCategory.FOCUS_ANALYTICAL, RoutineCategory.FOCUS_SYNTHESIZING)
+        private val seatedCategories = cognitiveCategories + RoutineCategory.FOCUS_SYNTHESIZING
 
     }
 }

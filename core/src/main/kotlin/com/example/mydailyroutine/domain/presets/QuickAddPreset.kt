@@ -7,7 +7,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 /** Display names come from Android resources; IDs and behavior are locale-independent. */
-enum class PresetKind { DEEP_WORK, POMODORO, WALK, IB_REVISION, EXAM, SUBJECT_LESSON, SUBJECT_STUDY, SUBJECT_TEST }
+enum class PresetKind { DEEP_WORK, POMODORO, WALK, IB_REVISION, EXAM, RESERVE, SUBJECT_LESSON, SUBJECT_STUDY, SUBJECT_TEST }
 
 data class QuickAddPreset(
     val key: String,
@@ -29,7 +29,7 @@ data class PresetWindow(val start: LocalDateTime, val end: LocalDateTime)
 object PresetFactory {
     fun forSubject(subject: Subject): List<QuickAddPreset> = listOf(
         PresetKind.SUBJECT_LESSON to RoutineCategory.SCHOOL,
-        PresetKind.SUBJECT_STUDY to RoutineCategory.FOCUS_STUDY,
+        PresetKind.SUBJECT_STUDY to RoutineCategory.FOCUS_ANALYTICAL,
         PresetKind.SUBJECT_TEST to RoutineCategory.SCHOOL,
     ).map { (kind, category) ->
         QuickAddPreset("subject:${subject.id}:${kind.name}", kind, subject.defaultDurationMinutes, category,
@@ -37,10 +37,11 @@ object PresetFactory {
     }
     fun forSubjects(subjects: List<Subject>): List<QuickAddPreset> = subjects.distinctBy { it.id }.flatMap(::forSubject)
     fun standard(): List<QuickAddPreset> = listOf(
-        QuickAddPreset("deep-work", PresetKind.DEEP_WORK, 90, RoutineCategory.FOCUS_STUDY),
-        QuickAddPreset("pomodoro", PresetKind.POMODORO, 45, RoutineCategory.FOCUS_STUDY),
-        QuickAddPreset("walk", PresetKind.WALK, 15, RoutineCategory.REST_BREAK),
-        QuickAddPreset("ib-revision", PresetKind.IB_REVISION, 90, RoutineCategory.FOCUS_STUDY),
+        QuickAddPreset("deep-work", PresetKind.DEEP_WORK, 90, RoutineCategory.FOCUS_ANALYTICAL),
+        QuickAddPreset("pomodoro", PresetKind.POMODORO, 45, RoutineCategory.FOCUS_ANALYTICAL),
+        QuickAddPreset("walk", PresetKind.WALK, 15, RoutineCategory.REST_BUFFER),
+        QuickAddPreset("ib-revision", PresetKind.IB_REVISION, 90, RoutineCategory.FOCUS_ANALYTICAL),
+        QuickAddPreset("reserve", PresetKind.RESERVE, 30, RoutineCategory.EMERGENCY_RESERVE),
         QuickAddPreset("exam", PresetKind.EXAM, 45, RoutineCategory.SCHOOL),
     )
 }

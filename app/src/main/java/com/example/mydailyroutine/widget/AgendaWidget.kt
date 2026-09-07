@@ -15,6 +15,11 @@ import androidx.glance.*
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.*
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.action.ActionParameters
+import androidx.glance.unit.ColorProvider
+import com.example.mydailyroutine.domain.planning.AgendaProjection
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.state.updateAppWidgetState
@@ -43,9 +48,9 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 
-private data class WidgetRow(val title: String, val time: String, val status: String, val active: Boolean, val next: Boolean, val style: CategoryStyle)
+private data class WidgetRow(val title: String, val time: String, val status: String, val active: Boolean, val next: Boolean, val style: CategoryStyle, val progress: Float? = null)
 private data class WidgetAgenda(val date: LocalDate, val days: Long, val countdown: String, val rows: List<WidgetRow>, val updatedAt: String,
-    val error: Boolean = false, val loading: Boolean = false)
+    val error: Boolean = false, val loading: Boolean = false, val reserveRemaining: Int = 0)
 private data class WidgetSnapshot(val date: LocalDate, val items: List<ResolvedTimelineItem>, val preferences: SchedulePreferences,
     val error: Boolean = false, val loading: Boolean = false)
 
@@ -86,27 +91,18 @@ private fun agendaFlow(graph: AppGraph, date: LocalDate): Flow<WidgetSnapshot> =
 }
 
 private fun resolveAgenda(context: Context, snapshot: WidgetSnapshot, now: Instant, zone: ZoneId): WidgetAgenda {
-    val remaining = snapshot.items.filter { item -> !item.isCompleted && when (item) {
-        is ResolvedTimelineItem.Block -> !item.isSuppressed && OccurrenceTimes.window(item, zone).end > now
-        is ResolvedTimelineItem.Milestone -> true
-    } }
-    val nextKey = remaining.filterIsInstance<ResolvedTimelineItem.Block>().filter { OccurrenceTimes.window(it, zone).start > now }
-        .minByOrNull { OccurrenceTimes.window(it, zone).start }?.key
-    val rows = remaining.map { item -> when (item) {
-        is ResolvedTimelineItem.Block -> {
-            val window = OccurrenceTimes.window(item, zone)
-            val active = now >= window.start && now < window.end
-            val next = item.key == nextKey
-            WidgetRow(item.title, context.getString(R.string.time_range, window.start.atZone(zone).format(timeFormat), window.end.atZone(zone).format(timeFormat)),
-                context.getString(when { active -> R.string.now; next -> R.string.up_next; else -> item.category.labelRes() }), active, next, categoryStyle(item.category, item.subject?.colorHex))
-        }
-        is ResolvedTimelineItem.Milestone -> WidgetRow(item.title, item.dueTime?.format(timeFormat) ?: context.getString(R.string.all_day),
-            context.getString(if (item.isExam) R.string.category_exam else R.string.category_milestone), false, false, RoutineColors.Exam)
-    } }
+    val projection = AgendaProjection.from(snapshot.items, now, zone)
+    val rows = (listOfNotNull(projection.active) + projection.upcoming).map { item ->
+        val window = OccurrenceTimes.window(item, zone)
+        val active = item.key == projection.active?.key
+        WidgetRow(item.title, context.getString(R.string.time_range, window.start.atZone(zone).format(timeFormat), window.end.atZone(zone).format(timeFormat)),
+            context.getString(if (active) R.string.now else R.string.up_next), active, !active,
+            categoryStyle(item.category, item.subject?.colorHex), if (active) projection.progress else null)
+    }
     val days = SlovenianAcademicCalendar.daysRemaining(snapshot.date, snapshot.preferences.teachingEndDate)
     val countdown = if (snapshot.loading) context.getString(R.string.widget_updating) else if (days > 0)
         context.resources.getQuantityString(R.plurals.days_to_teaching_end, days.toInt(), days) else context.getString(R.string.widget_complete)
-    return WidgetAgenda(snapshot.date, days, countdown, rows, now.atZone(zone).format(timeFormat), snapshot.error, snapshot.loading)
+    return WidgetAgenda(snapshot.date, days, countdown, rows, now.atZone(zone).format(timeFormat), snapshot.error, snapshot.loading, projection.reserveRemainingMinutes)
 }
 
 /** Updates both active Glance sessions and cold widgets; updates never depend on a periodic timer. */
@@ -129,6 +125,7 @@ private fun AgendaContent(context: Context, agenda: WidgetAgenda) {
         WidgetText(context, agenda.date.format(DateTimeFormatter.ofPattern("EEE, d. MMM", Slovenian)), 18f, bold = true, modifier = GlanceModifier.fillMaxWidth().clickable(openDay))
         if (roomy && agenda.days > 0) WidgetText(context, agenda.days.toString(), 36f, bold = true)
         WidgetText(context, agenda.countdown, 12f, RoutineColors.TextSecondary)
+        WidgetText(context, context.getString(R.string.reserve_remaining, agenda.reserveRemaining), 12f, RoutineColors.Sage)
         Spacer(GlanceModifier.height(10.dp))
         LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
             if (agenda.error || agenda.loading || agenda.rows.isEmpty()) item {
@@ -144,6 +141,10 @@ private fun AgendaContent(context: Context, agenda: WidgetAgenda) {
                         WidgetText(context, row.status, 11f, if (row.active || row.next) row.style.content else RoutineColors.TextMuted, bold = true)
                     }
                     WidgetText(context, row.title, 15f, bold = true)
+                    row.progress?.let { progress ->
+                        LinearProgressIndicator(progress = progress, modifier = GlanceModifier.fillMaxWidth().height(5.dp),
+                            color = ColorProvider(row.style.accent), backgroundColor = ColorProvider(RoutineColors.Surface2))
+                    }
                 }
             }
             if (agenda.rows.size > 60) item {
@@ -152,7 +153,7 @@ private fun AgendaContent(context: Context, agenda: WidgetAgenda) {
         }
         Spacer(GlanceModifier.height(8.dp))
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            WidgetText(context, context.getString(R.string.widget_as_of, agenda.updatedAt), 10f, RoutineColors.TextMuted, modifier = GlanceModifier.defaultWeight())
+            WidgetText(context, context.getString(R.string.widget_as_of, agenda.updatedAt), 10f, RoutineColors.TextMuted, modifier = GlanceModifier.defaultWeight().clickable(actionRunCallback<RefreshAgendaAction>()))
             Box(GlanceModifier.background(RoutineColors.Focus.container).cornerRadius(24.dp).clickable(actionStartActivity(MainActivity.fastAddIntent(context))).padding(10.dp)) {
                 WidgetText(context, context.getString(R.string.widget_add), 12f, RoutineColors.Focus.content, bold = true)
             }
@@ -181,5 +182,12 @@ class AgendaWidgetReceiver : GlanceAppWidgetReceiver() {
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
         context.appGraph.requestRefresh()
+    }
+}
+
+/** User-requested refresh, not a polling worker. */
+class RefreshAgendaAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        refreshAgendaWidgets(context)
     }
 }
