@@ -135,7 +135,9 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
         val topic = entry.topicId?.let { db.learning().getTopic(it)?.domain() }
         val latestDate = listOfNotNull(goal?.dueDate, topic?.finalDate).minOrNull()
         if (latestDate != null && date > latestDate) return@transaction PlacementResult(false, failure = PlacementFailure.DEADLINE)
-        if (entry.stageOrder != null && entry.milestoneId != null && db.backlog().hasEarlierStage(entry.milestoneId, entry.stageOrder))
+        val stage = entry.stageOrder
+        val goalId = entry.milestoneId
+        if (stage != null && goalId != null && db.backlog().hasEarlierStage(goalId, stage))
             return@transaction PlacementResult(false, failure = PlacementFailure.DEPENDENCY)
         val items = resolver.resolve(date, timeline.snapshot(date, date))
         val lastMinute = if (goal?.dueDate == date) goal.dueTime?.toSecondOfDay()?.div(60) ?: config.studyEndMinutes else config.studyEndMinutes

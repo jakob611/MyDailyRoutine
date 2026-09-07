@@ -2,6 +2,9 @@ package com.example.mydailyroutine
 
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import java.io.File
 import androidx.lifecycle.Lifecycle
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.annotation.StringRes
@@ -13,6 +16,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class TimelineUiTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
@@ -21,13 +25,15 @@ class TimelineUiTest {
 
     @Test fun allFourSlovenianViewsAndFastAddAreReachable() {
         compose.onNodeWithText(text(R.string.app_name)).assertIsDisplayed()
-        click(R.string.nav_week); awaitText(R.string.week_heading)
-        click(R.string.nav_month); awaitText(R.string.month_heading)
-        click(R.string.nav_year); awaitText(R.string.year_big_picture)
+        awaitText(R.string.day_heading); capture("01-day")
+        click(R.string.nav_week); awaitText(R.string.week_heading); capture("02-week")
+        click(R.string.nav_month); awaitText(R.string.month_heading); capture("03-month")
+        click(R.string.nav_year); awaitText(R.string.year_big_picture); capture("04-year")
         click(R.string.nav_day); compose.onNodeWithTag("fast-add").performClick(); awaitText(R.string.fast_add_title)
         compose.onNodeWithText(text(R.string.preset_deep_work)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.entry_save)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.elasticity)).assertDoesNotExist()
+        capture("05-quick-add",true)
     }
     @Test fun settingsExposeAdvancedRulesAndOptInDemo() {
         compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
@@ -58,6 +64,12 @@ class TimelineUiTest {
         @Suppress("DEPRECATION") val permissions = compose.activity.packageManager.getPackageInfo(compose.activity.packageName, PackageManager.GET_PERMISSIONS).requestedPermissions.orEmpty()
         assertFalse("android.permission.INTERNET" in permissions)
         assertFalse("android.permission.ACCESS_NETWORK_STATE" in permissions)
+    }
+    private fun capture(name: String, editor: Boolean = false) {
+        val directory = File(compose.activity.getExternalFilesDir(null), "ui-audit").apply { mkdirs() }
+        val image = if (editor) compose.onNodeWithTag("entry-editor",useUnmergedTree=true).captureToImage()
+            else compose.onRoot(useUnmergedTree=true).captureToImage()
+        File(directory,"$name.png").outputStream().use { image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it) }
     }
     private fun awaitText(@StringRes id: Int) {
         compose.waitUntil(10000) { compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty() }

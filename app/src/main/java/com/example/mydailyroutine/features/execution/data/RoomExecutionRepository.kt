@@ -36,8 +36,10 @@ class RoomExecutionRepository(private val db: RoutineDatabase, private val timel
         if (existing != null) { require(existing.routineBlockId == routineId && existing.occurrenceDate == date); return@write }
         val block = occurrence(routineId, date, today)
         require(!block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer)
-        if (block.milestoneId != null && block.stageOrder != null)
-            require(!db.backlog().hasEarlierStage(block.milestoneId, block.stageOrder)) { "An earlier deliverable stage is still unscheduled" }
+        val goalId = block.milestoneId
+        val stage = block.stageOrder
+        if (goalId != null && stage != null)
+            require(!db.backlog().hasEarlierStage(goalId, stage)) { "An earlier deliverable stage is still unscheduled" }
         val end = OccurrenceTimes.window(block, zone).end
         val peers = resolver.resolve(today, timeline.snapshot(today, today.plusDays(1))).filterIsInstance<ResolvedTimelineItem.Block>()
             .filter { it.occurrenceKey != block.occurrenceKey && !it.isSuppressed && (it.isFixedCommitment || it.category == RoutineCategory.SCHOOL || it.category == RoutineCategory.REST_BUFFER) }

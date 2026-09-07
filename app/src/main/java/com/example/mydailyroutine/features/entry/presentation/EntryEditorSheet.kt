@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -121,7 +122,7 @@ fun EntryEditorSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1, tonalElevation = 0.dp) {
-        Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).imePadding()) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).imePadding().testTag("entry-editor")) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(if (editing == null) R.string.fast_add_title else R.string.entry_edit_milestone), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
                 IconButton(onClick = onDismiss, enabled = !busy) { Icon(Icons.Outlined.Close, stringResource(R.string.close)) }
