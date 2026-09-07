@@ -5,8 +5,11 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.mydailyroutine.R
-import com.example.mydailyroutine.data.local.*
-import com.example.mydailyroutine.data.repository.*
+import com.example.mydailyroutine.core.database.*
+import com.example.mydailyroutine.core.database.entities.*
+import com.example.mydailyroutine.core.database.daos.*
+import com.example.mydailyroutine.features.timeline.data.RoomTimelineRepository
+import com.example.mydailyroutine.features.planning.data.RoomPlanningRepository
 import com.example.mydailyroutine.domain.learning.StudyTopic
 import com.example.mydailyroutine.domain.model.*
 import com.example.mydailyroutine.domain.planning.PlanningConfig
@@ -125,7 +128,7 @@ class ResearchIntegrationTest {
                 legacy.execSQL("INSERT INTO routine_blocks VALUES(1,NULL,'Fokus','FOCUS_ANALYTICAL',1,480,90,0,NULL,NULL,25,1.0,3.0,0,NULL,60,NULL,NULL)")
                 legacy.execSQL("INSERT INTO backlog_entries VALUES(1,'Fokus','FOCUS_ANALYTICAL',90,25,1.0,3.0,NULL,1,NULL,NULL,NULL,NULL,'SLIPPAGE')")
             }
-            val migrated=Room.databaseBuilder(context,RoutineDatabase::class.java,name).addMigrations(DatabaseMigrations.MIGRATION_3_4)
+            val migrated=Room.databaseBuilder(context,RoutineDatabase::class.java,name).addMigrations(DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5)
                 .addCallback(SeedAndIntegrityCallback(context.resources)).build()
             try {
                 assertEquals(60,migrated.backlog().get(1)!!.rawDurationMinutes)

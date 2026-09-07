@@ -5,8 +5,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.example.mydailyroutine.di.AppGraph
-import com.example.mydailyroutine.di.appGraph
+import com.example.mydailyroutine.app.di.AppGraph
+import com.example.mydailyroutine.app.di.appGraph
 import java.time.Instant
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout

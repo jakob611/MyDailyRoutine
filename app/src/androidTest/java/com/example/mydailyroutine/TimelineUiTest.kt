@@ -26,6 +26,8 @@ class TimelineUiTest {
         click(R.string.nav_year); awaitText(R.string.year_big_picture)
         click(R.string.nav_day); compose.onNodeWithTag("fast-add").performClick(); awaitText(R.string.fast_add_title)
         compose.onNodeWithText(text(R.string.preset_deep_work)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.entry_save)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.elasticity)).assertDoesNotExist()
     }
     @Test fun settingsExposeAdvancedRulesAndOptInDemo() {
         compose.onNodeWithContentDescription(text(R.string.settings)).performClick()

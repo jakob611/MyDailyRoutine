@@ -4,9 +4,9 @@ import android.app.Application
 import android.content.Context
 import java.util.Locale
 import android.os.LocaleList
-import com.example.mydailyroutine.platform.Slovenian
-import com.example.mydailyroutine.platform.withSlovenianLocale
-import com.example.mydailyroutine.di.AppGraph
+import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.platform.withSlovenianLocale
+import com.example.mydailyroutine.app.di.AppGraph
 
 class RoutineApplication : Application() {
     lateinit var graph: AppGraph

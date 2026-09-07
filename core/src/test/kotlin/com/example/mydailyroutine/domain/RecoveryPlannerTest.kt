@@ -31,7 +31,7 @@ class RecoveryPlannerTest {
         val items = listOf(block(480, 600, RoutineCategory.SCHOOL), block(610, 700))
         val plan = (planner.plan(monday, items, warning(items, WarningType.INSUFFICIENT_TRANSITION), HealthConfig()) as RecoveryDecision.Insert).plan
         assertEquals(monday.atTime(10, 0), plan.start)
-        assertEquals(monday.atTime(10, 30), plan.change!!.start)
+        assertEquals(monday.atTime(10, 45), plan.change!!.start)
         assertEquals(90L, Duration.between(plan.change.start, plan.change.end).toMinutes())
         assertEquals(items[1], plan.change.original)
     }

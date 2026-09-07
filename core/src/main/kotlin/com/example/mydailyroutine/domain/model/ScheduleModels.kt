@@ -43,6 +43,7 @@ data class RoutineBlueprint(
     val rawDurationMinutes: Int = nominalMinutes(startTime, endTime),
     val topicId: Long? = null,
     val milestoneId: Long? = null,
+    val stageOrder: Int? = null,
 ) {
     fun occursOn(date: LocalDate): Boolean = date.dayOfWeek == dayOfWeek &&
         (validFrom == null || !date.isBefore(validFrom)) &&
@@ -80,7 +81,7 @@ data class Milestone(
     val isTerminalExam: Boolean = false,
 )
 
-data class OccurrenceCompletion(val routineBlockId: Long, val date: LocalDate, val actualMinutes: Int? = null)
+data class OccurrenceCompletion(val routineBlockId: Long, val date: LocalDate, val actualMinutes: Int? = null, val actualStartedAt: LocalDateTime? = null)
 data class CancelledOccurrence(val routineBlockId: Long, val occurrenceDate: LocalDate, val title: String)
 
 /** A transactionally consistent database read, not a composition of independent DAO emissions. */
@@ -132,6 +133,7 @@ sealed interface ResolvedTimelineItem {
         val topicId: Long? = null,
         val milestoneId: Long? = null,
         val reviewId: Long? = null,
+        val stageOrder: Int? = null,
     ) : ResolvedTimelineItem {
         override val key: String get() = "block:$routineBlockId:$occurrenceDate:$date"
         val occurrenceKey: String get() = "block:$routineBlockId:$occurrenceDate"
@@ -165,6 +167,7 @@ data class SchedulePreferences(
     val schoolEnd: LocalTime = LocalTime.of(14, 30),
     val teachingEndDate: LocalDate = LocalDate.of(2027, 6, 24),
     val hapticsEnabled: Boolean = true,
+    val automaticHealingEnabled: Boolean = true,
     val health: HealthConfig = HealthConfig(),
     val planning: com.example.mydailyroutine.domain.planning.PlanningConfig = com.example.mydailyroutine.domain.planning.PlanningConfig(),
 ) {

@@ -4,11 +4,11 @@ from pathlib import Path
 import re, sqlite3, unittest
 import xml.etree.ElementTree as ET
 from schema_metadata import ROOT, ddl
-LOCAL=ROOT/'app/src/main/java/com/example/mydailyroutine/data/local'
+LOCAL=ROOT/'app/src/main/java/com/example/mydailyroutine/core/database'
 
 def install(connection):
     predicates=re.findall(r'"(\w+)" to """(.*?)"""\.trimIndent\(\)',(LOCAL/'DatabaseIntegrity.kt').read_text(),re.S)
-    assert len(predicates)==len(ddl())==12
+    assert len(predicates)==12 and len(ddl())==13
     for table,predicate in predicates:
         for op in ('INSERT','UPDATE'):
             connection.execute(f"CREATE TRIGGER IF NOT EXISTS validate_{table}_{op.lower()} BEFORE {op} ON {table} FOR EACH ROW WHEN ({predicate}) BEGIN SELECT RAISE(ABORT,'Invalid {table} values'); END")
@@ -28,7 +28,7 @@ class SQLiteIntegritySmokeTest(unittest.TestCase):
     def setUp(self):
         self.db=database()
         self.db.execute("INSERT INTO subjects VALUES(1,'Matematika',?,45)",(0xFF3B82F6,))
-        self.db.execute("INSERT INTO routine_blocks VALUES(1,1,'Pouk','SCHOOL',1,480,60,1,NULL,NULL,60,0.0,5.0,1,NULL,60,NULL,NULL)")
+        self.db.execute("INSERT INTO routine_blocks VALUES(1,1,'Pouk','SCHOOL',1,480,60,1,NULL,NULL,60,0.0,5.0,1,NULL,60,NULL,NULL,NULL)")
         import datetime
         self.day=(datetime.date(2026,9,7)-datetime.date(1970,1,1)).days
     def tearDown(self):self.db.close()
@@ -89,7 +89,7 @@ class SQLiteIntegritySmokeTest(unittest.TestCase):
         self.db.execute("INSERT INTO study_topics VALUES(1,'Optika',1,1,100,4,15,3.0,NULL)")
         self.db.execute('INSERT INTO spaced_reviews VALUES(1,1,20,15,3.0,1,NULL,0)')
         self.fails('INSERT INTO spaced_reviews VALUES(2,1,20,15,3.0,1,NULL,0)')
-        self.db.execute("INSERT INTO backlog_entries VALUES(1,'Optika','FOCUS_ANALYTICAL',15,15,1.0,3.0,1,NULL,NULL,NULL,1,1,'REVIEW_CAPACITY',15)")
+        self.db.execute("INSERT INTO backlog_entries VALUES(1,'Optika','FOCUS_ANALYTICAL',15,15,1.0,3.0,1,NULL,NULL,NULL,1,1,'REVIEW_CAPACITY',15,NULL)")
         self.db.execute('DELETE FROM study_topics WHERE id=1')
         self.assertEqual(0,self.db.execute('SELECT count(*) FROM backlog_entries').fetchone()[0])
     def test_migration_preserves_existing_rows_without_disabling_fks(self):
@@ -120,6 +120,11 @@ class SQLiteIntegritySmokeTest(unittest.TestCase):
         self.assertEqual(('ADMIN',1380,120,1),db.execute('SELECT category,startMinutes,durationMinutes,isFixedCommitment FROM routine_blocks').fetchone())
         self.assertEqual(1,db.execute('SELECT count(*) FROM event_overrides').fetchone()[0])
         self.assertEqual([],db.execute('PRAGMA foreign_key_check').fetchall());db.close()
+    def test_execution_is_singleton_and_cascades(self):
+        self.db.execute("INSERT INTO active_execution VALUES(1,1,?,1000,2000,2000,NULL)",(self.day,))
+        self.fails("INSERT INTO active_execution VALUES(1,1,?,1000,2000,2000,NULL)",(self.day,))
+        self.db.execute('DELETE FROM routine_blocks WHERE id=1')
+        self.assertEqual(0,self.db.execute('SELECT count(*) FROM active_execution').fetchone()[0])
     def test_privacy_resources(self):
         for file in (ROOT/'app/src/main').rglob('*.xml'):ET.parse(file)
         manifest=ET.parse(ROOT/'app/src/main/AndroidManifest.xml').getroot()

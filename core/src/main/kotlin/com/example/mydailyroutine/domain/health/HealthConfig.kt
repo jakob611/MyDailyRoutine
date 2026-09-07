@@ -4,8 +4,8 @@ package com.example.mydailyroutine.domain.health
 data class HealthConfig(
     val focusLimitMinutes: Int = 90,
     val cognitiveLimitMinutes: Int = 180,
-    val transitionMinutes: Int = 30,
-    val dailyFocusLimitMinutes: Int = 300,
+    val transitionMinutes: Int = 45,
+    val dailyFocusLimitMinutes: Int = 270,
     val sedentaryLimitMinutes: Int = 120,
     val fragmentedMinMinutes: Int = 45,
     val fragmentedMaxMinutes: Int = 90,

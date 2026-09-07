@@ -3,7 +3,7 @@ package com.example.mydailyroutine.data
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.mutablePreferencesOf
-import com.example.mydailyroutine.data.preferences.HealthPreferenceCodec
+import com.example.mydailyroutine.core.preferences.HealthPreferenceCodec
 import com.example.mydailyroutine.domain.health.HealthConfig
 import org.junit.Assert.*
 import org.junit.Test

@@ -20,19 +20,19 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.example.mydailyroutine.di.appGraph
-import com.example.mydailyroutine.platform.withSlovenianLocale
-import com.example.mydailyroutine.ui.settings.NotificationAccess
-import com.example.mydailyroutine.ui.theme.MyDailyRoutineTheme
-import com.example.mydailyroutine.ui.timeline.TimelineAction
+import com.example.mydailyroutine.app.di.appGraph
+import com.example.mydailyroutine.core.platform.withSlovenianLocale
+import com.example.mydailyroutine.features.settings.presentation.NotificationAccess
+import com.example.mydailyroutine.core.designsystem.theme.MyDailyRoutineTheme
+import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.domain.model.ScheduleValidation
-import com.example.mydailyroutine.ui.timeline.TimelineScreen
-import com.example.mydailyroutine.ui.timeline.TimelineViewModel
+import com.example.mydailyroutine.app.presentation.RoutineApp
+import com.example.mydailyroutine.app.presentation.RoutineViewModel
 import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
-    private val viewModel by viewModels<TimelineViewModel> {
-        viewModelFactory { initializer { TimelineViewModel(appGraph.repository, appGraph.preferences, createSavedStateHandle(), appGraph.exampleData, appGraph.planning) } }
+    private val viewModel by viewModels<RoutineViewModel> {
+        viewModelFactory { initializer { RoutineViewModel(appGraph.repository, appGraph.preferences, createSavedStateHandle(), appGraph.exampleData, appGraph.planning, appGraph.execution) } }
     }
     private var access by mutableStateOf(NotificationAccess(false, false))
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
         refreshAccess()
         setContent {
             MyDailyRoutineTheme {
-                TimelineScreen(viewModel, access,
+                RoutineApp(viewModel, access,
                     requestNotifications = {
                         if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                         else openNotificationSettings()

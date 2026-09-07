@@ -28,19 +28,19 @@ import androidx.glance.material3.ColorProviders
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.example.mydailyroutine.MainActivity
 import com.example.mydailyroutine.R
-import com.example.mydailyroutine.di.AppGraph
-import com.example.mydailyroutine.di.appGraph
+import com.example.mydailyroutine.app.di.AppGraph
+import com.example.mydailyroutine.app.di.appGraph
 import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
-import com.example.mydailyroutine.platform.Slovenian
-import com.example.mydailyroutine.platform.withSlovenianLocale
-import com.example.mydailyroutine.ui.theme.OledColorScheme
-import com.example.mydailyroutine.ui.theme.CategoryStyle
-import com.example.mydailyroutine.ui.theme.categoryStyle
-import com.example.mydailyroutine.ui.theme.RoutineColors
-import com.example.mydailyroutine.ui.timeline.labelRes
+import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.platform.withSlovenianLocale
+import com.example.mydailyroutine.core.designsystem.theme.OledColorScheme
+import com.example.mydailyroutine.core.designsystem.theme.CategoryStyle
+import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
+import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.presentation.labelRes
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -188,6 +188,9 @@ class AgendaWidgetReceiver : GlanceAppWidgetReceiver() {
 /** User-requested refresh, not a polling worker. */
 class RefreshAgendaAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val graph = context.appGraph
+        val preferences = graph.preferences.preferences.first()
+        graph.execution.synchronize(preferences.planning, preferences.automaticHealingEnabled)
         refreshAgendaWidgets(context)
     }
 }

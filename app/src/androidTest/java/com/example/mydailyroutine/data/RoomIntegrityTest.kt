@@ -5,8 +5,10 @@ import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.mydailyroutine.data.local.*
-import com.example.mydailyroutine.data.repository.RoomTimelineRepository
+import com.example.mydailyroutine.core.database.*
+import com.example.mydailyroutine.core.database.entities.*
+import com.example.mydailyroutine.core.database.daos.*
+import com.example.mydailyroutine.features.timeline.data.RoomTimelineRepository
 import com.example.mydailyroutine.domain.model.*
 import java.time.DayOfWeek
 import java.time.LocalDate

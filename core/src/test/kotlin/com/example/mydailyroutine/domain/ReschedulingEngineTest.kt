@@ -62,11 +62,12 @@ class ReschedulingEngineTest {
         assertEquals(1455,result.blocks.first { it.id=="night" }.startMinutes)
         assertEquals(1545,result.blocks.first { it.id=="night" }.endMinutes)
     }
-    @Test fun `current fixed commitment is not invaded`() {
+    @Test fun `historical tasks are preserved rather than replayed by a delay`() {
         val items=listOf(task("late",790,30),task("school",780,120,120,0.0,10.0,RoutineCategory.SCHOOL,true))
         val result=engine.recover(items,840,20)
-        assertEquals(listOf("late"),result.deferred.map { it.id })
-        assertEquals(items[1],result.blocks.single())
+        assertTrue(result.deferred.isEmpty())
+        assertEquals(items.sortedBy { it.startMinutes }, result.blocks)
+        assertEquals(items[1],result.blocks.single { it.isFixed })
     }
     @Test fun `completed work is excluded and input is immutable`() {
         val done=task("done",800,40).copy(completedActualMinutes=50)

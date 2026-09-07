@@ -1,6 +1,6 @@
 package com.example.mydailyroutine.data
 
-import com.example.mydailyroutine.data.local.TimeConverters
+import com.example.mydailyroutine.core.database.TimeConverters
 import com.example.mydailyroutine.domain.model.RoutineCategory
 import java.time.DayOfWeek
 import java.time.LocalDate

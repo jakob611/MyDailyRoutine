@@ -12,11 +12,11 @@ interface PlanningRepository {
     val topics: Flow<List<StudyTopic>>
     val milestones: Flow<List<Milestone>>
     suspend fun getCalibratedDuration(rawMinutes: Int, subjectId: String): Int
-    suspend fun autoHeal(date: LocalDate, actualStartMinutes: Int, delayMinutes: Int, config: PlanningConfig): HealingReport
+    suspend fun autoHeal(date: LocalDate, actualStartMinutes: Int, delayMinutes: Int, config: PlanningConfig, excludedOccurrenceKey: String? = null): HealingReport
     suspend fun ensureReserve(date: LocalDate, config: PlanningConfig, title: String): Int
     suspend fun scheduleBacklog(id: Long, date: LocalDate, config: PlanningConfig): PlacementResult
     suspend fun deleteBacklog(id: Long)
     suspend fun createTopic(topic: StudyTopic, config: PlanningConfig, reviewTitlePattern: String): PlanSummary
     suspend fun deleteTopic(id: Long)
-    suspend fun planMilestone(id: Long, initialDate: LocalDate, config: PlanningConfig, preparationTitlePattern: String, reserveTitle: String, category: com.example.mydailyroutine.domain.model.RoutineCategory = com.example.mydailyroutine.domain.model.RoutineCategory.FOCUS_ANALYTICAL): PlanSummary
+    suspend fun planMilestone(id: Long, initialDate: LocalDate, config: PlanningConfig, preparationTitlePattern: String, reserveTitle: String, category: com.example.mydailyroutine.domain.model.RoutineCategory = com.example.mydailyroutine.domain.model.RoutineCategory.FOCUS_ANALYTICAL, stages: List<PreparationStage> = emptyList()): PlanSummary
 }

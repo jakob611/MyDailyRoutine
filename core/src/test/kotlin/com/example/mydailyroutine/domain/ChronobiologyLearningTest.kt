@@ -28,7 +28,7 @@ class ChronobiologyLearningTest {
     @Test fun `velocity skips invalid samples clamps outliers and rounds upward`() {
         val model=VelocityCalibrator(listOf(HistoricalVelocity("a",0,100,1),HistoricalVelocity("a",60,61,2),HistoricalVelocity("b",1,10000,3)))
         assertEquals(63,model.getCalibratedDuration(61,"a"))
-        assertEquals(150,model.getCalibratedDuration(60,"b"))
+        assertEquals(1439,model.getCalibratedDuration(60,"b"))
         assertEquals(1439,model.getCalibratedDuration(Int.MAX_VALUE,"b"))
     }
     @Test fun `exact integer ratio avoids binary ceiling drift`() {
@@ -66,7 +66,9 @@ class ChronobiologyLearningTest {
     }
     @Test fun `reviews never exceed integer fifth of daily capacity`() {
         val result=SpacedRepetitionPlanner().plan(ReviewRequest(1,0,1,1,15),listOf(ReviewDayCapacity(1,100,20,10,600)))
-        assertNull(result.single().scheduledEpochDay)
+        assertEquals(1L,result.single().scheduledEpochDay)
+        assertEquals(10,result.single().durationMinutes)
+        assertTrue(result.single().isCompact)
     }
     @Test fun `short horizon defers excess sessions rather than creating same day duplicates`() {
         val result=SpacedRepetitionPlanner().plan(ReviewRequest(1,0,2,6,15),(1L..2L).map { ReviewDayCapacity(it,270,0,0,600) })

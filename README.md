@@ -2,6 +2,21 @@
 
 A Slovenian-language, OLED-dark-first Android time-blocking app for school, focused study, personal routines, recovery, and IB milestones. Kotlin 2.x, Jetpack Compose / Material 3, Room, Coroutines / Flow, AlarmManager, and Glance. No account, HTTP client, telemetry, or runtime network permission.
 
+## Complete PDF audit and feature-first architecture
+
+The user's complete 19-page PDF is now retained in `docs/research/` and has been read in full.
+[The page-by-page audit](docs/audits/FULL_PDF_REVIEW.md) identifies both previous implementation gaps
+and contradictions in the paper's example code; unsafe fixed-boundary movement is not copied.
+
+The current review adds max(1, ν) calibration, compact review fallback, real daily review capacity,
+protected recovery, ordered deliverable stages, explicit start/finish with foreground/resume healing,
+actual completion geometry and a faster editor with a persistent save footer. App packages are now
+feature-first with shared persistence/design primitives; see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+Local checks currently pass **117 core tests**, **14 SQLite checks**, **480 Slovenian resources**
+and syntax parsing for **103 Kotlin files**. Android compilation and connected verification of
+this latest audit are being rerun; the prior CI records below are not claimed to verify new changes.
+
 ## Computational planning extension
 
 The current branch adds minute-duration blocks with explicit Room v3/v4 migrations, explicit actual-time history, five-phase

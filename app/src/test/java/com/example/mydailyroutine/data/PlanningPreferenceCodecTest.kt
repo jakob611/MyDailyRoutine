@@ -1,7 +1,7 @@
 package com.example.mydailyroutine.data
 
 import androidx.datastore.preferences.core.*
-import com.example.mydailyroutine.data.preferences.PlanningPreferenceCodec
+import com.example.mydailyroutine.core.preferences.PlanningPreferenceCodec
 import com.example.mydailyroutine.domain.planning.PlanningConfig
 import org.junit.Assert.*
 import org.junit.Test

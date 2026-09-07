@@ -12,14 +12,12 @@ class VelocityCalibrator(history: List<HistoricalVelocity>) {
         val samples = all.sortedWith(compareByDescending<HistoricalVelocity> { it.timestamp }.thenByDescending { it.id }).take(120)
         val planned = samples.sumOf { it.plannedDurationMinutes.toLong() }
         val actual = samples.sumOf { it.actualDurationMinutes.toLong() }
-        fractions[id] = when {
-            actual * 2 < planned -> 1L to 2L
-            actual * 2 > planned * 5 -> 5L to 2L
-            else -> actual to planned
-        }
-        val ratio = (actual.toDouble() / planned).coerceIn(0.5, 2.5)
+        // Full PDF, p.17: d_applied = d_user * max(1, nu_history).
+        // Faster historical work must not silently shorten a user's explicit estimate.
+        fractions[id] = maxOf(actual, planned) to planned
+        val ratio = (actual.toDouble() / planned).coerceAtLeast(1.0)
         val sorted = samples.map { it.actualDurationMinutes.toDouble() / it.plannedDurationMinutes }.sorted()
-        val p90 = sorted[(ceil(sorted.size * 0.9).toInt() - 1).coerceAtLeast(0)].coerceIn(0.5, 3.0)
+        val p90 = sorted[(ceil(sorted.size * 0.9).toInt() - 1).coerceAtLeast(0)].coerceAtLeast(1.0)
         SubjectVelocity(id, ratio, samples.size, maxOf(ratio, p90))
     }
     fun getCalibratedDuration(rawMinutes: Int, subjectId: String): Int {

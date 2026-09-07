@@ -29,7 +29,7 @@ class ResolvedSchedule internal constructor(snapshot: ScheduleSnapshot) {
 
     /** A cancelled overnight carry-in can be restored from either visible day. */
     fun cancelledForDate(date: LocalDate): List<CancelledOccurrence> = buildList {
-        for (offset in (MAX_OCCURRENCE_SHIFT_DAYS + 1) downTo 0) {
+        for (offset in (MAX_OCCURRENCE_SHIFT_DAYS + 8) downTo 0) {
             val origin = date.minusDays(offset.toLong())
             for (exception in cancelledByDate[origin].orEmpty()) {
                 val base = routinesById[exception.routineBlockId] ?: continue
@@ -50,7 +50,7 @@ class ResolvedSchedule internal constructor(snapshot: ScheduleSnapshot) {
         val dayStart = date.atStartOfDay()
         val dayEnd = date.plusDays(1).atStartOfDay()
         // Include the previous day's occurrences so sleep and late study are never lost at midnight.
-        for (offset in (MAX_OCCURRENCE_SHIFT_DAYS + 1) downTo 0) {
+        for (offset in (MAX_OCCURRENCE_SHIFT_DAYS + 8) downTo 0) {
             val origin = date.minusDays(offset.toLong())
             for (base in byWeekday[origin.dayOfWeek].orEmpty()) {
                 if (!base.occursOn(origin)) continue
@@ -59,8 +59,10 @@ class ResolvedSchedule internal constructor(snapshot: ScheduleSnapshot) {
                 val startTime = exception?.customStartTime ?: base.startTime
                 val endTime = exception?.customEndTime ?: base.endTime
                 val shifted = origin.plusDays((exception?.dayShift ?: 0).toLong())
-                val start = shifted.atTime(startTime)
-                val end = shifted.plusDays(if (endTime <= startTime) 1 else 0).atTime(endTime)
+                val completion = completions[base.id to origin]
+                val start = completion?.actualStartedAt ?: shifted.atTime(startTime)
+                val end = completion?.actualMinutes?.let { start.plusMinutes(it.toLong()) }
+                    ?: shifted.plusDays(if (endTime <= startTime) 1 else 0).atTime(endTime)
                 if (start >= dayEnd || end <= dayStart) continue
                 val holiday = if (base.category == RoutineCategory.SCHOOL) {
                     holidays[origin]?.map { it.title }?.distinct()?.sorted()?.joinToString(" · ")
@@ -86,7 +88,7 @@ class ResolvedSchedule internal constructor(snapshot: ScheduleSnapshot) {
                         elasticity = base.elasticity, priorityWeight = base.priorityWeight, isFixedCommitment = base.isFixedCommitment,
                         completedActualMinutes = completions[base.id to origin]?.actualMinutes,
                         rawDurationMinutes = base.rawDurationMinutes, topicId = base.topicId, milestoneId = base.milestoneId,
-                        reviewId = reviews[base.id]?.id,
+                        reviewId = reviews[base.id]?.id, stageOrder = base.stageOrder,
                     ),
                 )
             }

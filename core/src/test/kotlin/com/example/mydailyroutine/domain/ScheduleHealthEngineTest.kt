@@ -50,14 +50,14 @@ class ScheduleHealthEngineTest {
     }
 
     @Test fun `transition is strict and detects conflicting school overlap`() {
-        assertTrue(WarningType.INSUFFICIENT_TRANSITION in types(block(480, 600, SCHOOL), block(629, 660)))
-        assertFalse(WarningType.INSUFFICIENT_TRANSITION in types(block(480, 600, SCHOOL), block(630, 660)))
+        assertTrue(WarningType.INSUFFICIENT_TRANSITION in types(block(480, 600, SCHOOL), block(644, 690)))
+        assertFalse(WarningType.INSUFFICIENT_TRANSITION in types(block(480, 600, SCHOOL), block(645, 690)))
         assertTrue(WarningType.INSUFFICIENT_TRANSITION in types(block(480, 610, SCHOOL), block(600, 660)))
     }
 
-    @Test fun `300 daily focus minutes is boundary and 301 warns`() {
-        assertFalse(WarningType.BURNOUT_RISK in types(block(480, 780)))
-        assertTrue(WarningType.BURNOUT_RISK in types(block(480, 781)))
+    @Test fun `270 daily focus minutes is boundary and 271 warns`() {
+        assertFalse(WarningType.BURNOUT_RISK in types(block(480, 750)))
+        assertTrue(WarningType.BURNOUT_RISK in types(block(480, 751)))
     }
 
     @Test fun `overlap never inflates focus totals or cognitive load`() {

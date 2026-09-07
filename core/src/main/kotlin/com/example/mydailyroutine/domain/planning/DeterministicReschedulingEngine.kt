@@ -12,14 +12,14 @@ class DeterministicReschedulingEngine(private val circadian: CircadianPenalty = 
         val sorted = input.sortedWith(compareBy<TimeBlock> { it.startMinutes }.thenBy { if (it.isFixed) 0 else 1 }.thenBy { it.id })
         val boundary = minOf(horizonMinutes, sorted.filter { it.isFixed && (it.startMinutes >= anchorMinutes || it.endMinutes > anchorMinutes) }.minOfOrNull { maxOf(anchorMinutes, it.startMinutes) } ?: horizonMinutes)
         val cursor = (anchorMinutes.toLong() + delayMinutes).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-        val candidates = sorted.filter { !it.isFixed && it.completedActualMinutes == null && it.startMinutes < boundary }
+        val candidates = sorted.filter { !it.isFixed && it.completedActualMinutes == null && it.startMinutes < boundary && it.endMinutes > anchorMinutes }
         val untouched = sorted.filter { it !in candidates }
         val originals = candidates.associateBy { it.id }
         val active = candidates.toMutableList()
         fun forward(blocks: List<TimeBlock>): List<TimeBlock> {
             var next = cursor.toLong()
             return blocks.filter { it.durationMinutes > 0 }.map { block ->
-                val start = maxOf(next, block.startMinutes.toLong())
+                val start = next
                 next = start + block.durationMinutes
                 // During feasibility checks starts may be beyond the horizon. Do not construct an
                 // invalid public TimeBlock until feasibility has been established below.
@@ -28,7 +28,7 @@ class DeterministicReschedulingEngine(private val circadian: CircadianPenalty = 
         }
         fun finish(blocks: List<TimeBlock>): Long {
             var next = cursor.toLong()
-            blocks.filter { it.durationMinutes > 0 }.forEach { next = maxOf(next, it.startMinutes.toLong()) + it.durationMinutes }
+            blocks.filter { it.durationMinutes > 0 }.forEach { next += it.durationMinutes }
             return next
         }
         fun deficit(): Int = (finish(active) - boundary).coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
@@ -68,6 +68,11 @@ class DeterministicReschedulingEngine(private val circadian: CircadianPenalty = 
         // If actual time has passed the boundary, buffers are capacity, not work: remove them
         // rather than turning reserve into an academic backlog or moving a fixed commitment.
         active.removeAll { it.durationMinutes == 0 }
+        val blockedStages = deferred.filter { it.precedenceGroup != null && it.stageOrder != null }.groupBy { it.precedenceGroup }
+            .mapValues { (_, tasks) -> tasks.minOf { it.stageOrder!! } }
+        val dependent = active.filter { task -> task.precedenceGroup?.let { group -> blockedStages[group]?.let { task.stageOrder != null && task.stageOrder > it } } == true && !task.category.isBuffer }
+        dependent.forEach { deferred += originals.getValue(it.id) }
+        active.removeAll(dependent.toSet())
         // 5. Regenerate and apply a bounded circadian improvement pass only if it remains feasible.
         if (finish(active) <= boundary) {
             fun cost(blocks: List<TimeBlock>): Double = forward(blocks).sumOf {
@@ -75,6 +80,7 @@ class DeterministicReschedulingEngine(private val circadian: CircadianPenalty = 
             }
             for (i in 0 until (active.size - 1).coerceAtLeast(0)) {
                 if (active[i].category.isBuffer || active[i + 1].category.isBuffer) continue
+                if (active[i].precedenceGroup != null && active[i].precedenceGroup == active[i+1].precedenceGroup && active[i].stageOrder != active[i+1].stageOrder) continue
                 val before = cost(active)
                 val trial = active.toMutableList().apply { val first = this[i]; this[i] = this[i + 1]; this[i + 1] = first }
                 if (finish(trial) <= boundary && cost(trial) + 1e-8 < before) { active.clear(); active.addAll(trial) }

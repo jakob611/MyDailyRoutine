@@ -1,5 +1,7 @@
 package com.example.mydailyroutine.data
 
+import com.example.mydailyroutine.app.presentation.RoutineViewModel
+
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -7,14 +9,16 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.mydailyroutine.R
-import com.example.mydailyroutine.data.local.*
-import com.example.mydailyroutine.data.repository.RoomTimelineRepository
-import com.example.mydailyroutine.data.seed.DemoDataSeeder
+import com.example.mydailyroutine.core.database.*
+import com.example.mydailyroutine.core.database.entities.*
+import com.example.mydailyroutine.core.database.daos.*
+import com.example.mydailyroutine.features.timeline.data.RoomTimelineRepository
+import com.example.mydailyroutine.features.examples.data.DemoDataSeeder
 import com.example.mydailyroutine.domain.health.*
 import com.example.mydailyroutine.domain.model.*
 import com.example.mydailyroutine.domain.presets.*
 import com.example.mydailyroutine.domain.repository.PreferencesRepository
-import com.example.mydailyroutine.ui.timeline.*
+import com.example.mydailyroutine.core.presentation.*
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.UUID
@@ -40,7 +44,7 @@ class ConnectedFeaturesTest {
     @After fun after() { db.close() }
 
     @Test fun demoIsExplicitAtomicIdempotentAndSilent(): Unit = runBlocking {
-        val demo = DemoDataSeeder(context, db, prefs, {})
+        val demo = DemoDataSeeder(context, db, prefs, {}, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches)
         assertTrue(repo.snapshot(date, date).routines.isEmpty())
         assertFalse(demo.isLoaded.first())
         assertTrue(demo.load())
@@ -102,7 +106,8 @@ class ConnectedFeaturesTest {
     @Test fun thresholdPreferenceChangeRecomputesViewModelWithoutDatabaseEdit(): Unit = runBlocking {
         repo.saveRoutine(RoutineBlueprint(subjectId = null, title = "Fokus", category = RoutineCategory.FOCUS_ANALYTICAL, dayOfWeek = date.dayOfWeek,
             startTime = LocalTime.of(8, 0), endTime = LocalTime.of(9, 15), isNotificationEnabled = false))
-        val model = withContext(Dispatchers.Main) { TimelineViewModel(repo, prefs, SavedStateHandle(mapOf("date" to date.toEpochDay())), DemoDataSeeder(context, db, prefs, {}), com.example.mydailyroutine.data.repository.RoomPlanningRepository(db, repo, {})) }
+        val model = withContext(Dispatchers.Main) { RoutineViewModel(repo, prefs, SavedStateHandle(mapOf("date" to date.toEpochDay())), DemoDataSeeder(context, db, prefs, {}, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches), com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}),
+                com.example.mydailyroutine.features.execution.data.RoomExecutionRepository(db, repo, com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}), {})) }
         val collector = launch { model.state.collect() }
         try {
             val initial = withTimeout(10000) { model.state.first { !it.content.isLoading } }
@@ -126,7 +131,7 @@ class ConnectedFeaturesTest {
                 statements.forEach { legacy.execSQL(it.value.trim().removeSuffix(";")) }
                 legacy.execSQL("INSERT INTO subjects VALUES (1, 'Matematika', 4282090230, 45)")
             }
-            val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4)
+            val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5)
                 .addCallback(SeedAndIntegrityCallback(context.resources)).build()
             try {
                 assertEquals("Matematika", migrated.subjects().getAll().single().name)
@@ -141,6 +146,7 @@ class ConnectedFeaturesTest {
         override suspend fun setMuteDuringSchoolHours(muted: Boolean) { preferences.update { it.copy(muteDuringSchoolHours = muted) } }
         override suspend fun setSchoolWindow(start: LocalTime, end: LocalTime) { preferences.update { it.copy(schoolStart = start, schoolEnd = end) } }
         override suspend fun setTeachingEndDate(date: LocalDate) { preferences.update { it.copy(teachingEndDate = date) } }
+        override suspend fun setAutomaticHealingEnabled(enabled: Boolean) { preferences.update { it.copy(automaticHealingEnabled = enabled) } }
         override suspend fun setHapticsEnabled(enabled: Boolean) { preferences.update { it.copy(hapticsEnabled = enabled) } }
         override suspend fun setPlanningConfig(config: com.example.mydailyroutine.domain.planning.PlanningConfig) { preferences.update { it.copy(planning = config) } }
         override suspend fun setHealthConfig(config: HealthConfig) { preferences.update { it.copy(health = config) } }

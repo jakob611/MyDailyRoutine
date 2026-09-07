@@ -5,8 +5,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import androidx.room.withTransaction
-import com.example.mydailyroutine.data.local.AlarmDeliveryEntity
-import com.example.mydailyroutine.data.local.RoutineDatabase
+import com.example.mydailyroutine.core.database.AlarmDeliveryEntity
+import com.example.mydailyroutine.core.database.RoutineDatabase
 import com.example.mydailyroutine.domain.repository.PreferencesRepository
 import com.example.mydailyroutine.domain.repository.TimelineRepository
 import com.example.mydailyroutine.domain.scheduling.AlarmPlanner

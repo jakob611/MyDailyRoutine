@@ -15,6 +15,8 @@ data class TimeBlock(
     val elasticity: Double,
     val priorityWeight: Double,
     val completedActualMinutes: Int? = null,
+    val precedenceGroup: Long? = null,
+    val stageOrder: Int? = null,
 ) {
     init {
         require(id.isNotBlank() && startMinutes in -10080..10080)
@@ -25,7 +27,7 @@ data class TimeBlock(
         require(completedActualMinutes == null || completedActualMinutes in 1..10080)
     }
     val endMinutes: Int get() = startMinutes + durationMinutes
-    val isFixed: Boolean get() = isFixedCommitment || category == RoutineCategory.SCHOOL
+    val isFixed: Boolean get() = isFixedCommitment || category == RoutineCategory.SCHOOL || category == RoutineCategory.REST_BUFFER
 }
 
 data class HealingReport(
@@ -51,10 +53,10 @@ data class PlanningConfig(
     val postSchoolRecoveryMinutes: Int = 45,
 ) {
     init {
-        require(dailyStudyCapacityMinutes in 30..600)
+        require(dailyStudyCapacityMinutes in 30..270)
         require(studyStartMinutes in 0..1438 && studyEndMinutes in (studyStartMinutes + 1)..1440)
         require(dipCenterMinutes in 0..1439 && dipSigmaMinutes in 15..180)
-        require(defaultSlipMinutes in 1..720 && targetFocusMinutes in 25..90 && postSchoolRecoveryMinutes in 30..120)
+        require(defaultSlipMinutes in 1..720 && targetFocusMinutes in 25..90 && postSchoolRecoveryMinutes in 45..120)
     }
     // Exact integer fifth, never a floating-point 20% approximation.
     val dailyReviewCap: Int get() = dailyStudyCapacityMinutes / 5
@@ -68,6 +70,13 @@ data class BacklogEntry(
     val milestoneId: Long? = null, val topicId: Long? = null, val reviewId: Long? = null,
     val reason: BacklogReason = BacklogReason.SLIPPAGE,
     val rawDurationMinutes: Int = durationMinutes,
+    val stageOrder: Int? = null,
 )
-data class PlacementResult(val placed: Boolean, val date: LocalDate? = null)
-data class PlanSummary(val studyMinutes: Int, val reserveMinutes: Int, val reviews: Int, val deferredMinutes: Int)
+enum class PlacementFailure { CAPACITY, DEADLINE, DEPENDENCY }
+data class PlacementResult(val placed: Boolean, val date: LocalDate? = null, val failure: PlacementFailure? = null)
+data class PlanSummary(val studyMinutes: Int, val reserveMinutes: Int, val reviews: Int, val deferredMinutes: Int, val unreservedMinutes: Int = 0, val alreadyPlanned: Boolean = false)
+
+/** Explicit default/editable deliverable stages; weights are app/user choices, not biological constants. */
+data class PreparationStage(val title: String, val weight: Int) {
+    init { require(title.length <= 60 && weight in 1..100) }
+}

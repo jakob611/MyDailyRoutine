@@ -13,7 +13,7 @@ for file in (root / 'app/src').rglob('*.kt'):
     code = file.read_text()
     missing = set(re.findall(r'R\.string\.(\w+)', code)) - known
     assert not missing, (file, missing)
-    if '/main/' in str(file) and '/ui/' in str(file):
+    if '/main/' in str(file) and ('/features/' in str(file) or '/core/designsystem/' in str(file) or '/app/presentation/' in str(file)):
         assert not re.search(r'\bText\(\s*"[A-Za-zŠČŽšćčž]', code), f'Literal UI text: {file}'
         assert not re.search(r'contentDescription\s*=\s*"[A-Za-zŠČŽšćčž]', code), f'Literal accessibility text: {file}'
 for file in res.rglob('*.xml'): ET.parse(file)
@@ -28,3 +28,9 @@ for file in models:
 font = res / 'font/roboto_flex.ttf'
 assert font.read_bytes()[:4] in (b'\x00\x01\x00\x00', b'OTTO'), 'Bundled font is not a font'
 print(f'Presentation checks passed: {len(known)} Slovenian string resources, bundled font, tabular widget text, one domain model.')
+
+# Data adapters must not import feature presentation or the app coordinator.
+for file in (root / 'app/src/main/java/com/example/mydailyroutine/features').rglob('*.kt'):
+    if '/data/' in str(file):
+        code=file.read_text()
+        assert not re.search(r'^import com\.example\.mydailyroutine\.(?:features\.[^.]+\.presentation|app\.presentation)',code,re.M), file

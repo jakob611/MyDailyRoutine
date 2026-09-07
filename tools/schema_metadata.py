@@ -4,7 +4,7 @@ Not a substitute for Room's generated schema: Android migration tests validate t
 from pathlib import Path
 import re
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = (ROOT / 'app/src/main/java/com/example/mydailyroutine/data/local/Entities.kt').read_text()
+SOURCE = '\n'.join(p.read_text() for p in sorted((ROOT / 'app/src/main/java/com/example/mydailyroutine/core/database/entities').glob('*.kt')))
 MATCHES = list(re.finditer(r'data class (\w+)\(', SOURCE))
 ENTITIES = {}
 for i,m in enumerate(MATCHES):
@@ -20,7 +20,7 @@ for i,m in enumerate(MATCHES):
         name=re.search(r'name\s*=\s*"([^"]+)"',anno)
         default=re.search(r'defaultValue\s*=\s*"([^"]+)"',anno)
         columns.append((name.group(1) if name else col.group(1),col.group(2),default.group(1) if default else None,
-                        '@PrimaryKey' in prefix))
+                        (2 if 'autoGenerate = true' in prefix else 1) if '@PrimaryKey' in prefix else 0))
     ENTITIES[m.group(1)]=(table,meta,columns)
 
 def quoted(text): return re.findall(r'"(\w+)"',text)
@@ -32,7 +32,7 @@ def ddl():
             bare=kind.rstrip('?')
             affinity='TEXT' if bare in ('String','RoutineCategory','CancellationReason') else 'REAL' if bare=='Double' else 'INTEGER'
             value=f'`{name}` {affinity}'
-            if primary: value+=' PRIMARY KEY AUTOINCREMENT'
+            if primary: value+=' PRIMARY KEY'+(' AUTOINCREMENT' if primary==2 else '')
             if not kind.endswith('?'): value+=' NOT NULL'
             if default is not None: value+=' DEFAULT '+default
             definitions.append(value)
