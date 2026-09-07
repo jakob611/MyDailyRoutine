@@ -1,53 +1,54 @@
-# Integration validation (2026-09-06)
+# Research planner verification
 
-## Current local results
+## Successful CI
 
-- 74 core JVM tests passed (Kotlin 2.0.21/JDK 17 standalone; project still pins Kotlin 2.2.10).
-- 11 SQLite/manifest/resource tests passed.
-- Presentation check passed: 384 Slovenian string resources, no direct literal UI copy,
-  bundled font, tabular widget text, one canonical domain model and no Android imports in `core`.
-- Compiler PSI syntax parsing passed for all 63 Kotlin files. This is not an Android typecheck.
-- Added 4 Android-module health preference codec tests (9 local Android-module unit tests total).
-- Added 5 connected tests for opt-in/idempotent demo data, persisted subject presets/tests,
-  transactional recovery, live threshold changes, and preservation during the v1→v2 migration.
-- Updated the Compose tests to use Slovenian resources and verify advanced Settings, merged
-  privacy permissions, and the warm widget → fresh fast-add route. Along with the 7 original
-  Room tests, the connected suite now contains 17 tests (including maximum-length localized subject presets).
-
-## Remote build status — passed
-
-**GitHub Actions run [34052593518](https://github.com/jakob611/MyDailyRoutine/actions/runs/34052593518), code commit `9c504308bc3209730e0903d9b84655cae47c318b`: both jobs succeeded.**
+**Run [34097272103](https://github.com/jakob611/MyDailyRoutine/actions/runs/34097272103), code commit
+`f9241d7f8246100c01c59eda36a5bb93daab5a4c`: build and device-test jobs both succeeded.**
 
 | Check | Result |
 |---|---|
-| `:core:test` | 74 tests passed |
-| `:app:testDebugUnitTest` | 9 tests passed |
-| `:app:assembleDebug` | APK built |
+| `:core:test` | 107 tests passed |
+| `:app:testDebugUnitTest` | 12 tests passed |
+| `:app:assembleDebug` | Debug APK built |
 | `:app:lintDebug` | Passed |
-| `:app:connectedDebugAndroidTest` | 17 tests passed on API 35 |
-| SQLite/resource + presentation checks | Passed |
+| `:app:connectedDebugAndroidTest` | 24 tests passed on API 35 |
+| SQLite/migration/manifest smoke checks | 13 passed |
+| Presentation checks | 458 Slovenian resources, bundled font, tabular widget text, one canonical model |
 
-The job used the declared Kotlin 2.2.10/JDK 17/API 36 build, not the standalone
-Kotlin 2.0.21 fallback. Artifacts contain the debug APK, test/lint reports and actual
-Room/KSP-generated v2 schema JSON. No schema identity hash was fabricated.
+The declared Kotlin 2.2.10/JDK 17/API 36 stack was used in CI. Reports and actual KSP schema JSON
+are retained in its artifacts; no database identity hash was fabricated. The APK artifact is
+[`debug-apk`](https://github.com/jakob611/MyDailyRoutine/actions/runs/34097272103/artifacts/10009372989).
 
-Issues found and fixed during CI:
+## What is exercised
 
-- Inherited indentation in the selectively ported seeder triggered `SuspiciousIndentation`;
-  formatting was fixed without disabling lint.
-- A legacy expression-bodied Room test returned a list; all suspend-backed JUnit methods now
-  explicitly return `Unit`.
-- FAB lookup now uses a stable semantics tag rather than relying on merged label text.
-- AndroidX ActivityScenario filters lifecycle callbacks by the launch intent. A real warm
-  widget launch correctly calls production `setIntent`; the test restores only its original
-  harness intent in `finally` so teardown can observe DESTROYED, while asserting the actual
-  app is RESUMED and the correct fresh sheet is visible.
+- All original recurrence, overnight, override, holiday, health-rule and interval tests.
+- Five-phase slippage recovery: slack, explicit buffer use, weighted elasticity saturation,
+  exact integer allocation, stable low-priority deferral, fixed-boundary preservation,
+  Int.MAX_VALUE delay, zero-minimum tasks, immutable input and deterministic ordering.
+- Gaussian center/sigma/category weights and midnight periodicity; RSEM pooling.
+- Ratio-of-sums calibration, invalid-sample rejection, recent-history bound, exact rational
+  rounding and ULP-safe duration ceilings; raw estimates retained through backlog restoration.
+- Geometric spacing, jitter, strict date order, exact daily 20% cap, capacity exhaustion,
+  backplanning effort conservation and earlier terminal deadlines.
+- Active widget progress, next-two projection and unioned remaining reserves.
+- Room FK/cascade/detach behavior and migration of existing records through v4, including
+  recovering a backlog row's source raw estimate instead of silently changing schema v3.
+- Actual completion history updates/undo, idempotent backlog healing, real scheduled review
+  blocks, topic deletion, and review links that do not block preparation generation.
+- Slovenian UI navigation, advanced Settings, subject presets, actual persisted test entries,
+  maximum-length subject names, warm quick-add, and absence of merged network permissions.
 
-A temporary GitHub authentication error cleared on retry. It was not a workflow-file
-permission rejection; all fixes were pushed on the same branch. Direct local Gradle download
-still fails its TLS handshake, which is why the successful Android verification was remote.
+## Local environment limitation
 
-## Reproduction
+Direct `./gradlew :core:test :app:testDebugUnitTest --stacktrace` could not bootstrap because
+`services.gradle.org` terminated the TLS handshake; SDK/Maven downloads are also restricted.
+The pure suite was additionally run with a locally available Kotlin 2.0.21/JDK 17 compiler,
+and 85 Kotlin files passed compiler PSI syntax parsing. Those local checks alone are not an
+Android build; the successful Android build and emulator validation above were remote CI.
+A temporary GitHub authentication error cleared after renewing the Arena session. No credentials
+were requested in chat and no CI files needed to be excluded from the push.
+
+## Reproduce
 
 ```bash
 python3 tools/check_sqlite_integrity.py
@@ -56,24 +57,18 @@ python3 tools/check_presentation.py
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-`tools/test-core.sh` is the SDK-free alternative with locally supplied Kotlin/JUnit jars.
-The GitHub workflow publishes structured compiler/lint/JUnit annotations via
-`tools/report_ci_failures.py`, so diagnostics do not depend on downloading log archives.
+`tools/test-core.sh` is an SDK-free alternative with locally supplied Kotlin/JUnit jars.
+`tools/report_ci_failures.py` exposes structured compiler/lint/JUnit diagnostics without requiring
+this client to download CI log archives.
 
-## Remaining device / release checklist
+## Still requires physical-device / release verification
 
-1. Verify empty first launch, fixed OLED colors, Slovenian labels and accessible font scaling.
-2. Create a subject; check its three presets, rename/recolor/change duration, save a one-tap
-   test, and delete the subject without deleting its linked milestones.
-3. Check editing an IA/EE deadline does not convert it to an exam when selecting a subject.
-4. Change each advanced threshold/switch without editing the database; observe changed badges.
-5. Tap a badge: verify real recovery, preserved focus minutes, untouched next week/fixed
-   commitments, and clear behavior when no safe slot exists. Long-press drag in 15-minute steps.
-6. Verify demo loading is explicit, confirmed, idempotent, unofficially labelled and silent.
-7. Verify system + app haptic opt-out and tap/drag/completion/warning patterns on hardware.
-8. Grant/deny exact alarm and notification access; test quiet windows, Doze, reboot/unlock,
-   force-stop/reopen, time-zone changes, midnight and Ljubljana DST transitions.
-9. Add/resize the Glance widget, check live-session DB refresh, NOW/UP-NEXT, date rollover,
-   tabular figures and a cold/warm quick-add launch. Non-wakeup refresh may be deferred by Android.
-10. Retain generated Room schema JSON; run release R8 and inspect Compose performance reports
-    on a lower-end device before claiming a production-ready release.
+- Feel and amplitude of haptics on actual hardware, with app and system haptics disabled/enabled.
+- Vendor-specific exact-alarm restrictions, Doze throttling, reboot/unlock and force-stop behavior.
+- Glance appearance/resize/refresh on multiple launchers and older API-24 devices. The progress
+  bar is a timestamped snapshot, not an app-owned polling loop.
+- Long-duration usability, font scaling and performance on low-end hardware; release R8 and
+  signing with a stable production key before treating CI debug artifacts as a release.
+- Real-world validity of the paper's physiological claims is not established by software tests.
+  These are explicit, configurable planning heuristics; missing equations/policy choices are
+  documented in `CHRONOBIOLOGY_ENGINE.md`, not presented as measured biological facts.

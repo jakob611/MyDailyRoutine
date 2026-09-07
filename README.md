@@ -10,8 +10,7 @@ spaced reviews, reverse milestone preparation and a persistent backlog. All feat
 existing app/resolver/alarms/widget. See [the mathematical model and integration policies](docs/CHRONOBIOLOGY_ENGINE.md).
 
 Current local research-extension checks: **107 core tests**, **13 SQLite checks**, **458 Slovenian
-resources**, and syntax parsing for **85 Kotlin files**. Research commit `d54a2da` passed both CI jobs in [run 34091265904](https://github.com/jakob611/MyDailyRoutine/actions/runs/34091265904).
-The final zero-minimum, rounding, reserve-union and raw-backlog migration refinements are being verified separately.
+resources**, and syntax parsing for **85 Kotlin files**. All research changes are verified in [CI run 34097272103](https://github.com/jakob611/MyDailyRoutine/actions/runs/34097272103), code commit `f9241d7`: APK assembly, lint, core/app JVM tests and API-35 connected tests passed.
 
 ## What is implemented
 
@@ -98,7 +97,7 @@ immutable StateFlow ← resolved snapshot ← Room transaction + invalidation Fl
 - All-day milestones sort at midnight, timed milestones at their due time, with deterministic tie-breaking. Markers do not reserve duration or send block reminders.
 - Room table invalidations cause one transactional snapshot read, preventing mixed blueprint/override states. UI transformations run off the main thread. Presentation uses persistent collections and immutable state; collectors stop when the UI is not subscribed.
 
-The database is version 2. The explicit v1→v2 migration adds only the atomic demo-import receipt and preserves existing data. Schema export remains configured under `app/schemas`. A baseline v1 SQL fixture and a device migration test exercise the upgrade. Retain generated schema JSON before a future version bump. There is deliberately **no destructive migration fallback**.
+The database is version 4. Explicit v1→v2→v3→v4 migrations preserve IDs, overrides, completions and alarm claims; introduce minute-duration blocks, learning/history/backlog tables; and preserve raw estimates across backlog restoration. No destructive fallback is used. Schema export remains configured under `app/schemas`. A baseline v1 SQL fixture and a device migration test exercise the upgrade. Retain generated schema JSON before a future version bump. There is deliberately **no destructive migration fallback**.
 
 ## Scheduling and battery policy
 
@@ -112,15 +111,16 @@ Health thresholds are **planning heuristics, not medical advice or universal cog
 
 ## Verification status
 
-**Verified in GitHub Actions:** [run 34052593518](https://github.com/jakob611/MyDailyRoutine/actions/runs/34052593518), code commit `9c50430`.
+**Verified in GitHub Actions:** [run 34097272103](https://github.com/jakob611/MyDailyRoutine/actions/runs/34097272103), application/test code commit `f9241d7`.
 
-- Android debug APK assembly and Android lint **passed** with the pinned Kotlin 2.2.10 / JDK 17 / API 36 toolchain.
-- **74 core JVM tests** and **9 Android-module JVM tests passed**.
-- **17 connected tests passed on the API-35 emulator**, covering Room integrity/migration, opt-in demo import, persisted presets/exams, live threshold changes, transactional recovery, all four views, advanced Settings, Slovenian locale/privacy permissions, and warm widget quick-add navigation.
-- **11 SQLite/resource checks passed**, plus presentation checks for **384 Slovenian string resources**, the bundled font, tabular widget text, and a single pure-JVM domain model.
-- All **63 Kotlin source files** passed local compiler PSI syntax parsing. Local standalone core tests also pass; direct sandbox Gradle downloads remain TLS-blocked, so the Android build was verified in CI rather than claimed locally.
+- Android debug APK assembly and Android lint **passed** with Kotlin 2.2.10 / JDK 17 / API 36.
+- **107 core JVM tests** and **12 app JVM tests passed**.
+- **24 connected tests passed on the API-35 emulator**: Room integrity, migrations through v4, actual-time velocity, backlog preservation/restoration, real review blocks, topic cascades, linked review/preparation plans, locale/privacy, four-view navigation and warm widget quick-add.
+- **13 SQLite checks** and presentation checks for **458 Slovenian strings**, bundled font, tabular text and a single canonical domain model passed.
+- Local standalone core tests and syntax parsing for **85 Kotlin files** also passed. Direct sandbox Gradle/SDK downloads remain TLS-blocked; full Android verification was performed in CI, not claimed locally.
 
-The run provides `debug-apk`, `verification-reports` (including generated Room schema JSON), and `device-test-reports` artifacts. Runtime hardware haptics, vendor-specific Doze/reboot behavior, launcher-specific widget rendering and release R8 still need the [physical-device/release checklist](docs/VALIDATION.md). Passing an emulator suite is not a guarantee about every manufacturer's power-management policy.
+[Download the test APK artifact (ZIP)](https://github.com/jakob611/MyDailyRoutine/actions/runs/34097272103/artifacts/10009372989).
+The run also retains test/lint reports and actual Room/KSP schema exports. Its success is not a guarantee about every vendor's Doze behavior, launcher rendering or physical haptic hardware; those, and release R8/signing, remain on the [release checklist](docs/VALIDATION.md).
 
 ## Local-data privacy
 
