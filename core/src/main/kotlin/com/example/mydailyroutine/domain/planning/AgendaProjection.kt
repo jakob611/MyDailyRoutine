@@ -21,10 +21,17 @@ data class AgendaProjection(val active: ResolvedTimelineItem.Block?, val progres
                 val window = OccurrenceTimes.window(it, zone)
                 (Duration.between(window.start, now).toMillis().toDouble() / Duration.between(window.start, window.end).toMillis().coerceAtLeast(1)).coerceIn(0.0,1.0).toFloat()
             } ?: 0f
-            val reserve = remaining.filter { it.category == RoutineCategory.EMERGENCY_RESERVE }.sumOf {
+            val reserveIntervals = remaining.filter { it.category == RoutineCategory.EMERGENCY_RESERVE }.map {
                 val window = OccurrenceTimes.window(it, zone)
-                ceil(Duration.between(maxOf(now, window.start), window.end).seconds.coerceAtLeast(0) / 60.0).toInt()
+                maxOf(now, window.start) to window.end
+            }.sortedBy { it.first }
+            val merged = mutableListOf<Pair<Instant,Instant>>()
+            reserveIntervals.forEach { interval ->
+                val last = merged.lastOrNull()
+                if (last != null && interval.first <= last.second) merged[merged.lastIndex] = last.first to maxOf(last.second, interval.second)
+                else merged += interval
             }
+            val reserve = merged.sumOf { (start, end) -> ((Duration.between(start, end).toMillis().coerceAtLeast(0) + 59999) / 60000).toInt() }
             val next = remaining.filter { OccurrenceTimes.window(it, zone).start > now }
                 .sortedWith(compareBy<ResolvedTimelineItem.Block> { it.startsAt }.thenBy { it.key }).take(2)
             return AgendaProjection(active, progress, reserve, next)

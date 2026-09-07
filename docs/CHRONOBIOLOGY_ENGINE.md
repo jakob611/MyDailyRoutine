@@ -8,16 +8,18 @@ are universally established or personally measured.
 
 ## Canonical data and migration
 
-Room v3 uses `TimeBlockEntity` with integer `startMinutes` and `durationMinutes`, minimum duration,
+Room v3 introduces `TimeBlockEntity` with integer `startMinutes` and `durationMinutes`, minimum duration,
 elasticity, priority, fixed-commitment status, raw estimate, and optional actual completion minutes.
 The indexed `routine_blocks` table name and IDs are retained for existing foreign keys. Categories
 migrate SCHOOL→SCHOOL, FOCUS_STUDY→FOCUS_ANALYTICAL, PROJECT→FOCUS_SYNTHESIZING,
 PERSONAL→ADMIN, REST_BREAK→REST_BUFFER. Existing school and personal commitments are fixed;
 existing recovery minimums are protected. No actual-time history is invented for old completions.
 
+A separate v3→v4 migration preserves raw estimates in backlog rows (recovering the source estimate where available). It does not change a released schema in place.
+
 A v2→v3 migration temporarily copies parent and child rows, recreates their schema, restores all
 IDs/overrides/completions/delivery claims, and verifies foreign keys. FK enforcement is never
-switched off inside Room's migration transaction. The old v1→v2 path remains supported.
+switched off inside Room's migration transaction. The full v1→v2→v3→v4 path remains supported.
 
 `HistoricalVelocityEntity`, `StudyTopicEntity`, `SpacedReviewEntity`, and `BacklogEntryEntity` are
 indexed and FK-linked. Scheduled reviews are real one-off time blocks; review metadata is updated

@@ -59,7 +59,7 @@ class DailyCapacityPlanner(
         gaps().filter { it.duration >= duration }.forEach { gap ->
             // A Gaussian is minimized at a feasible endpoint or the opposite circadian phase.
             // Checking these integer points is exact for this objective, not an expensive minute scan.
-            val opposite = ((config.dipCenterMinutes + 720) % 1440) - duration / 2
+            val opposite = kotlin.math.floor(((config.dipCenterMinutes + 720) % 1440) - duration / 2.0).toInt()
             val candidates = listOf(gap.start, gap.end - duration, opposite, opposite + 1).distinct()
             candidates.filter { it in gap.start..(gap.end - duration) }.forEach { start ->
                 val cost = circadian.cost(category, start, duration, priority)

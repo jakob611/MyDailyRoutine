@@ -15,7 +15,7 @@ import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
         SchoolCalendarEntryEntity::class, MilestoneEntity::class, RoutineCompletionEntity::class,
         AlarmDeliveryEntity::class, DemoImportEntity::class, HistoricalVelocityEntity::class,
         StudyTopicEntity::class, SpacedReviewEntity::class, BacklogEntryEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(TimeConverters::class)
@@ -36,7 +36,7 @@ abstract class RoutineDatabase : RoomDatabase() {
             context.applicationContext, RoutineDatabase::class.java, "daily-routine.db",
         )
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3)
+            .addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4)
             .addCallback(SeedAndIntegrityCallback(context.resources))
             // No destructive migration fallback: schema changes must ship an explicit migration.
             .build()

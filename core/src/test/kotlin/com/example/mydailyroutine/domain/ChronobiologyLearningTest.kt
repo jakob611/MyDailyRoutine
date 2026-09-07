@@ -40,6 +40,12 @@ class ChronobiologyLearningTest {
         assertEquals(60,VelocityCalibrator(samples).getCalibratedDuration(60,"a"))
         assertEquals(120,VelocityCalibrator(samples).summaries().single().sampleCount)
     }
+    @Test fun `floating minute rounding only removes arithmetic drift`() {
+        assertEquals(99,MinuteRounding.ceiling(90*1.1))
+        assertEquals(100,MinuteRounding.ceiling(99.00001))
+        assertEquals(1,MinuteRounding.ceiling(0.01))
+        assertEquals(0,MinuteRounding.ceiling(0.0))
+    }
     @Test fun `RSEM returns pooled root square buffer`() {
         assertEquals(50,RsemBufferSizer.minutes(listOf(DurationEstimate(60,90),DurationEstimate(60,100))))
         assertEquals(0,RsemBufferSizer.minutes(emptyList()))
@@ -84,7 +90,7 @@ class ChronobiologyLearningTest {
         val first=LocalDate.of(2027,1,1);val end=first.plusDays(20);val config=PlanningConfig()
         val days=(0L..20L).map { DailyCapacityPlanner(first.plusDays(it),emptyList(),config) }
         val result=MilestoneBackPlanner().plan(first,end,10.0,true,RoutineCategory.FOCUS_ANALYTICAL,1.0,1.5,days,config)
-        assertEquals(600,result.blocks.filterNot { it.reserve }.sumOf { it.durationMinutes }+result.unplacedChunks.sum())
+        assertEquals(600,result.blocks.filterNot { it.reserve }.sumOf { it.durationMinutes }+result.unplacedChunks.sumOf { it.durationMinutes })
         assertEquals(first.plusDays(17),result.virtualDeadline)
         assertTrue(result.blocks.filterNot { it.reserve }.all { it.durationMinutes in 1..75 && it.date<=result.virtualDeadline })
         assertTrue(days.all { it.studyMinutes<=270 })
@@ -94,7 +100,7 @@ class ChronobiologyLearningTest {
         val date=LocalDate.of(2027,1,1);val config=PlanningConfig(dailyStudyCapacityMinutes=30)
         val result=MilestoneBackPlanner().plan(date,date,100.0,false,RoutineCategory.FOCUS_ANALYTICAL,1.0,1.5,
             listOf(DailyCapacityPlanner(date,emptyList(),config)),config)
-        assertEquals(6000,result.blocks.filterNot { it.reserve }.sumOf { it.durationMinutes }+result.unplacedChunks.sum())
+        assertEquals(6000,result.blocks.filterNot { it.reserve }.sumOf { it.durationMinutes }+result.unplacedChunks.sumOf { it.durationMinutes })
         assertTrue(result.unplacedChunks.isNotEmpty())
     }
 }

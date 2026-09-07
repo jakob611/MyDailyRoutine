@@ -149,7 +149,11 @@ class RoomTimelineRepository(
             if (db.completions().get(routineId, date) == null) db.completions().insert(row) else db.completions().update(row)
             if (actualMinutes != null && base.subjectId != null && base.category.isDeepWork) {
                 val previous = db.learning().sample(routineId, date)
-                val sample = HistoricalVelocityEntity(previous?.id ?: 0, base.subjectId, base.rawDurationMinutes,
+                val exception = db.overrides().get(routineId, date)
+                val explicitDuration = exception?.let { nominalMinutes(it.customStartTime ?: base.startTime, it.customEndTime ?: base.endTime) }
+                val rawEstimate = if (exception?.cancellationReason == CancellationReason.MANUAL && explicitDuration != null &&
+                    explicitDuration != nominalMinutes(base.startTime, base.endTime)) explicitDuration else base.rawDurationMinutes
+                val sample = HistoricalVelocityEntity(previous?.id ?: 0, base.subjectId, rawEstimate,
                     actualMinutes, java.time.Instant.now().toEpochMilli(), routineId, date)
                 if (previous == null) db.learning().insertSample(sample) else db.learning().updateSample(sample)
             }

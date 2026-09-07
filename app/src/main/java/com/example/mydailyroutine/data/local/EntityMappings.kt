@@ -29,6 +29,6 @@ internal fun StudyTopicEntity.domain() = StudyTopic(id, title, subjectId, LocalD
 internal fun StudyTopic.entity() = StudyTopicEntity(id, title, subjectId, initialDate.toEpochDay(), finalDate.toEpochDay(), reviewCount, reviewDurationMinutes, priorityWeight, milestoneId)
 internal fun SpacedReviewEntity.domain() = SpacedReview(id, topicId, scheduledEpochDay, durationMinutes, priorityWeight, ordinal, timeBlockId, isCompleted)
 internal fun BacklogEntryEntity.domain() = BacklogEntry(id, title, category, durationMinutes, minDurationMinutes, elasticity, priorityWeight,
-    subjectId, sourceRoutineId, occurrenceDate, milestoneId, topicId, reviewId, BacklogReason.valueOf(reason))
+    subjectId, sourceRoutineId, occurrenceDate, milestoneId, topicId, reviewId, BacklogReason.valueOf(reason), rawDurationMinutes)
 internal fun BacklogEntry.entity() = BacklogEntryEntity(id, title, category, durationMinutes, minDurationMinutes, elasticity, priorityWeight,
-    subjectId, sourceRoutineId, occurrenceDate, milestoneId, topicId, reviewId, reason.name)
+    subjectId, sourceRoutineId, occurrenceDate, milestoneId, topicId, reviewId, reason.name, rawDurationMinutes)

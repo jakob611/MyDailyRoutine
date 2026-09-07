@@ -103,4 +103,35 @@ class ResearchIntegrationTest {
         val repeat=planning.planMilestone(id,date,PlanningConfig(),context.getString(R.string.preparation_title_pattern),context.getString(R.string.reserve_title))
         assertEquals(0,repeat.studyMinutes)
     }
+    @Test fun calibratedBacklogKeepsItsRawEstimateAfterRescheduling(): Unit = runBlocking {
+        val subject=timeline.saveSubject(Subject(name="Fizika",colorHex=0xFF3B82F6,defaultDurationMinutes=60))
+        timeline.saveRoutine(RoutineBlueprint(subjectId=subject,title="Izpeljava",category=RoutineCategory.FOCUS_ANALYTICAL,
+            dayOfWeek=date.dayOfWeek,startTime=LocalTime.of(8,0),endTime=LocalTime.of(9,30),isNotificationEnabled=false,rawDurationMinutes=60))
+        add("Obveznost",570,60,60,10.0,true,RoutineCategory.ADMIN)
+        planning.autoHeal(date,570,90,PlanningConfig())
+        val entry=planning.backlog.first().single()
+        assertEquals(60,entry.rawDurationMinutes)
+        assertTrue(planning.scheduleBacklog(entry.id,date.plusDays(2),PlanningConfig()).placed)
+        val block=timeline.getTimelineForDate(date.plusDays(2)).first().filterIsInstance<ResolvedTimelineItem.Block>().single()
+        timeline.setCompleted(block.routineBlockId,block.occurrenceDate,true,90)
+        assertEquals(90,planning.getCalibratedDuration(60,subject.toString()))
+    }
+    @Test fun versionThreeBacklogMigratesWithOriginalEstimate(): Unit = runBlocking(kotlinx.coroutines.Dispatchers.IO) {
+        val name="research-migration-${java.util.UUID.randomUUID()}.db"
+        try {
+            context.openOrCreateDatabase(name,Context.MODE_PRIVATE,null).use { legacy ->
+                val sql=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets.open("schema-v3.sql").bufferedReader().use { it.readText() }
+                Regex("(?ms)CREATE TABLE.*?;|CREATE (?:UNIQUE )?INDEX.*?;|PRAGMA.*?;").findAll(sql).forEach { legacy.execSQL(it.value.removeSuffix(";")) }
+                legacy.execSQL("INSERT INTO routine_blocks VALUES(1,NULL,'Fokus','FOCUS_ANALYTICAL',1,480,90,0,NULL,NULL,25,1.0,3.0,0,NULL,60,NULL,NULL)")
+                legacy.execSQL("INSERT INTO backlog_entries VALUES(1,'Fokus','FOCUS_ANALYTICAL',90,25,1.0,3.0,NULL,1,NULL,NULL,NULL,NULL,'SLIPPAGE')")
+            }
+            val migrated=Room.databaseBuilder(context,RoutineDatabase::class.java,name).addMigrations(DatabaseMigrations.MIGRATION_3_4)
+                .addCallback(SeedAndIntegrityCallback(context.resources)).build()
+            try {
+                assertEquals(60,migrated.backlog().get(1)!!.rawDurationMinutes)
+                assertEquals(90,migrated.routines().get(1)!!.durationMinutes)
+            } finally { migrated.close() }
+        } finally { context.deleteDatabase(name) }
+    }
+
 }

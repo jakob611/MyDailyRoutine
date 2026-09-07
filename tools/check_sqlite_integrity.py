@@ -89,7 +89,7 @@ class SQLiteIntegritySmokeTest(unittest.TestCase):
         self.db.execute("INSERT INTO study_topics VALUES(1,'Optika',1,1,100,4,15,3.0,NULL)")
         self.db.execute('INSERT INTO spaced_reviews VALUES(1,1,20,15,3.0,1,NULL,0)')
         self.fails('INSERT INTO spaced_reviews VALUES(2,1,20,15,3.0,1,NULL,0)')
-        self.db.execute("INSERT INTO backlog_entries VALUES(1,'Optika','FOCUS_ANALYTICAL',15,15,1.0,3.0,1,NULL,NULL,NULL,1,1,'REVIEW_CAPACITY')")
+        self.db.execute("INSERT INTO backlog_entries VALUES(1,'Optika','FOCUS_ANALYTICAL',15,15,1.0,3.0,1,NULL,NULL,NULL,1,1,'REVIEW_CAPACITY',15)")
         self.db.execute('DELETE FROM study_topics WHERE id=1')
         self.assertEqual(0,self.db.execute('SELECT count(*) FROM backlog_entries').fetchone()[0])
     def test_migration_preserves_existing_rows_without_disabling_fks(self):
@@ -113,7 +113,10 @@ class SQLiteIntegritySmokeTest(unittest.TestCase):
             ('event_overrides','id,routineBlockId,overrideDate,isCancelled,customStartTime,customEndTime,customTitle,dayShift,cancellationReason',"id,routineBlockId,overrideDate,isCancelled,customStartTime,customEndTime,customTitle,0,'MANUAL'"),
             ('routine_completions','routineBlockId,date,actualMinutes','routineBlockId,date,NULL')]:
             db.execute(f'INSERT INTO {table}({columns}) SELECT {select} FROM _v2_{table}')
-        db.execute('INSERT INTO alarm_deliveries SELECT * FROM _v2_alarm_deliveries');install(db)
+        db.execute('INSERT INTO alarm_deliveries SELECT * FROM _v2_alarm_deliveries')
+        db.execute('ALTER TABLE backlog_entries ADD COLUMN rawDurationMinutes INTEGER NOT NULL DEFAULT 1')
+        db.execute('UPDATE backlog_entries SET rawDurationMinutes=COALESCE((SELECT rawDurationMinutes FROM routine_blocks WHERE id=sourceRoutineId),durationMinutes)')
+        install(db)
         self.assertEqual(('ADMIN',1380,120,1),db.execute('SELECT category,startMinutes,durationMinutes,isFixedCommitment FROM routine_blocks').fetchone())
         self.assertEqual(1,db.execute('SELECT count(*) FROM event_overrides').fetchone()[0])
         self.assertEqual([],db.execute('PRAGMA foreign_key_check').fetchall());db.close()

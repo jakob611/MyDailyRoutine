@@ -50,9 +50,16 @@ class DeterministicReschedulingEngine(private val circadian: CircadianPenalty = 
         }
         // 3. Quadratic elastic compression with repeated saturation at exact integer minima.
         val reductions = ElasticCompression.reductions(active, deficit())
-        for (i in active.indices) active[i] = active[i].copy(durationMinutes = active[i].durationMinutes - (reductions[active[i].id] ?: 0))
-        // 4. Density-greedy 0/1 elimination. Re-test feasibility after each removal (O(N²)).
         val deferred = mutableListOf<TimeBlock>()
+        val compressed = active.mapNotNull { block ->
+            val duration = block.durationMinutes - (reductions[block.id] ?: 0)
+            if (duration == 0 && !block.category.isBuffer) {
+                deferred += originals.getValue(block.id)
+                null
+            } else block.copy(durationMinutes = duration)
+        }
+        active.clear(); active.addAll(compressed)
+        // 4. Density-greedy 0/1 elimination. Re-test feasibility after each removal (O(N²)).
         val elimination = active.filter { it.durationMinutes > 0 }.sortedWith(
             compareBy<TimeBlock> { it.priorityWeight / it.durationMinutes.coerceAtLeast(1) }.thenBy { it.priorityWeight }.thenBy { it.id })
         elimination.forEach { block ->
@@ -75,9 +82,9 @@ class DeterministicReschedulingEngine(private val circadian: CircadianPenalty = 
         }
         val regenerated = if (active.isEmpty()) emptyList() else forward(active)
         check(regenerated.all { it.endMinutes <= boundary }) { "Repair crossed a fixed boundary" }
-        val compressed = active.filterNot { it.category.isBuffer }.sumOf { originals.getValue(it.id).durationMinutes - it.durationMinutes }
+        val compressedMinutes = active.filterNot { it.category.isBuffer }.sumOf { originals.getValue(it.id).durationMinutes - it.durationMinutes }
         return HealingResult((untouched + regenerated).sortedWith(compareBy<TimeBlock> { it.startMinutes }.thenBy { it.id }),
-            deferred.sortedBy { it.id }, HealingReport(initial, slackUsed, bufferUsed, compressed, deferred.size,
+            deferred.sortedBy { it.id }, HealingReport(initial, slackUsed, bufferUsed, compressedMinutes, deferred.size,
                 deferred.sumOf { it.durationMinutes }, boundary, cursor > boundary))
     }
 }

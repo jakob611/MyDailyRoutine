@@ -82,11 +82,14 @@ object DatabaseIntegrity {
             OR NEW.minDurationMinutes NOT BETWEEN 0 AND NEW.durationMinutes OR NEW.elasticity < 0 OR NEW.elasticity > 1000000
             OR NEW.priorityWeight <= 0 OR NEW.priorityWeight > 1000000
             OR NEW.category NOT IN ('SCHOOL','FOCUS_ANALYTICAL','FOCUS_SYNTHESIZING','ADMIN','REST_BUFFER','EMERGENCY_RESERVE')
+            OR NEW.rawDurationMinutes NOT BETWEEN 1 AND 1439
             OR NEW.reason NOT IN ('SLIPPAGE','CAPACITY','REVIEW_CAPACITY')
         """.trimIndent(),
     )
-    fun install(db: SupportSQLiteDatabase) {
-        predicates.forEach { (table, predicate) ->
+    fun install(db: SupportSQLiteDatabase, validateRawBacklog: Boolean = true) {
+        predicates.forEach { (table, fullPredicate) ->
+            val predicate = if (table == "backlog_entries" && !validateRawBacklog)
+                fullPredicate.replace("OR NEW.rawDurationMinutes NOT BETWEEN 1 AND 1439", "") else fullPredicate
             listOf("INSERT", "UPDATE").forEach { operation ->
                 db.execSQL("CREATE TRIGGER IF NOT EXISTS validate_${table}_${operation.lowercase()} BEFORE $operation ON $table FOR EACH ROW WHEN ($predicate) BEGIN SELECT RAISE(ABORT, 'Invalid $table values'); END")
             }

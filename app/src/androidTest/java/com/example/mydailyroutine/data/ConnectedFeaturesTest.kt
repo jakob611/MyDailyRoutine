@@ -126,7 +126,7 @@ class ConnectedFeaturesTest {
                 statements.forEach { legacy.execSQL(it.value.trim().removeSuffix(";")) }
                 legacy.execSQL("INSERT INTO subjects VALUES (1, 'Matematika', 4282090230, 45)")
             }
-            val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3)
+            val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4)
                 .addCallback(SeedAndIntegrityCallback(context.resources)).build()
             try {
                 assertEquals("Matematika", migrated.subjects().getAll().single().name)

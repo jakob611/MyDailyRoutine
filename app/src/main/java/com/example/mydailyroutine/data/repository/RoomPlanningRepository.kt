@@ -82,7 +82,7 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
                         durationMinutes = Duration.between(original.startsAt, original.endsAt).toMinutes().toInt(),
                         minDurationMinutes = original.minDurationMinutes, elasticity = original.elasticity, priorityWeight = original.priorityWeight,
                         subjectId = original.subject?.id, sourceRoutineId = original.routineBlockId, occurrenceDate = original.occurrenceDate,
-                        milestoneId = original.milestoneId, topicId = original.topicId, reviewId = original.reviewId).entity())
+                        milestoneId = original.milestoneId, topicId = original.topicId, reviewId = original.reviewId, rawDurationMinutes = original.rawDurationMinutes).entity())
                 }
                 revised == null && original.category.isBuffer -> timeline.saveOverride(previous.copy(isCancelled = true, cancellationReason = CancellationReason.BUFFER_CONSUMED))
                 revised != null -> {
@@ -131,7 +131,7 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
         val start = planner.candidate(entry.durationMinutes, entry.category, entry.priorityWeight, review = entry.reviewId != null)
             ?: return@transaction PlacementResult(false)
         val blockId = createBlock(date, start, entry.durationMinutes, entry.title, entry.category, entry.subjectId,
-            entry.milestoneId, entry.topicId, entry.minDurationMinutes, entry.elasticity, entry.priorityWeight)
+            entry.milestoneId, entry.topicId, entry.minDurationMinutes, entry.elasticity, entry.priorityWeight, entry.rawDurationMinutes)
         entry.reviewId?.let { reviewId -> db.learning().getReview(reviewId)?.let { review ->
             db.learning().updateReview(review.copy(timeBlockId = blockId, scheduledEpochDay = date.toEpochDay()))
         } }
@@ -200,10 +200,10 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
             if (block.reserve) reserveTitle else title, if (block.reserve) RoutineCategory.EMERGENCY_RESERVE else category,
             milestone.subjectId, milestone.id, minDuration = if (block.reserve) 0 else minOf(25, block.durationMinutes),
             priority = if (milestone.isTerminalExam) 8.0 else 4.0, rawMinutes = block.rawMinutes) }
-        plan.unplacedChunks.forEach { minutes -> db.backlog().insert(BacklogEntry(title = title, category = category,
-            durationMinutes = minutes, minDurationMinutes = minOf(25, minutes), elasticity = 1.0, priorityWeight = if (milestone.isTerminalExam) 8.0 else 4.0,
-            subjectId = milestone.subjectId, milestoneId = milestone.id, reason = BacklogReason.CAPACITY).entity()) }
-        PlanSummary(plan.blocks.filterNot { it.reserve }.sumOf { it.durationMinutes }, plan.blocks.filter { it.reserve }.sumOf { it.durationMinutes }, 0, plan.unplacedChunks.sum())
+        plan.unplacedChunks.forEach { chunk -> db.backlog().insert(BacklogEntry(title = title, category = category,
+            durationMinutes = chunk.durationMinutes, minDurationMinutes = minOf(25, chunk.durationMinutes), elasticity = 1.0, priorityWeight = if (milestone.isTerminalExam) 8.0 else 4.0,
+            subjectId = milestone.subjectId, milestoneId = milestone.id, reason = BacklogReason.CAPACITY, rawDurationMinutes = chunk.rawMinutes).entity()) }
+        PlanSummary(plan.blocks.filterNot { it.reserve }.sumOf { it.durationMinutes }, plan.blocks.filter { it.reserve }.sumOf { it.durationMinutes }, 0, plan.unplacedChunks.sumOf { it.durationMinutes })
     }
 
     private fun capacity(date: LocalDate, items: List<ResolvedTimelineItem>, config: PlanningConfig, latest: Int = config.studyEndMinutes): DailyCapacityPlanner =

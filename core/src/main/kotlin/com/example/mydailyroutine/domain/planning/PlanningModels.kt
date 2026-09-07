@@ -67,6 +67,7 @@ data class BacklogEntry(
     val subjectId: Long? = null, val sourceRoutineId: Long? = null, val occurrenceDate: LocalDate? = null,
     val milestoneId: Long? = null, val topicId: Long? = null, val reviewId: Long? = null,
     val reason: BacklogReason = BacklogReason.SLIPPAGE,
+    val rawDurationMinutes: Int = durationMinutes,
 )
 data class PlacementResult(val placed: Boolean, val date: LocalDate? = null)
 data class PlanSummary(val studyMinutes: Int, val reserveMinutes: Int, val reviews: Int, val deferredMinutes: Int)

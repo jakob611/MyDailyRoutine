@@ -40,8 +40,18 @@ object DatabaseMigrations {
             db.execSQL("INSERT INTO routine_completions(routineBlockId,date,actualMinutes) SELECT routineBlockId,date,NULL FROM _v2_routine_completions")
             db.execSQL("INSERT INTO alarm_deliveries SELECT * FROM _v2_alarm_deliveries")
             copied.forEach { db.execSQL("DROP TABLE _v2_$it") }
-            DatabaseIntegrity.install(db)
+            DatabaseIntegrity.install(db, validateRawBacklog = false)
             db.query("PRAGMA foreign_key_check").use { check(it.count == 0) { "Migration would violate foreign keys" } }
         }
     }
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DROP TRIGGER IF EXISTS validate_backlog_entries_insert")
+            db.execSQL("DROP TRIGGER IF EXISTS validate_backlog_entries_update")
+            db.execSQL("ALTER TABLE backlog_entries ADD COLUMN rawDurationMinutes INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("UPDATE backlog_entries SET rawDurationMinutes = COALESCE((SELECT rawDurationMinutes FROM routine_blocks WHERE id = sourceRoutineId), durationMinutes)")
+            DatabaseIntegrity.install(db)
+        }
+    }
+
 }

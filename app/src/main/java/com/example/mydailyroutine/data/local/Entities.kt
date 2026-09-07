@@ -105,4 +105,5 @@ data class SpacedReviewEntity(@PrimaryKey(autoGenerate = true) val id: Long = 0,
 data class BacklogEntryEntity(@PrimaryKey(autoGenerate = true) val id: Long = 0, val title: String,
     val category: RoutineCategory, val durationMinutes: Int, val minDurationMinutes: Int,
     val elasticity: Double, val priorityWeight: Double, val subjectId: Long?, val sourceRoutineId: Long?,
-    val occurrenceDate: LocalDate?, val milestoneId: Long?, val topicId: Long?, val reviewId: Long?, val reason: String)
+    val occurrenceDate: LocalDate?, val milestoneId: Long?, val topicId: Long?, val reviewId: Long?, val reason: String,
+    @ColumnInfo(defaultValue = "1") val rawDurationMinutes: Int = durationMinutes)

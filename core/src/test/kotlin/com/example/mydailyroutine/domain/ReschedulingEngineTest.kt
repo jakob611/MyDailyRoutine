@@ -94,6 +94,12 @@ class ReschedulingEngineTest {
             items.forEach { assertTrue((allocation[it.id]?:0) in 0..(it.durationMinutes-it.minDurationMinutes)) }
         }
     }
+    @Test fun `zero minimum task goes to backlog instead of becoming a zero length ghost`() {
+        val input=listOf(task("optional",840,60,0),fixed(900))
+        val result=engine.recover(input,840,60)
+        assertEquals(listOf("optional"),result.deferred.map { it.id })
+        assertTrue(result.blocks.none { !it.isFixed && it.durationMinutes==0 })
+    }
     @Test fun `output independent of input order`() {
         val tasks=listOf(task("a",840,60,25,1.0,3.0),task("b",900,60,25,2.0,1.0),fixed(960))
         assertEquals(engine.recover(tasks,840,50),engine.recover(tasks.reversed(),840,50))

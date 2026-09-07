@@ -4,14 +4,14 @@ A Slovenian-language, OLED-dark-first Android time-blocking app for school, focu
 
 ## Computational planning extension
 
-The current branch adds Room v3 minute-duration blocks, explicit actual-time history, five-phase
+The current branch adds minute-duration blocks with explicit Room v3/v4 migrations, explicit actual-time history, five-phase
 slippage recovery, RSEM reserves, calibrated estimates, Gaussian circadian costs, capacity-limited
 spaced reviews, reverse milestone preparation and a persistent backlog. All features reuse the
 existing app/resolver/alarms/widget. See [the mathematical model and integration policies](docs/CHRONOBIOLOGY_ENGINE.md).
 
-Current local research-extension checks: **102 core tests**, **13 SQLite checks**, **458 Slovenian
-resources**, and syntax parsing for **83 Kotlin files**. The previous successful CI run below
-predates this extension; its Android build/device verification is being rerun, not assumed passed.
+Current local research-extension checks: **107 core tests**, **13 SQLite checks**, **458 Slovenian
+resources**, and syntax parsing for **85 Kotlin files**. Research commit `d54a2da` passed both CI jobs in [run 34091265904](https://github.com/jakob611/MyDailyRoutine/actions/runs/34091265904).
+The final zero-minimum, rounding, reserve-union and raw-backlog migration refinements are being verified separately.
 
 ## What is implemented
 
