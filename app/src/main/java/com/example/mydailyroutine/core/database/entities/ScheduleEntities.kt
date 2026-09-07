@@ -41,7 +41,8 @@ data class EventOverrideEntity(
 @Entity(tableName = "routine_completions", primaryKeys = ["routineBlockId", "date"],
     foreignKeys = [ForeignKey(entity = TimeBlockEntity::class, parentColumns = ["id"], childColumns = ["routineBlockId"], onDelete = ForeignKey.CASCADE)], indices = [Index("date")])
 data class RoutineCompletionEntity(val routineBlockId: Long, val date: LocalDate, val actualMinutes: Int? = null,
-    val actualStartEpochMinute: Long? = null)
+    val actualStartEpochMinute: Long? = null, val actualStartedAtEpochMillis: Long? = null,
+    val actualEndedAtEpochMillis: Long? = null, val actualZoneId: String? = null)
 
 @Entity(tableName = "alarm_deliveries", primaryKeys = ["routineBlockId", "occurrenceDate", "kind"],
     foreignKeys = [ForeignKey(entity = TimeBlockEntity::class, parentColumns = ["id"], childColumns = ["routineBlockId"], onDelete = ForeignKey.CASCADE)], indices = [Index("occurrenceDate")])

@@ -486,4 +486,11 @@
     <string name="review_compact">KRAJŠA PONOVITEV</string>
     <string name="backlog_deadline">Izbrani datum je za povezanim rokom. Naloga ostaja v čakalni vrsti.</string>
     <string name="backlog_dependency">Najprej razporedi prejšnjo fazo priprave.</string>
+    <string name="execution_cancel_title">Prekinem merjenje brez zapisa?</string>
+    <string name="execution_cancel_body">Porabljeni čas ne bo shranjen kot opravljeno delo. Doslej prilagojeni urnik ostane nespremenjen.</string>
+    <string name="execution_cancel_confirm">Prekini brez shranjevanja</string>
+    <string name="execution_finish_first">Najprej zaključi delo ali prekini merjenje tega bloka.</string>
+    <string name="stage_finish_first">Najprej dokončaj prejšnjo fazo priprave.</string>
+    <string name="execution_protected_time">Ta čas je namenjen fiksni obveznosti ali zaščitenemu počitku.</string>
+    <string name="execution_clock_changed">Sistemska ura se je spremenila. Preveri in ročno potrdi dejanske minute.</string>
 </resources>

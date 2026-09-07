@@ -28,6 +28,7 @@ data class OccurrenceWindow(val start: Instant, val end: Instant)
  */
 object OccurrenceTimes {
     fun window(block: ResolvedTimelineItem.Block, zone: ZoneId): OccurrenceWindow {
+        block.actualTiming?.let { return OccurrenceWindow(it.startedAt, it.endedAt) }
         val start = block.startsAt.atZone(zone)
         val gapShift = Duration.between(block.startsAt, start.toLocalDateTime())
         val end = block.endsAt.plus(gapShift).atZone(zone).toInstant()

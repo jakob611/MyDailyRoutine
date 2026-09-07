@@ -18,7 +18,7 @@ import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
         SchoolCalendarEntryEntity::class, MilestoneEntity::class, RoutineCompletionEntity::class,
         AlarmDeliveryEntity::class, DemoImportEntity::class, HistoricalVelocityEntity::class,
         StudyTopicEntity::class, SpacedReviewEntity::class, BacklogEntryEntity::class, ActiveExecutionEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(TimeConverters::class)
@@ -40,7 +40,7 @@ abstract class RoutineDatabase : RoomDatabase() {
             context.applicationContext, RoutineDatabase::class.java, "daily-routine.db",
         )
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5)
+            .addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6)
             .addCallback(SeedAndIntegrityCallback(context.resources))
             // No destructive migration fallback: schema changes must ship an explicit migration.
             .build()
@@ -51,6 +51,7 @@ class SeedAndIntegrityCallback(private val resources: Resources) : RoomDatabase.
     override fun onCreate(db: SupportSQLiteDatabase) {
         DatabaseIntegrity.install(db)
         DatabaseMigrations.installExecutionIntegrity(db)
+        DatabaseMigrations.installActualTimingIntegrity(db)
         // Runs inside Room's creation transaction: the very first read sees the complete calendar.
         // No coroutine callback race, blocking main-thread DAO, fabricated exams, or live download.
         val insert = db.compileStatement(

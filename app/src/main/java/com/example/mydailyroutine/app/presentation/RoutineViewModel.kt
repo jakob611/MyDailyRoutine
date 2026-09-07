@@ -142,7 +142,9 @@ class RoutineViewModel(
                 executionRepository.finish(state.value.preferences.planning, state.value.preferences.automaticHealingEnabled)
                 messages.send(TimelineEffect.Completed)
             }
-            TimelineAction.CancelExecution -> perform { executionRepository.cancel() }
+            TimelineAction.RequestCancelExecution -> panels.update { it.copy(confirmCancelExecution = true) }
+            TimelineAction.DismissCancelExecution -> panels.update { it.copy(confirmCancelExecution = false) }
+            TimelineAction.CancelExecution -> perform { executionRepository.cancel(); panels.update { it.copy(confirmCancelExecution = false) } }
             is TimelineAction.SetAutomaticHealing -> perform { settings.setAutomaticHealingEnabled(action.enabled) }
             TimelineAction.SyncExecution -> if (!panels.value.isSaving && state.value.execution != null) viewModelScope.launch {
                 try {
@@ -211,7 +213,13 @@ class RoutineViewModel(
                 panels.update { it.copy(editingBlock = null) }
                 messages.send(TimelineEffect.Message(R.string.message_updated))
             }
-            is TimelineAction.ToggleComplete -> if (action.item is ResolvedTimelineItem.Block && action.item.category.isDeepWork && !action.item.isCompleted) {
+            is TimelineAction.ToggleComplete -> if (action.item is ResolvedTimelineItem.Block && !action.item.isCompleted &&
+                state.value.execution?.let { it.routineBlockId == action.item.routineBlockId && it.occurrenceDate == action.item.occurrenceDate } == true) {
+                perform {
+                    executionRepository.finish(state.value.preferences.planning, state.value.preferences.automaticHealingEnabled)
+                    messages.send(TimelineEffect.Completed)
+                }
+            } else if (action.item is ResolvedTimelineItem.Block && action.item.category.isDeepWork && !action.item.isCompleted) {
                 panels.update { it.copy(completionTarget = action.item) }
             } else perform {
                 when (val item = action.item) {
@@ -321,6 +329,14 @@ class RoutineViewModel(
         viewModelScope.launch {
             try { operation() }
             catch (error: CancellationException) { throw error }
+            catch (conflict: ScheduleConflict) {
+                messages.send(TimelineEffect.Message(when(conflict.reason) {
+                    ScheduleConflictReason.ACTIVE_EXECUTION -> R.string.execution_finish_first
+                    ScheduleConflictReason.PREVIOUS_STAGE -> R.string.stage_finish_first
+                    ScheduleConflictReason.PROTECTED_TIME -> R.string.execution_protected_time
+                    ScheduleConflictReason.CLOCK_CHANGED -> R.string.execution_clock_changed
+                }))
+            }
             catch (_: IllegalArgumentException) { messages.send(TimelineEffect.Message(R.string.error_values)) }
             catch (_: Exception) { messages.send(TimelineEffect.Message(R.string.error_save)) }
             finally {

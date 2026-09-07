@@ -81,7 +81,7 @@ data class Milestone(
     val isTerminalExam: Boolean = false,
 )
 
-data class OccurrenceCompletion(val routineBlockId: Long, val date: LocalDate, val actualMinutes: Int? = null, val actualStartedAt: LocalDateTime? = null)
+data class OccurrenceCompletion(val routineBlockId: Long, val date: LocalDate, val actualMinutes: Int? = null, val actualStartedAt: LocalDateTime? = null, val actualTiming: ActualTiming? = null)
 data class CancelledOccurrence(val routineBlockId: Long, val occurrenceDate: LocalDate, val title: String)
 
 /** A transactionally consistent database read, not a composition of independent DAO emissions. */
@@ -134,6 +134,7 @@ sealed interface ResolvedTimelineItem {
         val milestoneId: Long? = null,
         val reviewId: Long? = null,
         val stageOrder: Int? = null,
+        val actualTiming: ActualTiming? = null,
     ) : ResolvedTimelineItem {
         override val key: String get() = "block:$routineBlockId:$occurrenceDate:$date"
         val occurrenceKey: String get() = "block:$routineBlockId:$occurrenceDate"
@@ -177,4 +178,9 @@ data class SchedulePreferences(
         schoolStart > schoolEnd -> time >= schoolStart || time < schoolEnd
         else -> false
     }
+}
+
+/** Measured instants are kept separately from the civil-minute timeline (DST has 23/25-hour days). */
+data class ActualTiming(val startedAt: java.time.Instant, val endedAt: java.time.Instant, val zoneId: String) {
+    init { require(endedAt > startedAt); java.time.ZoneId.of(zoneId) }
 }

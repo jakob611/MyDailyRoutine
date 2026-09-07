@@ -84,7 +84,10 @@ fun TimelineBlockCard(
             drawLine(if (active) style.accent.copy(alpha = 0.6f) else RoutineColors.Spine,
                 Offset(x, 0f), Offset(x, size.height), 1.5.dp.toPx())
         }) {
-            TimeGutter(block.startMinute, block.endMinute, active, past)
+            val recordedZone = block.actualTiming?.zoneId?.let(java.time.ZoneId::of) ?: now.zone
+            TimeGutter(block.startMinute, block.endMinute, active, past,
+                block.actualTiming?.startedAt?.atZone(recordedZone)?.toLocalTime()?.clockLabel(),
+                block.actualTiming?.endedAt?.atZone(recordedZone)?.toLocalTime()?.clockLabel())
             Card(
                 onClick = { haptics.tap(); expanded = !expanded },
                 modifier = Modifier.weight(1f).graphicsLayer { translationY = dragY; scaleX = scale; scaleY = scale }
@@ -150,7 +153,10 @@ fun TimelineBlockCard(
                     if (block.isCarryIn) Text(stringResource(R.string.carry_in, block.occurrenceDate.format(DateTimeFormatter.ofPattern("d. M.", Slovenian))), style = MaterialTheme.typography.bodySmall)
                     if (block.isSuppressed) Text(stringResource(R.string.school_inactive, block.holidayTitle.orEmpty()), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
                     if (overlaps) Text(stringResource(R.string.overlap_notice), style = MaterialTheme.typography.labelSmall, color = RoutineColors.Warning)
-                    if (window.start.atZone(now.zone).toLocalDateTime() != block.startsAt || Duration.between(window.start, window.end) != Duration.between(block.startsAt, block.endsAt)) {
+                    val clockChanged = if (block.actualTiming != null)
+                        window.start.atZone(recordedZone).offset != window.end.atZone(recordedZone).offset
+                    else window.start.atZone(now.zone).toLocalDateTime() != block.startsAt || Duration.between(window.start, window.end) != Duration.between(block.startsAt, block.endsAt)
+                    if (clockChanged) {
                         Text(stringResource(R.string.clock_change, window.start.atZone(now.zone).toLocalTime().clockLabel(), durationLabel(Duration.between(window.start, window.end).toMinutes().toInt())), style = MaterialTheme.typography.bodySmall)
                     }
                     AnimatedVisibility(expanded, enter = fadeIn(tween(TransitionMillis)) + slideInVertically(tween(TransitionMillis)) { -it / 4 }, exit = fadeOut(tween(TransitionMillis))) {
@@ -190,10 +196,10 @@ fun TimelineBlockCard(
 }
 
 @Composable
-private fun TimeGutter(start: Int, end: Int, active: Boolean, past: Boolean) {
+private fun TimeGutter(start: Int, end: Int, active: Boolean, past: Boolean, actualStart: String? = null, actualEnd: String? = null) {
     Column(Modifier.width(60.dp).padding(top = 12.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(minuteLabel(start), style = MaterialTheme.typography.bodySmall, color = if (active) RoutineColors.TextPrimary else if (past) RoutineColors.TextMuted else RoutineColors.TextSecondary)
-        Text(minuteLabel(end), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
+        Text(actualStart ?: minuteLabel(start), style = MaterialTheme.typography.bodySmall, color = if (active) RoutineColors.TextPrimary else if (past) RoutineColors.TextMuted else RoutineColors.TextSecondary)
+        Text(actualEnd ?: minuteLabel(end), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
     }
 }
 

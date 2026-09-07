@@ -68,4 +68,23 @@ object DatabaseMigrations {
         for (operation in listOf("INSERT", "UPDATE")) db.execSQL("CREATE TRIGGER IF NOT EXISTS validate_execution_${operation.lowercase()} BEFORE $operation ON active_execution WHEN NEW.id != 1 OR NEW.startedAtEpochMillis < 0 OR NEW.expectedEndEpochMillis < 0 OR NEW.lastHealedEndEpochMillis < 0 OR (NEW.stoppedAtEpochMillis IS NOT NULL AND NEW.stoppedAtEpochMillis < NEW.startedAtEpochMillis) BEGIN SELECT RAISE(ABORT, 'Invalid execution'); END")
     }
 
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE routine_completions ADD COLUMN actualStartedAtEpochMillis INTEGER")
+            db.execSQL("ALTER TABLE routine_completions ADD COLUMN actualEndedAtEpochMillis INTEGER")
+            db.execSQL("ALTER TABLE routine_completions ADD COLUMN actualZoneId TEXT")
+            installActualTimingIntegrity(db)
+        }
+    }
+
+    fun installActualTimingIntegrity(db: SupportSQLiteDatabase) {
+        for (operation in listOf("INSERT", "UPDATE")) db.execSQL("""
+            CREATE TRIGGER IF NOT EXISTS validate_completion_timing_${operation.lowercase()} BEFORE $operation ON routine_completions
+            WHEN (NEW.actualStartedAtEpochMillis IS NULL) != (NEW.actualEndedAtEpochMillis IS NULL)
+                OR (NEW.actualStartedAtEpochMillis IS NOT NULL AND (NEW.actualEndedAtEpochMillis <= NEW.actualStartedAtEpochMillis
+                    OR NEW.actualZoneId IS NULL OR length(trim(NEW.actualZoneId)) = 0 OR NEW.actualMinutes IS NULL))
+            BEGIN SELECT RAISE(ABORT, 'Invalid measured interval'); END
+        """.trimIndent())
+    }
+
 }

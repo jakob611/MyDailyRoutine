@@ -7,6 +7,13 @@ import java.time.LocalDate
 
 @Dao
 interface TimeBlockDao {
+    @Query("SELECT * FROM routine_blocks WHERE milestoneId = :goal AND topicId IS NULL AND stageOrder IS NOT NULL ORDER BY stageOrder, validFrom, startMinutes")
+    suspend fun goalStages(goal: Long): List<TimeBlockEntity>
+    @Query("""SELECT EXISTS(SELECT 1 FROM routine_blocks b WHERE b.milestoneId = :goal AND b.topicId IS NULL
+        AND b.stageOrder < :stage AND b.category IN ('FOCUS_ANALYTICAL','FOCUS_SYNTHESIZING')
+        AND NOT EXISTS(SELECT 1 FROM routine_completions c WHERE c.routineBlockId = b.id AND c.date = b.validFrom)
+        AND NOT EXISTS(SELECT 1 FROM event_overrides e WHERE e.routineBlockId = b.id AND e.overrideDate = b.validFrom AND e.isCancelled = 1))""")
+    suspend fun hasUnfinishedEarlierStage(goal: Long, stage: Int): Boolean
     @Query("""
         SELECT * FROM routine_blocks
         WHERE dayOfWeek IN (:weekdays)

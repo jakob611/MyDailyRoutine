@@ -2,6 +2,13 @@
 
 A Slovenian-language, OLED-dark-first Android time-blocking app for school, focused study, personal routines, recovery, and IB milestones. Kotlin 2.x, Jetpack Compose / Material 3, Room, Coroutines / Flow, AlarmManager, and Glance. No account, HTTP client, telemetry, or runtime network permission.
 
+## Latest operational review
+
+The follow-up [logic audit](docs/audits/LOGIC_REVIEW.md) addresses active-session safety,
+stage ordering, review metadata, overnight budgets and measured timestamps through DST.
+Room v6 preserves legacy records through explicit migrations. Local core/SQLite checks pass;
+Android verification of this latest follow-up is being rerun, not inferred from prior green runs.
+
 ## Complete PDF audit and feature-first architecture
 
 The user's complete 19-page PDF is now retained in `docs/research/` and has been read in full.

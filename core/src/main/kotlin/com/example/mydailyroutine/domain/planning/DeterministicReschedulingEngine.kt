@@ -68,9 +68,7 @@ class DeterministicReschedulingEngine(private val circadian: CircadianPenalty = 
         // If actual time has passed the boundary, buffers are capacity, not work: remove them
         // rather than turning reserve into an academic backlog or moving a fixed commitment.
         active.removeAll { it.durationMinutes == 0 }
-        val blockedStages = deferred.filter { it.precedenceGroup != null && it.stageOrder != null }.groupBy { it.precedenceGroup }
-            .mapValues { (_, tasks) -> tasks.minOf { it.stageOrder!! } }
-        val dependent = active.filter { task -> task.precedenceGroup?.let { group -> blockedStages[group]?.let { task.stageOrder != null && task.stageOrder > it } } == true && !task.category.isBuffer }
+        val dependent = StageDependencies.dependentsToDefer(active, deferred)
         dependent.forEach { deferred += originals.getValue(it.id) }
         active.removeAll(dependent.toSet())
         // 5. Regenerate and apply a bounded circadian improvement pass only if it remains feasible.

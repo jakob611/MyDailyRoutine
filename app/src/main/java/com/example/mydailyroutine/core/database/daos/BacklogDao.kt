@@ -7,6 +7,8 @@ import java.time.LocalDate
 
 @Dao
 interface BacklogDao {
+    @Query("SELECT * FROM backlog_entries WHERE sourceRoutineId = :routineId AND occurrenceDate = :date")
+    suspend fun occurrence(routineId: Long, date: LocalDate): BacklogEntryEntity?
     @Query("SELECT EXISTS(SELECT 1 FROM backlog_entries WHERE milestoneId = :goal AND topicId IS NULL AND stageOrder < :stage)")
     suspend fun hasEarlierStage(goal: Long, stage: Int): Boolean
     @Query("SELECT * FROM backlog_entries ORDER BY priorityWeight DESC, id") fun observeAll(): kotlinx.coroutines.flow.Flow<List<BacklogEntryEntity>>

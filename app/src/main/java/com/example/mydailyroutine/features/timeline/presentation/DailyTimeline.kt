@@ -54,7 +54,7 @@ fun DailyTimeline(day: DayUi, now: ZonedDateTime, busy: Boolean, health: HealthC
                             Text(stringResource(R.string.execution_elapsed, active.elapsedMinutes(now.toInstant())), style = MaterialTheme.typography.titleLarge)
                             Row {
                                 TextButton(enabled = !busy, onClick = { onAction(TimelineAction.FinishExecution) }) { Text(stringResource(R.string.execution_finish)) }
-                                TextButton(enabled = !busy, onClick = { onAction(TimelineAction.CancelExecution) }) { Text(stringResource(R.string.execution_cancel)) }
+                                TextButton(enabled = !busy, onClick = { onAction(TimelineAction.RequestCancelExecution) }) { Text(stringResource(R.string.execution_cancel)) }
                             }
                         }
                     }

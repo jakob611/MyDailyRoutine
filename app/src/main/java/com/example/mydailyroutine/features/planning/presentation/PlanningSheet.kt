@@ -33,6 +33,7 @@ fun PlanningSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit) {
     val context = LocalContext.current
     val busy = state.panels.isSaving
     var backlogDateId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var deleteBacklogId by rememberSaveable { mutableStateOf<Long?>(null) }
     var deleteTopicId by rememberSaveable { mutableStateOf<Long?>(null) }
     ModalBottomSheet(onDismissRequest = { onAction(TimelineAction.ClosePlanning) }, shape = RoutineShapes.Sheet,
         containerColor = RoutineColors.Surface1, tonalElevation = 0.dp, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -51,7 +52,7 @@ fun PlanningSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit) {
                         Text(durationLabel(entry.durationMinutes), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary)
                         Row {
                             TextButton(enabled = !busy, onClick = { backlogDateId = entry.id }) { Text(stringResource(R.string.backlog_schedule)) }
-                            TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteBacklog(entry.id)) }) { Text(stringResource(R.string.delete)) }
+                            TextButton(enabled = !busy, onClick = { deleteBacklogId = entry.id }) { Text(stringResource(R.string.delete)) }
                         }
                     }
                 }
@@ -92,6 +93,12 @@ fun PlanningSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit) {
     backlogDateId?.let { id -> AppDatePicker(maxOf(LocalDate.now(), state.content.date), onDismiss = { backlogDateId = null }, onDate = {
         backlogDateId = null; onAction(TimelineAction.ScheduleBacklog(id, it))
     }) }
+    state.planning.backlog.firstOrNull { it.id == deleteBacklogId }?.let { entry ->
+        AlertDialog(onDismissRequest = { deleteBacklogId = null }, title = { Text(stringResource(R.string.delete_entry_title)) },
+            text = { Text(stringResource(R.string.delete_entry_body,entry.title)) },
+            confirmButton = { TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteBacklog(entry.id)); deleteBacklogId = null }) { Text(stringResource(R.string.delete)) } },
+            dismissButton = { TextButton(onClick = { deleteBacklogId = null }) { Text(stringResource(R.string.keep)) } })
+    }
     deleteTopicId?.let { id -> AlertDialog(onDismissRequest = { deleteTopicId = null }, title = { Text(stringResource(R.string.delete_topic_title)) },
         text = { Text(stringResource(R.string.delete_topic_body)) }, confirmButton = { TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteTopic(id)); deleteTopicId = null }) { Text(stringResource(R.string.delete)) } },
         dismissButton = { TextButton(onClick = { deleteTopicId = null }) { Text(stringResource(R.string.cancel)) } }) }

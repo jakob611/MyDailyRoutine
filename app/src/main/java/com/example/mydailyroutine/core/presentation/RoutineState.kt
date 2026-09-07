@@ -61,6 +61,7 @@ data class TimelinePanels(
     val showPlanning: Boolean = false,
     val completionTarget: ResolvedTimelineItem.Block? = null,
     val showTopicEditor: Boolean = false,
+    val confirmCancelExecution: Boolean = false,
 )
 
 @Immutable
@@ -106,6 +107,8 @@ sealed interface TimelineAction {
     data class StartExecution(val block: ResolvedTimelineItem.Block) : TimelineAction
     data object FinishExecution : TimelineAction
     data object CancelExecution : TimelineAction
+    data object RequestCancelExecution : TimelineAction
+    data object DismissCancelExecution : TimelineAction
     data object SyncExecution : TimelineAction
     data class SetAutomaticHealing(val enabled: Boolean) : TimelineAction
     data object ClosePlanning : TimelineAction

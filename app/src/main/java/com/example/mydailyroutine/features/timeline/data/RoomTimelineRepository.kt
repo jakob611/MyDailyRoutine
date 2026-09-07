@@ -51,7 +51,9 @@ class RoomTimelineRepository(
                 calendar = db.calendar().inRange(firstOrigin, through).map { it.domain() },
                 milestones = db.milestones().inRange(from, through).map { it.domain() },
                 completions = db.completions().inRange(firstOrigin, through).map { OccurrenceCompletion(it.routineBlockId, it.date, it.actualMinutes,
-                    it.actualStartEpochMinute?.let { minute -> java.time.LocalDateTime.ofEpochSecond(minute * 60, 0, java.time.ZoneOffset.UTC) }) },
+                    it.actualStartEpochMinute?.let { minute -> java.time.LocalDateTime.ofEpochSecond(minute * 60, 0, java.time.ZoneOffset.UTC) },
+                    if (it.actualStartedAtEpochMillis != null && it.actualEndedAtEpochMillis != null && it.actualZoneId != null)
+                        ActualTiming(java.time.Instant.ofEpochMilli(it.actualStartedAtEpochMillis), java.time.Instant.ofEpochMilli(it.actualEndedAtEpochMillis), it.actualZoneId) else null) },
                 reviews = db.learning().reviews(firstOrigin.toEpochDay(), through.toEpochDay()).map { it.domain() },
             )
         }
@@ -77,6 +79,7 @@ class RoomTimelineRepository(
     override suspend fun deleteSubject(id: Long) = write { db.subjects().delete(id) }
 
     override suspend fun saveRoutine(routine: RoutineBlueprint): Long = write {
+        if (routine.id != 0L) requireNotRunning(routine.id)
         val duration = nominalMinutes(routine.startTime, routine.endTime)
         val clean = if (routine.isFixedCommitment || routine.category == RoutineCategory.SCHOOL) routine.copy(
             minDurationMinutes = duration, elasticity = 0.0, isFixedCommitment = true) else routine
@@ -93,7 +96,11 @@ class RoomTimelineRepository(
         }
     }
 
-    override suspend fun deleteRoutine(id: Long) = write { db.routines().delete(id) }
+    private suspend fun requireNotRunning(id: Long, date: LocalDate? = null) {
+        val active = db.execution().get()
+        if (active?.routineBlockId == id && (date == null || active.occurrenceDate == date)) throw ScheduleConflict(ScheduleConflictReason.ACTIVE_EXECUTION)
+    }
+    override suspend fun deleteRoutine(id: Long) = write { requireNotRunning(id); db.routines().delete(id) }
 
     override suspend fun setNotificationEnabled(routineId: Long, enabled: Boolean) = write {
         check(db.routines().setNotificationEnabled(routineId, enabled) == 1) { "This routine was deleted." }
@@ -110,11 +117,19 @@ class RoomTimelineRepository(
         // Never use REPLACE: it deletes the old row and can cascade into related tables.
         if (existing == null) db.overrides().insert(clean.copy(id = 0).entity())
         else check(db.overrides().update(clean.copy(id = existing.id).entity()) == 1)
+        synchronizeReview(base, clean.overrideDate, clean)
+    }
+    private suspend fun synchronizeReview(base: RoutineBlueprint, origin: LocalDate, exception: EventOverride?) {
+        db.learning().reviewForBlock(base.id)?.let { review ->
+            val duration = nominalMinutes(exception?.customStartTime ?: base.startTime, exception?.customEndTime ?: base.endTime)
+            db.learning().updateReview(review.copy(scheduledEpochDay = origin.plusDays((exception?.dayShift ?: 0).toLong()).toEpochDay(), durationMinutes = duration))
+        }
     }
 
     override suspend fun saveOverride(override: EventOverride) = write { saveOverrideInTransaction(override) }
 
     override suspend fun cancelOccurrence(routineId: Long, date: LocalDate) = write {
+        requireNotRunning(routineId,date)
         val existing = db.overrides().get(routineId, date)?.domain() ?: EventOverride(routineBlockId = routineId, overrideDate = date)
         saveOverrideInTransaction(existing.copy(isCancelled = true, cancellationReason = CancellationReason.MANUAL))
     }
@@ -125,11 +140,17 @@ class RoomTimelineRepository(
         Unit
     }
 
-    override suspend fun resetOverride(routineId: Long, date: LocalDate) = write { db.overrides().delete(routineId, date) }
+    override suspend fun resetOverride(routineId: Long, date: LocalDate) = write {
+        requireNotRunning(routineId,date)
+        db.overrides().delete(routineId,date)
+        db.backlog().deleteOccurrence(routineId,date)
+        synchronizeReview(routine(routineId),date,null)
+    }
 
     override suspend fun editBlock(
         routineId: Long, date: LocalDate, title: String, start: LocalTime, end: LocalTime, wholeTemplate: Boolean,
     ) = write {
+        requireNotRunning(routineId,date)
         if (wholeTemplate) {
             val base = routine(routineId)
             val duration = nominalMinutes(start, end)
@@ -143,12 +164,13 @@ class RoomTimelineRepository(
         Unit
     }
 
-    override suspend fun setCompleted(routineId: Long, date: LocalDate, completed: Boolean, actualMinutes: Int?, actualStartedAt: java.time.LocalDateTime?) = write {
+    override suspend fun setCompleted(routineId: Long, date: LocalDate, completed: Boolean, actualMinutes: Int?, actualStartedAt: java.time.LocalDateTime?, actualTiming: ActualTiming?) = write {
         val base = routine(routineId)
         require(base.occursOn(date)) { "This routine does not occur on that date." }
         require(actualMinutes == null || actualMinutes in 1..10080)
         if (completed) {
-            val row = RoutineCompletionEntity(routineId, date, actualMinutes, actualStartedAt?.toEpochSecond(java.time.ZoneOffset.UTC)?.div(60))
+            val row = RoutineCompletionEntity(routineId, date, actualMinutes, actualStartedAt?.toEpochSecond(java.time.ZoneOffset.UTC)?.div(60),
+                actualTiming?.startedAt?.toEpochMilli(), actualTiming?.endedAt?.toEpochMilli(), actualTiming?.zoneId)
             if (db.completions().get(routineId, date) == null) db.completions().insert(row) else db.completions().update(row)
             if (actualMinutes != null && base.subjectId != null && base.category.isDeepWork) {
                 val previous = db.learning().sample(routineId, date)
@@ -192,6 +214,7 @@ class RoomTimelineRepository(
         val data = snapshot(date.minusDays(1), date.plusDays(1))
         val resolved = resolver.prepare(data)
         val today = resolved.forDate(date)
+        today.filterIsInstance<ResolvedTimelineItem.Block>().firstOrNull { it.key == anchorKey }?.let { requireNotRunning(it.routineBlockId,it.occurrenceDate) }
         val warning = ScheduleHealthEngine().evaluate(today, config).firstOrNull {
             it.type == type && anchorKey in it.relatedItemKeys
         } ?: return@write RecoveryResult(RecoveryStatus.ALREADY_HANDLED)

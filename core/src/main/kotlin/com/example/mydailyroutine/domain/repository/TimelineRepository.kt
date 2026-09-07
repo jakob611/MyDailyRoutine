@@ -22,7 +22,7 @@ interface TimelineRepository {
     suspend fun restoreOccurrence(routineId: Long, date: LocalDate)
     suspend fun resetOverride(routineId: Long, date: LocalDate)
     suspend fun editBlock(routineId: Long, date: LocalDate, title: String, start: LocalTime, end: LocalTime, wholeTemplate: Boolean)
-    suspend fun setCompleted(routineId: Long, date: LocalDate, completed: Boolean, actualMinutes: Int? = null, actualStartedAt: java.time.LocalDateTime? = null)
+    suspend fun setCompleted(routineId: Long, date: LocalDate, completed: Boolean, actualMinutes: Int? = null, actualStartedAt: java.time.LocalDateTime? = null, actualTiming: ActualTiming? = null)
     suspend fun saveMilestone(milestone: Milestone): Long
     suspend fun setMilestoneCompleted(id: Long, completed: Boolean)
     suspend fun deleteMilestone(id: Long)

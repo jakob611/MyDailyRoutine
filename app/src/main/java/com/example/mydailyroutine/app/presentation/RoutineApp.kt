@@ -157,6 +157,10 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                 confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.ConfirmDelete) }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
                 dismissButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.DismissDelete) }) { Text(stringResource(R.string.keep)) } })
         }
+        if (state.panels.confirmCancelExecution) AlertDialog(onDismissRequest = { onAction(TimelineAction.DismissCancelExecution) },
+            title = { Text(stringResource(R.string.execution_cancel_title)) }, text = { Text(stringResource(R.string.execution_cancel_body)) },
+            confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.CancelExecution) }) { Text(stringResource(R.string.execution_cancel_confirm)) } },
+            dismissButton = { TextButton(onClick = { onAction(TimelineAction.DismissCancelExecution) }) { Text(stringResource(R.string.keep)) } })
         if (state.panels.confirmDemo) AlertDialog(onDismissRequest = { onAction(TimelineAction.DismissDemo) },
             title = { Text(stringResource(R.string.demo_confirm_title)) }, text = { Text(stringResource(R.string.demo_confirm_body)) },
             confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.LoadDemo) }) { Text(stringResource(R.string.demo_confirm)) } },

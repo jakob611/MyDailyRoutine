@@ -88,7 +88,7 @@ class ResolvedSchedule internal constructor(snapshot: ScheduleSnapshot) {
                         elasticity = base.elasticity, priorityWeight = base.priorityWeight, isFixedCommitment = base.isFixedCommitment,
                         completedActualMinutes = completions[base.id to origin]?.actualMinutes,
                         rawDurationMinutes = base.rawDurationMinutes, topicId = base.topicId, milestoneId = base.milestoneId,
-                        reviewId = reviews[base.id]?.id, stageOrder = base.stageOrder,
+                        reviewId = reviews[base.id]?.id, stageOrder = base.stageOrder, actualTiming = completion?.actualTiming,
                     ),
                 )
             }

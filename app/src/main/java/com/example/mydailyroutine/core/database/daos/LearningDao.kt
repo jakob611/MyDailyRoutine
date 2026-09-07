@@ -7,6 +7,7 @@ import java.time.LocalDate
 
 @Dao
 interface LearningDao {
+    @Query("DELETE FROM spaced_reviews WHERE id = :id") suspend fun deleteReview(id: Long)
     @Query("SELECT * FROM study_topics WHERE id = :id") suspend fun getTopic(id: Long): StudyTopicEntity?
     @Query("SELECT * FROM historical_velocity ORDER BY timestamp DESC, id DESC LIMIT 10000")
     fun observeHistory(): kotlinx.coroutines.flow.Flow<List<HistoricalVelocityEntity>>

@@ -64,18 +64,35 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
         val remaining = result.blocks.associateBy { it.id }.toMutableMap()
         // Moving a review across midnight must not evade the 20% cap, nor overload tomorrow's study budget.
         for (day in listOf(baseDate, baseDate.plusDays(1))) {
-            val scheduled = remaining.values.filter { midnight.plusMinutes(it.startMinutes.toLong()).toLocalDate() == day && it.category.isDeepWork && byKey[it.id] != null }
+            val fromMinute = java.time.temporal.ChronoUnit.DAYS.between(baseDate,day).toInt() * 1440
+            fun minutesOnDay(task: TimeBlock): Int = (minOf(task.endMinutes,fromMinute+1440) - maxOf(task.startMinutes,fromMinute)).coerceAtLeast(0)
+            val scheduled = remaining.values.filter { minutesOnDay(it) > 0 && it.category.isDeepWork && byKey[it.id] != null }
             val spent = items.filterIsInstance<ResolvedTimelineItem.Block>().filter { it.date == day && (it.isCompleted || it.occurrenceKey == excludedOccurrenceKey) && !it.isSuppressed }
-            var total = scheduled.sumOf { it.durationMinutes } + com.example.mydailyroutine.domain.health.Intervals.minutes(spent.filter { it.category.isDeepWork }.map { com.example.mydailyroutine.domain.health.MinuteInterval(it.startMinute,it.endMinute) })
-            var reviews = spent.filter { it.reviewId != null }.sumOf { it.durationMinutes } + scheduled.filter { byKey.getValue(it.id).reviewId != null }.sumOf { it.durationMinutes }
+            val projected = remaining.values.mapNotNull { task ->
+                val original = byKey[task.id] ?: return@mapNotNull null
+                val start = midnight.plusMinutes(task.startMinutes.toLong())
+                val end = start.plusMinutes(task.durationMinutes.toLong())
+                val dayStart = day.atStartOfDay(); val dayEnd = day.plusDays(1).atStartOfDay()
+                if (start >= dayEnd || end <= dayStart) null else original.copy(date = day, startsAt = start, endsAt = end,
+                    startMinute = Duration.between(dayStart,maxOf(start,dayStart)).toMinutes().toInt(),
+                    endMinute = Duration.between(dayStart,minOf(end,dayEnd)).toMinutes().toInt())
+            }
+            val actualDate = midnight.plusMinutes(actualRelative.toLong()).toLocalDate()
+            val earliest = if (day == actualDate) actualRelative % 1440 else config.studyStartMinutes
+            val budget = DailyCapacityPlanner(day, projected + spent + items.filterIsInstance<ResolvedTimelineItem.Milestone>().filter { it.date == day }, config, earliest)
+            var total = scheduled.sumOf(::minutesOnDay) + com.example.mydailyroutine.domain.health.Intervals.minutes(spent.filter { it.category.isDeepWork }.map { com.example.mydailyroutine.domain.health.MinuteInterval(it.startMinute,it.endMinute) })
+            var reviews = spent.filter { it.reviewId != null }.sumOf { it.durationMinutes } + scheduled.filter { byKey.getValue(it.id).reviewId != null }.sumOf(::minutesOnDay)
             for (task in scheduled.filter { !it.isFixed && it.id in scopedIds }.sortedWith(compareBy<TimeBlock> { it.priorityWeight / it.durationMinutes.coerceAtLeast(1) }.thenBy { it.id })) {
                 val review = byKey.getValue(task.id).reviewId != null
-                if (total > config.dailyStudyCapacityMinutes || (review && reviews > config.dailyReviewCap)) {
-                    deferred += task.id; remaining.remove(task.id); total -= task.durationMinutes
-                    if (review) reviews -= task.durationMinutes
+                if (total > budget.effectiveStudyCapacity || (review && reviews > budget.effectiveReviewCapacity)) {
+                    deferred += task.id; remaining.remove(task.id); total -= minutesOnDay(task)
+                    if (review) reviews -= minutesOnDay(task)
                 }
             }
         }
+        val numericById = numerical.associateBy { it.id }
+        val dependent = StageDependencies.dependentsToDefer(remaining.values, deferred.mapNotNull(numericById::get), scopedIds)
+        dependent.forEach { deferred += it.id; remaining.remove(it.id) }
         blocks.filterNot { it.isFixedCommitment || it.category == RoutineCategory.SCHOOL }.forEach { original ->
             val previous = db.overrides().get(original.routineBlockId, original.occurrenceDate)?.domain()
                 ?: EventOverride(routineBlockId = original.routineBlockId, overrideDate = original.occurrenceDate)
@@ -97,8 +114,6 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
                         val shift = ChronoUnit.DAYS.between(original.occurrenceDate, start.toLocalDate()).toInt()
                         timeline.saveOverride(previous.copy(customStartTime = start.toLocalTime(), customEndTime = end.toLocalTime(),
                             dayShift = shift, cancellationReason = CancellationReason.AUTO_HEAL))
-                        db.learning().reviewForBlock(original.routineBlockId)?.let { db.learning().updateReview(it.copy(
-                            scheduledEpochDay = start.toLocalDate().toEpochDay(), durationMinutes = revised.durationMinutes)) }
                     }
                 }
             }
@@ -139,9 +154,16 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
         val goalId = entry.milestoneId
         if (stage != null && goalId != null && db.backlog().hasEarlierStage(goalId, stage))
             return@transaction PlacementResult(false, failure = PlacementFailure.DEPENDENCY)
+        val bounds = if (stage != null && goalId != null) MilestoneDependencies(db,timeline).bounds(goalId,stage) else StageBounds(null,null)
+        val before = bounds.notBefore
+        val after = bounds.notAfter
+        if ((before != null && date < before.toLocalDate()) || (after != null && date > after.toLocalDate()))
+            return@transaction PlacementResult(false, failure = PlacementFailure.DEPENDENCY)
         val items = resolver.resolve(date, timeline.snapshot(date, date))
-        val lastMinute = if (goal?.dueDate == date) goal.dueTime?.toSecondOfDay()?.div(60) ?: config.studyEndMinutes else config.studyEndMinutes
-        val planner = capacity(date, items, config, lastMinute)
+        val deadlineMinute = if (goal?.dueDate == date) goal.dueTime?.toSecondOfDay()?.div(60) ?: config.studyEndMinutes else config.studyEndMinutes
+        val lastMinute = minOf(deadlineMinute, if (after?.toLocalDate() == date) after.toLocalTime().toSecondOfDay()/60 else config.studyEndMinutes)
+        val firstMinute = if (before?.toLocalDate() == date) before.toLocalTime().toSecondOfDay()/60 else config.studyStartMinutes
+        val planner = capacity(date, items, config, lastMinute, firstMinute)
         val start = planner.candidate(entry.durationMinutes, entry.category, entry.priorityWeight, review = entry.reviewId != null)
             ?: return@transaction PlacementResult(false)
         val blockId = createBlock(date, start, entry.durationMinutes, entry.title, entry.category, entry.subjectId,
@@ -152,8 +174,21 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
         db.backlog().delete(id)
         PlacementResult(true, date)
     }
-    override suspend fun deleteBacklog(id: Long) = transaction { db.backlog().delete(id) }
-    override suspend fun deleteTopic(id: Long) = transaction { db.learning().deleteTopic(id) }
+    override suspend fun deleteBacklog(id: Long) = transaction {
+        val entry = db.backlog().get(id)
+        val review = entry?.reviewId?.let { db.learning().getReview(it) }
+        if (review != null) {
+            val blockId = review.timeBlockId
+            if (blockId != null) timeline.deleteRoutine(blockId) else db.learning().deleteReview(review.id)
+        } else db.backlog().delete(id)
+        Unit
+    }
+    override suspend fun deleteTopic(id: Long) = transaction {
+        val active = db.execution().get()
+        if (active != null && db.routines().get(active.routineBlockId)?.topicId == id)
+            throw ScheduleConflict(ScheduleConflictReason.ACTIVE_EXECUTION)
+        db.learning().deleteTopic(id)
+    }
 
     override suspend fun createTopic(topic: StudyTopic, config: PlanningConfig, reviewTitlePattern: String): PlanSummary = transaction {
         ScheduleValidation.title(topic.title)
@@ -225,8 +260,8 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
         PlanSummary(plan.blocks.filterNot { it.reserve }.sumOf { it.durationMinutes }, plan.blocks.filter { it.reserve }.sumOf { it.durationMinutes }, 0, plan.unplacedChunks.sumOf { it.durationMinutes }, unreservedMinutes = plan.unreservedMinutes)
     }
 
-    private fun capacity(date: LocalDate, items: List<ResolvedTimelineItem>, config: PlanningConfig, latest: Int = config.studyEndMinutes): DailyCapacityPlanner =
-        DailyCapacityPlanner(date, items, config, if (date == LocalDate.now()) maxOf(config.studyStartMinutes, LocalTime.now().toSecondOfDay() / 60 + 1) else config.studyStartMinutes, latest)
+    private fun capacity(date: LocalDate, items: List<ResolvedTimelineItem>, config: PlanningConfig, latest: Int = config.studyEndMinutes, earliest: Int = config.studyStartMinutes): DailyCapacityPlanner =
+        DailyCapacityPlanner(date, items, config, maxOf(earliest, if (date == LocalDate.now()) maxOf(config.studyStartMinutes, LocalTime.now().toSecondOfDay() / 60 + 1) else config.studyStartMinutes), latest)
 
     private suspend fun createBlock(date: LocalDate, start: Int, duration: Int, title: String, category: RoutineCategory,
         subjectId: Long?, milestoneId: Long? = null, topicId: Long? = null, minDuration: Int = minOf(25,duration),

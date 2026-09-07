@@ -13,11 +13,20 @@ def install(connection):
         for op in ('INSERT','UPDATE'):
             connection.execute(f"CREATE TRIGGER IF NOT EXISTS validate_{table}_{op.lower()} BEFORE {op} ON {table} FOR EACH ROW WHEN ({predicate}) BEGIN SELECT RAISE(ABORT,'Invalid {table} values'); END")
 
+def install_measured_timing(db):
+    source=(LOCAL/'DatabaseMigrations.kt').read_text()
+    columns={row[1] for row in db.execute('PRAGMA table_info(routine_completions)')}
+    if 'actualStartedAtEpochMillis' not in columns: return
+    sql=next(text for text in re.findall(r'"""(.*?)"""',source,re.S) if 'validate_completion_timing_' in text)
+    for operation in ('INSERT','UPDATE'):
+        db.execute(sql.replace('${operation.lowercase()}',operation.lower()).replace('$operation',operation))
+
 def database():
     db=sqlite3.connect(':memory:',isolation_level=None);db.execute('PRAGMA foreign_keys=ON')
     for statements in ddl().values():
         for statement in statements:db.execute(statement)
     install(db)
+    install_measured_timing(db)
     return db
 
 OVERRIDE='INSERT INTO event_overrides(id,routineBlockId,overrideDate,isCancelled,customStartTime,customEndTime,customTitle)'
@@ -125,6 +134,12 @@ class SQLiteIntegritySmokeTest(unittest.TestCase):
         self.fails("INSERT INTO active_execution VALUES(1,1,?,1000,2000,2000,NULL)",(self.day,))
         self.db.execute('DELETE FROM routine_blocks WHERE id=1')
         self.assertEqual(0,self.db.execute('SELECT count(*) FROM active_execution').fetchone()[0])
+    def test_measured_timing_requires_a_complete_positive_interval(self):
+        self.db.execute(COMPLETION+' VALUES(1,?)',(self.day,))
+        self.fails('UPDATE routine_completions SET actualStartedAtEpochMillis=1000')
+        self.fails("UPDATE routine_completions SET actualMinutes=30,actualStartedAtEpochMillis=2000,actualEndedAtEpochMillis=1000,actualZoneId='UTC'")
+        self.db.execute("UPDATE routine_completions SET actualMinutes=30,actualStartedAtEpochMillis=1000,actualEndedAtEpochMillis=1801000,actualZoneId='UTC'")
+        self.assertEqual(1801000,self.db.execute('SELECT actualEndedAtEpochMillis FROM routine_completions').fetchone()[0])
     def test_privacy_resources(self):
         for file in (ROOT/'app/src/main').rglob('*.xml'):ET.parse(file)
         manifest=ET.parse(ROOT/'app/src/main/AndroidManifest.xml').getroot()
