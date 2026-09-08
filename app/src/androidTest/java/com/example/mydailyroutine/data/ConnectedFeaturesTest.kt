@@ -107,7 +107,8 @@ class ConnectedFeaturesTest {
         repo.saveRoutine(RoutineBlueprint(subjectId = null, title = "Fokus", category = RoutineCategory.FOCUS_ANALYTICAL, dayOfWeek = date.dayOfWeek,
             startTime = LocalTime.of(8, 0), endTime = LocalTime.of(9, 15), isNotificationEnabled = false))
         val model = withContext(Dispatchers.Main) { RoutineViewModel(repo, prefs, SavedStateHandle(mapOf("date" to date.toEpochDay())), DemoDataSeeder(context, db, prefs, {}, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches), com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}),
-                com.example.mydailyroutine.features.execution.data.RoomExecutionRepository(db, repo, com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}), {})) }
+                com.example.mydailyroutine.features.execution.data.RoomExecutionRepository(db, repo, com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}), {}),
+                com.example.mydailyroutine.features.routines.data.RoomRoutinePatternsRepository(db,repo,{})) }
         val collector = launch { model.state.collect() }
         try {
             val initial = withTimeout(10000) { model.state.first { !it.content.isLoading } }
@@ -131,7 +132,7 @@ class ConnectedFeaturesTest {
                 statements.forEach { legacy.execSQL(it.value.trim().removeSuffix(";")) }
                 legacy.execSQL("INSERT INTO subjects VALUES (1, 'Matematika', 4282090230, 45)")
             }
-            val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6)
+            val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6, DatabaseMigrations.MIGRATION_6_7)
                 .addCallback(SeedAndIntegrityCallback(context.resources)).build()
             try {
                 assertEquals("Matematika", migrated.subjects().getAll().single().name)
@@ -146,6 +147,7 @@ class ConnectedFeaturesTest {
         override suspend fun setMuteDuringSchoolHours(muted: Boolean) { preferences.update { it.copy(muteDuringSchoolHours = muted) } }
         override suspend fun setSchoolWindow(start: LocalTime, end: LocalTime) { preferences.update { it.copy(schoolStart = start, schoolEnd = end) } }
         override suspend fun setTeachingEndDate(date: LocalDate) { preferences.update { it.copy(teachingEndDate = date) } }
+        override suspend fun setEntryDefaults(defaults: com.example.mydailyroutine.domain.routines.EntryDefaults) { preferences.update { it.copy(entryDefaults = defaults) } }
         override suspend fun setAutomaticHealingEnabled(enabled: Boolean) { preferences.update { it.copy(automaticHealingEnabled = enabled) } }
         override suspend fun setHapticsEnabled(enabled: Boolean) { preferences.update { it.copy(hapticsEnabled = enabled) } }
         override suspend fun setPlanningConfig(config: com.example.mydailyroutine.domain.planning.PlanningConfig) { preferences.update { it.copy(planning = config) } }

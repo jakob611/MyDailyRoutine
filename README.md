@@ -2,6 +2,17 @@
 
 A Slovenian-language, OLED-dark-first Android time-blocking app for school, focused study, personal routines, recovery, and IB milestones. Kotlin 2.x, Jetpack Compose / Material 3, Room, Coroutines / Flow, AlarmManager, and Glance. No account, HTTP client, telemetry, or runtime network permission.
 
+## Faster routine input
+
+The current extension adds automatic end times, selected-weekday repeating routines, linked school
+breaks, fixed lunch/snack presets, “save and add next lesson”, and explicit sleep/wake settings.
+[Behavior and data policies](docs/features/ROUTINE_INPUT.md) explain midnight, holidays, conflicts
+and preserving already-started nights. Sleep is a protected plan, not a wake-up alarm.
+
+Local extension checks: 135 core JVM tests, 17 SQLite checks, 533 Slovenian resources and syntax
+parsing of 117 Kotlin files. The Android build and UI/device tests for these changes are being rerun;
+prior CI results below are not claimed to verify this extension.
+
 ## Complete-PDF review and operational fixes
 
 The exact **19-page research PDF** has been read and retained under `docs/research/`.

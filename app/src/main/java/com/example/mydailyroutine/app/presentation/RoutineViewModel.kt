@@ -10,6 +10,7 @@ import com.example.mydailyroutine.domain.health.*
 import com.example.mydailyroutine.domain.presets.PresetFactory
 import com.example.mydailyroutine.domain.repository.PlanningRepository
 import com.example.mydailyroutine.domain.model.nominalMinutes
+import com.example.mydailyroutine.domain.routines.*
 import com.example.mydailyroutine.domain.repository.ExampleDataRepository
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.domain.health.ScheduleMetrics
@@ -45,6 +46,7 @@ class RoutineViewModel(
     private val exampleData: ExampleDataRepository,
     private val planningRepository: PlanningRepository,
     private val executionRepository: com.example.mydailyroutine.domain.execution.ExecutionRepository,
+    private val patternsRepository: RoutinePatternsRepository,
     private val clock: Clock = Clock.systemUTC(),
 ) : ViewModel() {
     private fun today(): LocalDate = LocalDate.now(clock.withZone(ZoneId.systemDefault()))
@@ -79,6 +81,7 @@ class RoutineViewModel(
     val state: StateFlow<TimelineUiState> = combine(content, settings.preferences, panels, exampleData.isLoaded, planning) { data, preferences, panels, loaded, planning ->
         TimelineUiState(data, preferences, panels, loaded, planning)
     }.combine(executionRepository.active) { state, active -> state.copy(execution = active) }
+        .combine(patternsRepository.sleep) { state, sleep -> state.copy(sleep = sleep) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimelineUiState(TimelineContent(initialDate)))
 
     private suspend fun resolveContent(date: LocalDate, mode: TimelineMode, snapshot: ScheduleSnapshot, config: HealthConfig): TimelineContent {
@@ -197,7 +200,7 @@ class RoutineViewModel(
                 settings.setPlanningConfig(action.config)
                 messages.send(TimelineEffect.Message(R.string.planning_saved))
             }
-            TimelineAction.OpenAdd -> panels.update { it.copy(showAdd = true, addSession = it.addSession + 1,
+            TimelineAction.OpenAdd -> panels.update { it.copy(showAdd = true, addSession = it.addSession + 1, entryContinuation = null,
                 showSettings = false, editingMilestone = null, editingBlock = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false) }
             TimelineAction.OpenSettings -> panels.update { it.copy(showSettings = true, showAdd = false, showPlanning = false, editingBlock = null, editingMilestone = null) }
             TimelineAction.CloseAdd -> if (!panels.value.isSaving) panels.update { it.copy(showAdd = false, editingMilestone = null) }
@@ -205,11 +208,13 @@ class RoutineViewModel(
             TimelineAction.CloseEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingBlock = null) }
             is TimelineAction.Edit -> when (val item = action.item) {
                 is ResolvedTimelineItem.Block -> panels.update { it.copy(editingBlock = item) }
-                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, showSettings = false) }
+                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryContinuation = null, showSettings = false) }
             }
             is TimelineAction.SaveEntry -> saveEntry(action.draft)
             is TimelineAction.SaveBlockEdit -> perform {
-                repository.editBlock(action.item.routineBlockId, action.item.occurrenceDate, action.title, action.start, action.end, action.wholeTemplate)
+                val series = action.item.seriesKey
+                if (action.wholeTemplate && action.allSeriesDays && series != null) patternsRepository.editSeries(series, action.title, action.start, action.end)
+                else repository.editBlock(action.item.routineBlockId, action.item.occurrenceDate, action.title, action.start, action.end, action.wholeTemplate)
                 panels.update { it.copy(editingBlock = null) }
                 messages.send(TimelineEffect.Message(R.string.message_updated))
             }
@@ -246,7 +251,7 @@ class RoutineViewModel(
                 messages.send(TimelineEffect.Message(R.string.message_deleted))
             } }
             is TimelineAction.EditSubject -> panels.update {
-                it.copy(editingSubject = action.subject ?: Subject(name = "", colorHex = RoutineColors.subjectSwatches.first(), defaultDurationMinutes = 45))
+                it.copy(editingSubject = action.subject ?: Subject(name = "", colorHex = RoutineColors.subjectSwatches.first(), defaultDurationMinutes = state.value.preferences.entryDefaults.lessonDurationMinutes))
             }
             TimelineAction.CloseSubjectEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingSubject = null) }
             is TimelineAction.SaveSubject -> perform {
@@ -283,6 +288,19 @@ class RoutineViewModel(
                 }
                 messages.send(TimelineEffect.Message(text, result.minutes.takeIf { it > 0 }))
             }
+            is TimelineAction.DeleteSeries -> perform {
+                patternsRepository.deleteSeries(action.key)
+                panels.update { it.copy(pendingDelete = null) }
+                messages.send(TimelineEffect.Message(R.string.message_deleted))
+            }
+            is TimelineAction.SaveSleep -> perform {
+                patternsRepository.saveSleep(action.value, action.sleepTitle, action.morningTitle)
+                messages.send(TimelineEffect.Message(R.string.sleep_saved))
+            }
+            is TimelineAction.SaveEntryDefaults -> perform {
+                settings.setEntryDefaults(action.defaults)
+                messages.send(TimelineEffect.Message(R.string.entry_defaults_saved))
+            }
             is TimelineAction.SetMute -> perform { settings.setMuteDuringSchoolHours(action.muted) }
             is TimelineAction.SetSchoolWindow -> perform {
                 settings.setSchoolWindow(action.start, action.end)
@@ -305,12 +323,14 @@ class RoutineViewModel(
                     planningRepository.getCalibratedDuration(raw, draft.subjectId.toString()) else raw
                 val minimum = draft.minDurationMinutes ?: if (fixed) raw else if (draft.category == RoutineCategory.EMERGENCY_RESERVE) 0 else minOf(25, raw)
                 val duration = maxOf(calibrated, minimum)
-                repository.saveRoutine(RoutineBlueprint(subjectId = draft.subjectId, title = draft.title, category = draft.category,
+                val blueprint = RoutineBlueprint(subjectId = draft.subjectId, title = draft.title, category = draft.category,
                     dayOfWeek = draft.date.dayOfWeek, startTime = start, endTime = start.plusMinutes(duration.toLong()),
                     isNotificationEnabled = draft.notificationsEnabled && draft.category != RoutineCategory.EMERGENCY_RESERVE,
                     validFrom = draft.date, validUntil = if (draft.repeatWeekly) null else draft.date,
                     minDurationMinutes = if (fixed) duration else minimum, elasticity = if (fixed) 0.0 else draft.elasticity,
-                    priorityWeight = draft.priorityWeight, isFixedCommitment = fixed, rawDurationMinutes = raw))
+                    priorityWeight = draft.priorityWeight, isFixedCommitment = fixed, rawDurationMinutes = raw)
+                val weekdays = Weekdays.fromMask(draft.repeatDaysMask).ifEmpty { setOf(draft.date.dayOfWeek) }
+                patternsRepository.create(RoutinePatternRequest(blueprint,weekdays,draft.repeatWeekly,draft.afterLessonBreakMinutes,draft.breakTitle))
             }
             EntryKind.DEADLINE, EntryKind.EXAM -> repository.saveMilestone(Milestone(
                 id = draft.existingMilestoneId, subjectId = draft.subjectId, title = draft.title,
@@ -318,8 +338,20 @@ class RoutineViewModel(
                 isCompleted = draft.isCompleted, estimatedEffortHours = draft.estimatedEffortHours, isTerminalExam = draft.isTerminalExam,
             ))
         }
-        savedState["date"] = draft.date.toEpochDay()
-        panels.update { it.copy(showAdd = false, editingMilestone = null) }
+        if (draft.keepOpen && draft.kind == EntryKind.BLOCK && draft.category == RoutineCategory.SCHOOL) {
+            val duration = nominalMinutes(requireNotNull(draft.start),requireNotNull(draft.end))
+            val next = RoutinePatternExpander.followingStart(draft.date,draft.start,duration,draft.afterLessonBreakMinutes)
+            val shift = java.time.temporal.ChronoUnit.DAYS.between(draft.date,next.toLocalDate()).toInt()
+            val selected = draft.repeatDaysMask.takeIf { it != 0 } ?: Weekdays.mask(setOf(draft.date.dayOfWeek))
+            savedState["date"] = next.toLocalDate().toEpochDay()
+            panels.update { it.copy(showAdd=true,editingMilestone=null,addSession=it.addSession+1,
+                entryContinuation=EntryContinuation(next,duration,draft.repeatWeekly,Weekdays.shifted(selected,shift),draft.afterLessonBreakMinutes)) }
+        } else {
+            val destination = if (draft.kind == EntryKind.BLOCK && draft.repeatWeekly)
+                RoutinePatternExpander.firstOccurrence(draft.date, Weekdays.fromMask(draft.repeatDaysMask).ifEmpty { setOf(draft.date.dayOfWeek) }) else draft.date
+            savedState["date"] = destination.toEpochDay()
+            panels.update { it.copy(showAdd = false, editingMilestone = null, entryContinuation = null) }
+        }
         messages.send(TimelineEffect.Message(if (draft.existingMilestoneId == 0L) R.string.message_added else R.string.message_milestone_saved))
     }
 

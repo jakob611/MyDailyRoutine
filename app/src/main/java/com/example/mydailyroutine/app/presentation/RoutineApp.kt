@@ -141,9 +141,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
         if (state.panels.showAdd) key(state.panels.addSession) {
             EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, state.panels.editingMilestone, state.panels.isSaving,
-                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) })
+                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation)
         }
-        if (state.panels.showSettings) SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, onAction,
+        if (state.panels.showSettings) SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, state.sleep, onAction,
             onDismiss = { onAction(TimelineAction.CloseSettings) }, requestNotifications = requestNotifications, requestExactAlarms = requestExactAlarms, openNotificationSettings = openNotificationSettings)
         if (state.panels.showPlanning) PlanningSheet(state, onAction)
         if (state.panels.showTopicEditor) TopicEditorSheet(state, onAction)
@@ -152,9 +152,18 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         state.panels.editingSubject?.let { SubjectEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) }, onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) }) }
         state.panels.pendingDelete?.let { item ->
             val recurring = item is ResolvedTimelineItem.Block && !item.isOneOff
+            val group = (item as? ResolvedTimelineItem.Block)?.takeIf { it.parentRoutineId == null && it.origin == com.example.mydailyroutine.domain.routines.RoutineOrigin.USER }?.seriesKey
+            val groupDays = (item as? ResolvedTimelineItem.Block)?.seriesDays.orEmpty()
+            var entireSeries by remember(item.key) { mutableStateOf(true) }
             AlertDialog(onDismissRequest = { onAction(TimelineAction.DismissDelete) }, title = { Text(stringResource(if (recurring) R.string.delete_routine_title else R.string.delete_entry_title)) },
-                text = { Text(stringResource(if (recurring) R.string.delete_routine_body else R.string.delete_entry_body, item.title)) },
-                confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.ConfirmDelete) }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
+                text = { Column {
+                    Text(stringResource(if (recurring) R.string.delete_routine_body else R.string.delete_entry_body, item.title))
+                    if (group != null && groupDays.size > 1) Row(verticalAlignment=Alignment.CenterVertically) {
+                        Checkbox(entireSeries,{ entireSeries=it })
+                        Text(stringResource(R.string.delete_all_repeat_days))
+                    }
+                } },
+                confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(if (group != null && entireSeries) TimelineAction.DeleteSeries(group) else TimelineAction.ConfirmDelete) }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
                 dismissButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.DismissDelete) }) { Text(stringResource(R.string.keep)) } })
         }
         if (state.panels.confirmCancelExecution) AlertDialog(onDismissRequest = { onAction(TimelineAction.DismissCancelExecution) },

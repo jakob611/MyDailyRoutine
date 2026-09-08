@@ -162,6 +162,8 @@ fun TimelineBlockCard(
                     AnimatedVisibility(expanded, enter = fadeIn(tween(TransitionMillis)) + slideInVertically(tween(TransitionMillis)) { -it / 4 }, exit = fadeOut(tween(TransitionMillis))) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             HorizontalDivider(color = RoutineColors.Border)
+                            if (block.seriesDays.size > 1) Text(stringResource(R.string.repeat_days_summary,
+                                block.seriesDays.sortedBy { it.value }.joinToString(", ") { it.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,Slovenian) }),style=MaterialTheme.typography.bodySmall)
                             Text(if (block.isOneOff) stringResource(R.string.one_off_block) else stringResource(R.string.weekly_blueprint,
                                 block.occurrenceDate.format(DateTimeFormatter.ofPattern("EEEE", Slovenian))), style = MaterialTheme.typography.bodySmall)
                             Row(verticalAlignment = Alignment.CenterVertically) {

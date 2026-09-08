@@ -27,6 +27,10 @@ def database():
         for statement in statements:db.execute(statement)
     install(db)
     install_measured_timing(db)
+    source=(LOCAL/'DatabaseMigrations.kt').read_text()
+    pattern=next(text for text in re.findall(r'"""(.*?)"""',source,re.S) if 'validate_pattern_' in text)
+    for operation in ('INSERT','UPDATE'):
+        db.execute(pattern.replace('${operation.lowercase()}',operation.lower()).replace('$operation',operation))
     return db
 
 OVERRIDE='INSERT INTO event_overrides(id,routineBlockId,overrideDate,isCancelled,customStartTime,customEndTime,customTitle)'
@@ -37,7 +41,7 @@ class SQLiteIntegritySmokeTest(unittest.TestCase):
     def setUp(self):
         self.db=database()
         self.db.execute("INSERT INTO subjects VALUES(1,'Matematika',?,45)",(0xFF3B82F6,))
-        self.db.execute("INSERT INTO routine_blocks VALUES(1,1,'Pouk','SCHOOL',1,480,60,1,NULL,NULL,60,0.0,5.0,1,NULL,60,NULL,NULL,NULL)")
+        self.db.execute("INSERT INTO routine_blocks VALUES(1,1,'Pouk','SCHOOL',1,480,60,1,NULL,NULL,60,0.0,5.0,1,NULL,60,NULL,NULL,NULL,NULL,NULL,'USER',1)")
         import datetime
         self.day=(datetime.date(2026,9,7)-datetime.date(1970,1,1)).days
     def tearDown(self):self.db.close()
@@ -140,6 +144,22 @@ class SQLiteIntegritySmokeTest(unittest.TestCase):
         self.fails("UPDATE routine_completions SET actualMinutes=30,actualStartedAtEpochMillis=2000,actualEndedAtEpochMillis=1000,actualZoneId='UTC'")
         self.db.execute("UPDATE routine_completions SET actualMinutes=30,actualStartedAtEpochMillis=1000,actualEndedAtEpochMillis=1801000,actualZoneId='UTC'")
         self.assertEqual(1801000,self.db.execute('SELECT actualEndedAtEpochMillis FROM routine_completions').fetchone()[0])
+    def test_companion_fk_origin_and_series_constraints(self):
+        self.db.execute("UPDATE routine_blocks SET seriesKey='group' WHERE id=1")
+        self.db.execute("INSERT INTO routine_blocks(id,subjectId,title,category,dayOfWeek,startMinutes,durationMinutes,isNotificationEnabled,minDurationMinutes,elasticity,priorityWeight,isFixedCommitment,rawDurationMinutes,seriesKey,parentRoutineId,origin,isEnabled) VALUES(2,NULL,'Odmor','REST_BUFFER',1,525,5,0,5,0.0,1.0,1,5,'group',1,'LESSON_BREAK',1)")
+        self.fails("UPDATE routine_blocks SET parentRoutineId=2 WHERE id=2")
+        self.fails("UPDATE routine_blocks SET category='ADMIN' WHERE id=1")
+        self.fails("UPDATE routine_blocks SET dayOfWeek=2 WHERE id=1")
+        self.db.execute('DELETE FROM routine_blocks WHERE id=1')
+        self.assertEqual(0,self.db.execute('SELECT count(*) FROM routine_blocks').fetchone()[0])
+    def test_v6_to_v7_additions_preserve_existing_rows_with_fks_enabled(self):
+        db=sqlite3.connect(':memory:',isolation_level=None);db.execute('PRAGMA foreign_keys=ON')
+        db.executescript((ROOT/'app/src/androidTest/assets/schema-v6.sql').read_text())
+        db.execute("INSERT INTO routine_blocks(id,subjectId,title,category,dayOfWeek,startMinutes,durationMinutes,isNotificationEnabled,minDurationMinutes,elasticity,priorityWeight,isFixedCommitment,rawDurationMinutes) VALUES(1,NULL,'Pouk','SCHOOL',1,480,45,0,45,0.0,3.0,1,45)")
+        source=(LOCAL/'DatabaseMigrations.kt').read_text();part=source.split('val MIGRATION_6_7',1)[1].split('fun installPatternIntegrity',1)[0]
+        for sql in re.findall(r'db.execSQL\("([^\"]+)"\)',part):db.execute(sql)
+        self.assertEqual((45,None,None,'USER',1),db.execute('SELECT durationMinutes,seriesKey,parentRoutineId,origin,isEnabled FROM routine_blocks').fetchone())
+        self.assertEqual([],db.execute('PRAGMA foreign_key_check').fetchall());db.close()
     def test_privacy_resources(self):
         for file in (ROOT/'app/src/main').rglob('*.xml'):ET.parse(file)
         manifest=ET.parse(ROOT/'app/src/main/AndroidManifest.xml').getroot()

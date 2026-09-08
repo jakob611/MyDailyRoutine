@@ -30,7 +30,7 @@ def ddl():
         definitions=[]
         for name,kind,default,primary in cols:
             bare=kind.rstrip('?')
-            affinity='TEXT' if bare in ('String','RoutineCategory','CancellationReason') else 'REAL' if bare=='Double' else 'INTEGER'
+            affinity='TEXT' if bare in ('String','RoutineCategory','CancellationReason','RoutineOrigin') else 'REAL' if bare=='Double' else 'INTEGER'
             value=f'`{name}` {affinity}'
             if primary: value+=' PRIMARY KEY'+(' AUTOINCREMENT' if primary==2 else '')
             if not kind.endswith('?'): value+=' NOT NULL'

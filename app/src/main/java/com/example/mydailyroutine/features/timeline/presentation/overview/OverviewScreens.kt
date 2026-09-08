@@ -35,6 +35,7 @@ import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.health.WeeklyLayout
 import com.example.mydailyroutine.domain.model.Milestone
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
+import com.example.mydailyroutine.domain.routines.RoutineOrigin
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.core.presentation.*
 import java.time.DayOfWeek
@@ -47,7 +48,7 @@ import java.time.temporal.TemporalAdjusters
 @Composable
 fun WeeklyOverview(content: TimelineContent, onDate: (LocalDate) -> Unit) {
     val days = content.days.values.sortedBy { it.date }
-    val blocks = days.flatMap { it.items.filterIsInstance<ResolvedTimelineItem.Block>() }
+    val blocks = days.flatMap { it.items.filterIsInstance<ResolvedTimelineItem.Block>() }.filter { it.origin != RoutineOrigin.SLEEP }
     val startHour = minOf(7, (blocks.minOfOrNull { it.startMinute } ?: 420) / 60)
     val endHour = maxOf(21, ((blocks.maxOfOrNull { it.endMinute } ?: 1260) + 59) / 60).coerceAtMost(24)
     val minuteHeight = 0.9.dp
@@ -92,7 +93,7 @@ fun WeeklyOverview(content: TimelineContent, onDate: (LocalDate) -> Unit) {
                                     drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
                                 }
                             }) {
-                                val positioned = remember(day.items) { WeeklyLayout.position(day.items.filterIsInstance<ResolvedTimelineItem.Block>()) }
+                                val positioned = remember(day.items) { WeeklyLayout.position(day.items.filterIsInstance<ResolvedTimelineItem.Block>().filter { it.origin != RoutineOrigin.SLEEP }) }
                                 positioned.forEach { position ->
                                     val block = position.block
                                     val laneWidth = dayWidth / position.laneCount

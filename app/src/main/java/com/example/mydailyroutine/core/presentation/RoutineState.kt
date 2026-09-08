@@ -1,6 +1,7 @@
 package com.example.mydailyroutine.core.presentation
 
 import androidx.compose.runtime.Immutable
+import com.example.mydailyroutine.domain.routines.*
 import com.example.mydailyroutine.domain.planning.*
 import com.example.mydailyroutine.domain.learning.*
 import androidx.annotation.StringRes
@@ -51,6 +52,7 @@ data class TimelineContent(
 data class TimelinePanels(
     val showAdd: Boolean = false,
     val addSession: Int = 0,
+    val entryContinuation: EntryContinuation? = null,
     val showSettings: Boolean = false,
     val editingBlock: ResolvedTimelineItem.Block? = null,
     val editingMilestone: ResolvedTimelineItem.Milestone? = null,
@@ -72,6 +74,7 @@ data class TimelineUiState(
     val exampleLoaded: Boolean = false,
     val planning: PlanningUiState = PlanningUiState(),
     val execution: com.example.mydailyroutine.domain.execution.ActiveExecution? = null,
+    val sleep: SleepSchedule = SleepSchedule(),
 )
 
 @Immutable
@@ -94,6 +97,10 @@ data class EntryDraft(
     val calibrateDuration: Boolean = true,
     val estimatedEffortHours: Double = 0.0,
     val isTerminalExam: Boolean = false,
+    val repeatDaysMask: Int = 0,
+    val afterLessonBreakMinutes: Int = 0,
+    val breakTitle: String = "",
+    val keepOpen: Boolean = false,
 )
 
 sealed interface TimelineAction {
@@ -130,7 +137,7 @@ sealed interface TimelineAction {
     data object CloseEditor : TimelineAction
     data class SaveEntry(val draft: EntryDraft) : TimelineAction
     data class Edit(val item: ResolvedTimelineItem) : TimelineAction
-    data class SaveBlockEdit(val item: ResolvedTimelineItem.Block, val title: String, val start: LocalTime, val end: LocalTime, val wholeTemplate: Boolean) : TimelineAction
+    data class SaveBlockEdit(val item: ResolvedTimelineItem.Block, val title: String, val start: LocalTime, val end: LocalTime, val wholeTemplate: Boolean, val allSeriesDays: Boolean = false) : TimelineAction
     data class ToggleComplete(val item: ResolvedTimelineItem) : TimelineAction
     data class SetReminder(val routineId: Long, val enabled: Boolean) : TimelineAction
     data class Skip(val item: ResolvedTimelineItem.Block) : TimelineAction
@@ -149,6 +156,9 @@ sealed interface TimelineAction {
     data object RequestDemo : TimelineAction
     data object DismissDemo : TimelineAction
     data object LoadDemo : TimelineAction
+    data class DeleteSeries(val key: String) : TimelineAction
+    data class SaveSleep(val value: SleepSchedule, val sleepTitle: String, val morningTitle: String) : TimelineAction
+    data class SaveEntryDefaults(val defaults: EntryDefaults) : TimelineAction
     data class SetMute(val muted: Boolean) : TimelineAction
     data class SetSchoolWindow(val start: LocalTime, val end: LocalTime) : TimelineAction
     data class SetTeachingEnd(val date: LocalDate) : TimelineAction
@@ -166,3 +176,7 @@ data class PlanningUiState(
     val topics: PersistentList<StudyTopic> = persistentListOf(),
     val milestones: PersistentList<Milestone> = persistentListOf(),
 )
+
+@Immutable
+data class EntryContinuation(val start: java.time.LocalDateTime, val durationMinutes: Int,
+    val weekly: Boolean, val weekdaysMask: Int, val breakMinutes: Int)

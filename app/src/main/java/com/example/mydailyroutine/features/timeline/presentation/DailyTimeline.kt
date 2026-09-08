@@ -22,6 +22,8 @@ import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.health.HealthConfig
 import com.example.mydailyroutine.domain.planning.PlanningConfig
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
+import com.example.mydailyroutine.domain.routines.RoutineOrigin
+import com.example.mydailyroutine.features.routines.presentation.ManagedRoutineCard
 import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
 import com.example.mydailyroutine.features.timeline.components.*
 import com.example.mydailyroutine.core.designsystem.theme.*
@@ -104,7 +106,8 @@ fun DailyTimeline(day: DayUi, now: ZonedDateTime, busy: Boolean, health: HealthC
             item(key = entry.key, contentType = if (entry is ResolvedTimelineItem.Block) "block" else "milestone") {
                 val placement = Modifier.animateItem(placementSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
                 when (entry) {
-                    is ResolvedTimelineItem.Block -> TimelineBlockCard(entry, day.warnings.filter { entry.key in it.itemKeys }, health, now, busy,
+                    is ResolvedTimelineItem.Block -> if (entry.origin != RoutineOrigin.USER) ManagedRoutineCard(entry,now,entry.key==activeKey,busy,placement,onAction)
+                        else TimelineBlockCard(entry, day.warnings.filter { entry.key in it.itemKeys }, health, now, busy,
                         showNow = entry.key == activeKey, overlaps = before != null && entry.startMinute < before && !entry.isSuppressed,
                         modifier = placement, canStart = execution == null && today, onAction = onAction)
                     is ResolvedTimelineItem.Milestone -> MilestoneCard(entry, busy, onAction, placement)

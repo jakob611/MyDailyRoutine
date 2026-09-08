@@ -40,6 +40,11 @@ object ScheduleValidation {
         require(block.elasticity.isFinite() && block.elasticity in 0.0..1_000_000.0)
         require(block.priorityWeight.isFinite() && block.priorityWeight > 0.0 && block.priorityWeight <= 1_000_000.0)
         require(block.rawDurationMinutes in 1..1439)
+        require(block.seriesKey == null || block.seriesKey.length in 1..80)
+        require(block.parentRoutineId == null || block.parentRoutineId > 0)
+        if (block.parentRoutineId != null) require(block.category == RoutineCategory.REST_BUFFER)
+        if (block.origin == com.example.mydailyroutine.domain.routines.RoutineOrigin.SLEEP || block.origin == com.example.mydailyroutine.domain.routines.RoutineOrigin.MORNING_BUFFER)
+            require(block.isFixedCommitment && !block.isNotificationEnabled)
         require(block.category != RoutineCategory.SCHOOL || (block.isFixedCommitment && block.elasticity == 0.0 && block.minDurationMinutes == duration))
         title(block.title)
         times(block.startTime, block.endTime)
@@ -53,6 +58,7 @@ object ScheduleValidation {
             "This template does not occur on that date."
         }
         require(override.dayShift in 0..MAX_OCCURRENCE_SHIFT_DAYS)
+        if (base.parentRoutineId != null || base.origin == com.example.mydailyroutine.domain.routines.RoutineOrigin.SLEEP) require(override.customStartTime == null && override.customEndTime == null && override.dayShift == 0) { "A linked break follows its parent" }
         override.customTitle?.let(::title)
         times(override.customStartTime ?: base.startTime, override.customEndTime ?: base.endTime)
     }

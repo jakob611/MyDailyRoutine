@@ -7,7 +7,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 /** Display names come from Android resources; IDs and behavior are locale-independent. */
-enum class PresetKind { DEEP_WORK, POMODORO, WALK, IB_REVISION, EXAM, RESERVE, SUBJECT_LESSON, SUBJECT_STUDY, SUBJECT_TEST }
+enum class PresetKind { DEEP_WORK, POMODORO, WALK, IB_REVISION, EXAM, RESERVE, LUNCH, SNACK, SUBJECT_LESSON, SUBJECT_STUDY, SUBJECT_TEST }
 
 data class QuickAddPreset(
     val key: String,
@@ -41,6 +41,8 @@ object PresetFactory {
         QuickAddPreset("pomodoro", PresetKind.POMODORO, 45, RoutineCategory.FOCUS_ANALYTICAL),
         QuickAddPreset("walk", PresetKind.WALK, 15, RoutineCategory.REST_BUFFER),
         QuickAddPreset("ib-revision", PresetKind.IB_REVISION, 90, RoutineCategory.FOCUS_ANALYTICAL),
+        QuickAddPreset("lunch", PresetKind.LUNCH, 30, RoutineCategory.ADMIN),
+        QuickAddPreset("snack", PresetKind.SNACK, 15, RoutineCategory.ADMIN),
         QuickAddPreset("reserve", PresetKind.RESERVE, 30, RoutineCategory.EMERGENCY_RESERVE),
         QuickAddPreset("exam", PresetKind.EXAM, 45, RoutineCategory.SCHOOL),
     )

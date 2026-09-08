@@ -65,6 +65,28 @@ class TimelineUiTest {
         assertFalse("android.permission.INTERNET" in permissions)
         assertFalse("android.permission.ACCESS_NETWORK_STATE" in permissions)
     }
+    @Test fun changingSchoolStartAutomaticallyMaintainsItsDuration() {
+        compose.onNodeWithTag("fast-add").performClick()
+        awaitText(R.string.fast_add_title)
+        compose.onNodeWithText(text(R.string.category_school)).performScrollTo().performClick()
+        compose.onNodeWithTag("entry-start").performScrollTo().performTextReplacement("08:00")
+        compose.onNodeWithTag("entry-end").assertTextContains("08:45")
+        compose.onNodeWithTag("entry-end").performTextReplacement("08:50")
+        compose.onNodeWithTag("entry-start").performTextReplacement("09:00")
+        compose.onNodeWithTag("entry-end").assertTextContains("09:50")
+    }
+    @Test fun multipleWeekdaysAndLessonBreakAreSelectable() {
+        compose.onNodeWithTag("fast-add").performClick()
+        awaitText(R.string.fast_add_title)
+        compose.onNodeWithText(text(R.string.category_school)).performScrollTo().performClick()
+        compose.onNodeWithTag("lesson-break-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("lesson-break-toggle").assertIsOn()
+        compose.onNodeWithTag("repeat-weekly").performScrollTo().performClick()
+        compose.onNodeWithText(text(R.string.weekdays_workdays)).performScrollTo().performClick()
+        for(day in 1..5) compose.onNodeWithTag("weekday-$day").assertIsSelected()
+        compose.onNodeWithTag("weekday-6").assertIsNotSelected()
+        compose.onNodeWithTag("save-next-lesson").assertIsDisplayed()
+    }
     private fun capture(name: String, editor: Boolean = false) {
         val directory = File(compose.activity.getExternalFilesDir(null), "ui-audit").apply { mkdirs() }
         val image = if (editor) compose.onNodeWithTag("entry-editor",useUnmergedTree=true).captureToImage()

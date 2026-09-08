@@ -5,6 +5,7 @@ import com.example.mydailyroutine.core.database.*
 import com.example.mydailyroutine.core.database.entities.*
 import com.example.mydailyroutine.core.database.daos.*
 import com.example.mydailyroutine.domain.model.*
+import com.example.mydailyroutine.domain.routines.RoutineOrigin
 import com.example.mydailyroutine.domain.health.*
 import com.example.mydailyroutine.domain.planning.BacklogEntry
 import com.example.mydailyroutine.domain.planning.BacklogReason
@@ -81,7 +82,10 @@ class RoomTimelineRepository(
     override suspend fun deleteSubject(id: Long) = write { db.subjects().delete(id) }
 
     override suspend fun saveRoutine(routine: RoutineBlueprint): Long = write {
-        if (routine.id != 0L) requireNotRunning(routine.id)
+        if (routine.id != 0L) {
+            requireNotRunning(routine.id)
+            require(this.routine(routine.id).origin == RoutineOrigin.USER) { "Managed patterns are changed through their settings" }
+        }
         val duration = nominalMinutes(routine.startTime, routine.endTime)
         val clean = if (routine.isFixedCommitment || routine.category == RoutineCategory.SCHOOL) routine.copy(
             minDurationMinutes = duration, elasticity = 0.0, isFixedCommitment = true) else routine
@@ -102,9 +106,14 @@ class RoomTimelineRepository(
         val active = db.execution().get()
         if (active?.routineBlockId == id && (date == null || active.occurrenceDate == date)) throw ScheduleConflict(ScheduleConflictReason.ACTIVE_EXECUTION)
     }
-    override suspend fun deleteRoutine(id: Long) = write { requireNotRunning(id); db.routines().delete(id) }
+    override suspend fun deleteRoutine(id: Long) = write {
+        requireNotRunning(id)
+        require(routine(id).origin != RoutineOrigin.SLEEP && routine(id).origin != RoutineOrigin.MORNING_BUFFER) { "Use sleep settings" }
+        db.routines().delete(id)
+    }
 
     override suspend fun setNotificationEnabled(routineId: Long, enabled: Boolean) = write {
+        require(routine(routineId).origin != RoutineOrigin.SLEEP && routine(routineId).origin != RoutineOrigin.MORNING_BUFFER) { "A sleep plan is not an alarm clock" }
         check(db.routines().setNotificationEnabled(routineId, enabled) == 1) { "This routine was deleted." }
     }
 
@@ -153,6 +162,7 @@ class RoomTimelineRepository(
         routineId: Long, date: LocalDate, title: String, start: LocalTime, end: LocalTime, wholeTemplate: Boolean,
     ) = write {
         requireNotRunning(routineId,date)
+        require(routine(routineId).origin == RoutineOrigin.USER) { "A linked block follows its parent" }
         if (wholeTemplate) {
             val base = routine(routineId)
             val duration = nominalMinutes(start, end)
@@ -168,6 +178,7 @@ class RoomTimelineRepository(
 
     override suspend fun setCompleted(routineId: Long, date: LocalDate, completed: Boolean, actualMinutes: Int?, actualStartedAt: java.time.LocalDateTime?, actualTiming: ActualTiming?) = write {
         val base = routine(routineId)
+        require(base.origin == RoutineOrigin.USER) { "Managed sleep and breaks are plans, not measured work" }
         require(base.occursOn(date)) { "This routine does not occur on that date." }
         require(actualMinutes == null || actualMinutes in 1..10080)
         if (completed) {

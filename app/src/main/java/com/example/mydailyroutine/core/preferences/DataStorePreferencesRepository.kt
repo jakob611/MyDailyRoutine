@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.mydailyroutine.domain.health.HealthConfig
 import com.example.mydailyroutine.domain.model.SchedulePreferences
+import com.example.mydailyroutine.domain.routines.EntryDefaults
 import com.example.mydailyroutine.domain.model.ScheduleValidation
 import com.example.mydailyroutine.domain.repository.PreferencesRepository
 import java.io.IOException
@@ -28,6 +29,8 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
     private val teachingEndKey = longPreferencesKey("teaching_end_epoch_day")
     private val healingKey = booleanPreferencesKey("automatic_healing_enabled")
     private val hapticsKey = booleanPreferencesKey("haptics_enabled")
+    private val lessonKey = intPreferencesKey("default_lesson_minutes")
+    private val breakKey = intPreferencesKey("default_lesson_break_minutes")
     private val defaults = SchedulePreferences()
 
     override val preferences = store.data.catch { error ->
@@ -39,6 +42,7 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             schoolEnd = time(values[endKey], defaults.schoolEnd),
             hapticsEnabled = values[hapticsKey] ?: true,
             automaticHealingEnabled = values[healingKey] ?: true,
+            entryDefaults = EntryDefaults(values[lessonKey]?.takeIf { it in 1..240 } ?: 45, values[breakKey]?.takeIf { it in 1..60 } ?: 5),
             health = HealthPreferenceCodec.read(values),
             planning = PlanningPreferenceCodec.read(values),
             teachingEndDate = values[teachingEndKey]?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
@@ -85,6 +89,11 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
 
     override suspend fun setAutomaticHealingEnabled(enabled: Boolean) {
         store.edit { it[healingKey] = enabled }
+        onChanged()
+    }
+
+    override suspend fun setEntryDefaults(defaults: EntryDefaults) {
+        store.edit { it[lessonKey] = defaults.lessonDurationMinutes; it[breakKey] = defaults.lessonBreakMinutes }
         onChanged()
     }
 }

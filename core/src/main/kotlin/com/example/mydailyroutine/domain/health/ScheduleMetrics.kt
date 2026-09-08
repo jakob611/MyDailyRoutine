@@ -2,6 +2,7 @@ package com.example.mydailyroutine.domain.health
 
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.RoutineCategory
+import com.example.mydailyroutine.domain.routines.RoutineOrigin
 
 data class DailyMetrics(
     val focusMinutes: Int,
@@ -26,9 +27,9 @@ object ScheduleMetrics {
             focusMinutes = Intervals.minutes(blocks.filter { it.category.isDeepWork }.map { MinuteInterval(it.startMinute, it.endMinute) }),
             schoolMinutes = minutes(RoutineCategory.SCHOOL),
             recoveryMinutes = minutes(RoutineCategory.REST_BUFFER),
-            occupiedMinutes = minutes(),
-            completedCount = blocks.count { it.isCompleted },
-            blockCount = blocks.size,
+            occupiedMinutes = Intervals.minutes(blocks.filter { it.origin != RoutineOrigin.SLEEP }.map { MinuteInterval(it.startMinute,it.endMinute) }),
+            completedCount = blocks.count { it.isCompleted && it.origin == RoutineOrigin.USER },
+            blockCount = blocks.count { it.origin == RoutineOrigin.USER },
             milestoneCount = milestones.count { !it.isCompleted },
             examCount = milestones.count { it.isExam && !it.isCompleted },
             reserveMinutes = minutes(RoutineCategory.EMERGENCY_RESERVE),
@@ -68,7 +69,7 @@ object WeeklyLayout {
 data class CategoryAllocation(val category: RoutineCategory, val minutes: Int)
 
 fun categoryAllocation(items: List<ResolvedTimelineItem>): List<CategoryAllocation> {
-    val blocks = items.filterIsInstance<ResolvedTimelineItem.Block>().filterNot { it.isSuppressed }
+    val blocks = items.filterIsInstance<ResolvedTimelineItem.Block>().filterNot { it.isSuppressed || it.origin == RoutineOrigin.SLEEP }
     val edges = blocks.flatMap { listOf(it.startMinute, it.endMinute) }.distinct().sorted()
     val priorities = listOf(RoutineCategory.SCHOOL, RoutineCategory.FOCUS_ANALYTICAL, RoutineCategory.FOCUS_SYNTHESIZING,
         RoutineCategory.ADMIN, RoutineCategory.REST_BUFFER, RoutineCategory.EMERGENCY_RESERVE)

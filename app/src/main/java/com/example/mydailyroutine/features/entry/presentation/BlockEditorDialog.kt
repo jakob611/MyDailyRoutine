@@ -16,12 +16,17 @@ import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.ScheduleValidation
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.clockLabel
+import com.example.mydailyroutine.domain.routines.TimeEntryState
+import com.example.mydailyroutine.domain.model.nominalMinutes
 
 @Composable
 fun BlockEditorDialog(block: ResolvedTimelineItem.Block, busy: Boolean, onDismiss: () -> Unit, onSave: (TimelineAction.SaveBlockEdit) -> Unit) {
     var title by rememberSaveable(block.key) { mutableStateOf(block.title) }
-    var start by rememberSaveable(block.key) { mutableStateOf(block.startsAt.toLocalTime().clockLabel()) }
-    var end by rememberSaveable(block.key) { mutableStateOf(block.endsAt.toLocalTime().clockLabel()) }
+    var times by rememberSaveable(block.key,stateSaver=TimeEntrySaver) { mutableStateOf(TimeEntryState.at(block.startsAt.toLocalTime(),
+        nominalMinutes(block.startsAt.toLocalTime(),block.endsAt.toLocalTime()).coerceIn(1,1439))) }
+    val start=times.startText
+    val end=times.endText
+    var allDays by rememberSaveable(block.key) { mutableStateOf(true) }
     var whole by rememberSaveable(block.key) { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<Int?>(null) }
     val haptic = LocalRoutineHaptics.current
@@ -31,12 +36,16 @@ fun BlockEditorDialog(block: ResolvedTimelineItem.Block, busy: Boolean, onDismis
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(R.string.edit_occurrence, block.occurrenceDate))
                 OutlinedTextField(title, { title = it.take(120) }, label = { Text(stringResource(R.string.entry_title)) }, singleLine = true, enabled = !busy)
-                OutlinedTextField(start, { start = it }, label = { Text(stringResource(R.string.entry_start)) }, singleLine = true, enabled = !busy)
-                OutlinedTextField(end, { end = it }, label = { Text(stringResource(R.string.entry_end)) }, singleLine = true, enabled = !busy)
+                OutlinedTextField(start, { times = times.withStart(it) }, label = { Text(stringResource(R.string.entry_start)) }, singleLine = true, enabled = !busy)
+                OutlinedTextField(end, { times = times.withEnd(it) }, label = { Text(stringResource(R.string.entry_end)) }, singleLine = true, enabled = !busy)
                 Text(stringResource(R.string.edit_times_hint), style = MaterialTheme.typography.bodySmall)
                 if (!block.isOneOff) Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(whole, { whole = it; haptic.tap() }, enabled = !busy)
                     Text(stringResource(R.string.edit_whole_template), style = MaterialTheme.typography.bodyMedium)
+                }
+                if (whole && block.seriesKey != null && block.seriesDays.size > 1) Row(verticalAlignment=Alignment.CenterVertically) {
+                    Checkbox(allDays,{ allDays=it;haptic.tap() },enabled=!busy)
+                    Text(stringResource(R.string.edit_all_repeat_days))
                 }
                 Text(stringResource(if (whole) R.string.edit_whole_hint else R.string.edit_once_hint), style = MaterialTheme.typography.bodySmall)
                 error?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
@@ -48,7 +57,7 @@ fun BlockEditorDialog(block: ResolvedTimelineItem.Block, busy: Boolean, onDismis
             if (title.isBlank() || parsedStart == null || parsedEnd == null || parsedStart == parsedEnd) {
                 error = R.string.error_block_edit
             } else {
-                onSave(TimelineAction.SaveBlockEdit(block, title.trim(), parsedStart, parsedEnd, whole))
+                onSave(TimelineAction.SaveBlockEdit(block, title.trim(), parsedStart, parsedEnd, whole, allDays && block.seriesKey != null))
             }
         }) { Text(stringResource(if (busy) R.string.saving else R.string.save_changes)) } },
         dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },

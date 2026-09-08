@@ -15,11 +15,11 @@ internal fun TimeBlockEntity.domain(): RoutineBlueprint {
     val start = LocalTime.ofSecondOfDay(startMinutes * 60L)
     return RoutineBlueprint(id, subjectId, title, category, dayOfWeek, start, start.plusMinutes(durationMinutes.toLong()),
         isNotificationEnabled, validFrom, validUntil, minDurationMinutes, elasticity, priorityWeight, isFixedCommitment,
-        completedActualMinutes, rawDurationMinutes, topicId, milestoneId, stageOrder)
+        completedActualMinutes, rawDurationMinutes, topicId, milestoneId, stageOrder, seriesKey, parentRoutineId, origin, isEnabled)
 }
 internal fun RoutineBlueprint.entity() = TimeBlockEntity(id, subjectId, title, category, dayOfWeek,
     startTime.toSecondOfDay() / 60, nominalMinutes(startTime, endTime), isNotificationEnabled, validFrom, validUntil,
-    minDurationMinutes, elasticity, priorityWeight, isFixedCommitment, completedActualMinutes, rawDurationMinutes, topicId, milestoneId, stageOrder)
+    minDurationMinutes, elasticity, priorityWeight, isFixedCommitment, completedActualMinutes, rawDurationMinutes, topicId, milestoneId, stageOrder, seriesKey, parentRoutineId, origin, isEnabled)
 internal fun EventOverrideEntity.domain() = EventOverride(id, routineBlockId, overrideDate, isCancelled,
     customStartTime, customEndTime, customTitle, dayShift, cancellationReason)
 internal fun EventOverride.entity() = EventOverrideEntity(id, routineBlockId, overrideDate, isCancelled,

@@ -3,6 +3,7 @@ package com.example.mydailyroutine.core.database.entities
 import androidx.room.*
 import com.example.mydailyroutine.domain.model.RoutineCategory
 import com.example.mydailyroutine.domain.model.CancellationReason
+import com.example.mydailyroutine.domain.routines.RoutineOrigin
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -11,7 +12,9 @@ import java.time.LocalTime
     ForeignKey(entity = SubjectEntity::class, parentColumns = ["id"], childColumns = ["subjectId"], onDelete = ForeignKey.SET_NULL),
     ForeignKey(entity = StudyTopicEntity::class, parentColumns = ["id"], childColumns = ["topicId"], onDelete = ForeignKey.CASCADE),
     ForeignKey(entity = MilestoneEntity::class, parentColumns = ["id"], childColumns = ["milestoneId"], onDelete = ForeignKey.SET_NULL),
-], indices = [Index("subjectId"), Index("topicId"), Index("milestoneId"), Index(value = ["dayOfWeek", "startMinutes"])])
+    ForeignKey(entity = TimeBlockEntity::class, parentColumns = ["id"], childColumns = ["parentRoutineId"], onDelete = ForeignKey.CASCADE),
+], indices = [Index("subjectId"), Index("topicId"), Index("milestoneId"), Index(value = ["dayOfWeek", "startMinutes"]),
+    Index("seriesKey"), Index(value = ["parentRoutineId"], unique = true)])
 data class TimeBlockEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val subjectId: Long?, val title: String, val category: RoutineCategory, val dayOfWeek: DayOfWeek,
@@ -25,6 +28,10 @@ data class TimeBlockEntity(
     val rawDurationMinutes: Int = durationMinutes,
     val topicId: Long? = null, val milestoneId: Long? = null,
     val stageOrder: Int? = null,
+    val seriesKey: String? = null,
+    val parentRoutineId: Long? = null,
+    @ColumnInfo(defaultValue = "'USER'") val origin: RoutineOrigin = RoutineOrigin.USER,
+    @ColumnInfo(defaultValue = "1") val isEnabled: Boolean = true,
 )
 
 @Entity(tableName = "event_overrides", foreignKeys = [ForeignKey(entity = TimeBlockEntity::class,

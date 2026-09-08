@@ -32,7 +32,7 @@ import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<RoutineViewModel> {
-        viewModelFactory { initializer { RoutineViewModel(appGraph.repository, appGraph.preferences, createSavedStateHandle(), appGraph.exampleData, appGraph.planning, appGraph.execution) } }
+        viewModelFactory { initializer { RoutineViewModel(appGraph.repository, appGraph.preferences, createSavedStateHandle(), appGraph.exampleData, appGraph.planning, appGraph.execution, appGraph.patterns) } }
     }
     private var access by mutableStateOf(NotificationAccess(false, false))
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {

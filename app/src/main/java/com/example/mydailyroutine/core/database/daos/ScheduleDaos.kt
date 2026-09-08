@@ -7,6 +7,11 @@ import java.time.LocalDate
 
 @Dao
 interface TimeBlockDao {
+    @Query("SELECT * FROM routine_blocks WHERE seriesKey = :key AND parentRoutineId IS NULL ORDER BY dayOfWeek, id")
+    suspend fun seriesRoots(key: String): List<TimeBlockEntity>
+    @Query("SELECT * FROM routine_blocks WHERE parentRoutineId = :id") suspend fun companion(id: Long): TimeBlockEntity?
+    @Query("SELECT * FROM routine_blocks WHERE origin = 'SLEEP' AND parentRoutineId IS NULL AND validUntil IS NULL ORDER BY dayOfWeek, id")
+    suspend fun currentSleep(): List<TimeBlockEntity>
     @Query("SELECT * FROM routine_blocks WHERE milestoneId = :goal ORDER BY validFrom, startMinutes, id")
     suspend fun linkedToMilestone(goal: Long): List<TimeBlockEntity>
     @Query("SELECT * FROM routine_blocks WHERE milestoneId = :goal AND topicId IS NULL AND stageOrder IS NOT NULL ORDER BY stageOrder, validFrom, startMinutes")
@@ -18,14 +23,14 @@ interface TimeBlockDao {
     suspend fun hasUnfinishedEarlierStage(goal: Long, stage: Int): Boolean
     @Query("""
         SELECT * FROM routine_blocks
-        WHERE dayOfWeek IN (:weekdays)
+        WHERE isEnabled = 1 AND dayOfWeek IN (:weekdays)
           AND (validFrom IS NULL OR validFrom <= :through)
           AND (validUntil IS NULL OR validUntil >= :from)
         ORDER BY dayOfWeek, startMinutes, id
     """)
     suspend fun candidates(weekdays: List<DayOfWeek>, from: LocalDate, through: LocalDate): List<TimeBlockEntity>
     @Query("SELECT * FROM routine_blocks WHERE id = :id") suspend fun get(id: Long): TimeBlockEntity?
-    @Query("SELECT EXISTS(SELECT 1 FROM routine_blocks WHERE isNotificationEnabled = 1 AND (validUntil IS NULL OR validUntil >= :today))")
+    @Query("SELECT EXISTS(SELECT 1 FROM routine_blocks WHERE isEnabled = 1 AND isNotificationEnabled = 1 AND (validUntil IS NULL OR validUntil >= :today))")
     suspend fun hasUpcomingNotificationRoutines(today: LocalDate): Boolean
     @Insert suspend fun insert(routine: TimeBlockEntity): Long
     @Update suspend fun update(routine: TimeBlockEntity): Int

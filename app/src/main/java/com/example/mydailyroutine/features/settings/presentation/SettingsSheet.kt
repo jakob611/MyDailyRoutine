@@ -18,6 +18,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.domain.routines.SleepSchedule
+import com.example.mydailyroutine.features.routines.presentation.SleepSettings
+import com.example.mydailyroutine.features.entry.presentation.EntryDefaultsSettings
 import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.health.HealthConfig
 import com.example.mydailyroutine.domain.health.WarningType
@@ -34,7 +37,7 @@ data class NotificationAccess(val notificationsEnabled: Boolean, val exactAlarms
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsSheet(
-    preferences: SchedulePreferences, subjects: List<Subject>, busy: Boolean, access: NotificationAccess, exampleLoaded: Boolean,
+    preferences: SchedulePreferences, subjects: List<Subject>, busy: Boolean, access: NotificationAccess, exampleLoaded: Boolean, sleep: SleepSchedule,
     onAction: (TimelineAction) -> Unit, onDismiss: () -> Unit,
     requestNotifications: () -> Unit, requestExactAlarms: () -> Unit, openNotificationSettings: () -> Unit,
 ) {
@@ -50,6 +53,10 @@ fun SettingsSheet(
             Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineSmall)
             Text(stringResource(R.string.privacy_summary), color = RoutineColors.TextSecondary)
             Text(stringResource(R.string.privacy_delete_warning), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
+            HorizontalDivider()
+            SleepSettings(sleep,busy,onAction)
+            HorizontalDivider()
+            EntryDefaultsSettings(preferences.entryDefaults,busy) { onAction(TimelineAction.SaveEntryDefaults(it)) }
             HorizontalDivider()
             Text(stringResource(R.string.settings_reminders), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(if (access.notificationsEnabled) R.string.notifications_allowed else R.string.notifications_disabled))

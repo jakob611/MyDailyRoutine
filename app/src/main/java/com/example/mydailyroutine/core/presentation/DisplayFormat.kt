@@ -58,6 +58,8 @@ fun categoryColor(category: RoutineCategory, subjectColor: Long? = null): Color 
     PresetKind.IB_REVISION -> R.string.preset_ib
     PresetKind.EXAM -> R.string.preset_exam
     PresetKind.RESERVE -> R.string.preset_reserve
+    PresetKind.LUNCH -> R.string.preset_lunch
+    PresetKind.SNACK -> R.string.preset_snack
     PresetKind.SUBJECT_LESSON -> R.string.preset_lessons
     PresetKind.SUBJECT_STUDY -> R.string.preset_study
     PresetKind.SUBJECT_TEST -> R.string.preset_test
@@ -79,6 +81,8 @@ fun QuickAddPreset.title(context: Context): String {
         PresetKind.WALK -> R.string.title_walk
         PresetKind.IB_REVISION -> R.string.title_ib
         PresetKind.RESERVE -> R.string.reserve_title
+        PresetKind.LUNCH -> R.string.title_lunch
+        PresetKind.SNACK -> R.string.title_snack
         else -> R.string.title_exam
     })
 }

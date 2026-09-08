@@ -29,6 +29,8 @@ import com.example.mydailyroutine.domain.model.RoutineCategory
 import com.example.mydailyroutine.domain.model.ScheduleValidation
 import com.example.mydailyroutine.domain.model.Subject
 import com.example.mydailyroutine.domain.presets.*
+import com.example.mydailyroutine.domain.routines.*
+import com.example.mydailyroutine.features.routines.presentation.WeekdayPicker
 import com.example.mydailyroutine.domain.learning.HistoricalVelocity
 import com.example.mydailyroutine.domain.learning.VelocityCalibrator
 import com.example.mydailyroutine.domain.model.nominalMinutes
@@ -45,21 +47,30 @@ fun EntryEditorSheet(
     selectedDate: LocalDate, subjects: List<Subject>, subjectPresets: List<QuickAddPreset>, history: List<HistoricalVelocity>,
     editing: ResolvedTimelineItem.Milestone?, busy: Boolean,
     onDismiss: () -> Unit, onSave: (EntryDraft) -> Unit, onNewSubject: () -> Unit,
+    defaults: EntryDefaults = EntryDefaults(), continuation: EntryContinuation? = null,
 ) {
-    val initial = remember(selectedDate, editing?.key) {
+    val initial = remember(selectedDate, editing?.key, continuation?.start) {
         val now = LocalDateTime.now()
-        if (editing != null) editing.date.atTime(editing.dueTime ?: LocalTime.of(16, 0))
+        if (continuation != null) continuation.start
+        else if (editing != null) editing.date.atTime(editing.dueTime ?: LocalTime.of(16, 0))
         else if (selectedDate == now.toLocalDate()) now.plusMinutes((15 - now.minute % 15).toLong()).withSecond(0).withNano(0)
         else selectedDate.atTime(16, 0)
     }
     var title by rememberSaveable(editing?.key) { mutableStateOf(editing?.title ?: "") }
     var dateText by rememberSaveable(editing?.key) { mutableStateOf(initial.toLocalDate().toString()) }
-    var startText by rememberSaveable(editing?.key) { mutableStateOf(initial.toLocalTime().clockLabel()) }
-    var endText by rememberSaveable(editing?.key) { mutableStateOf(initial.toLocalTime().plusMinutes(90).clockLabel()) }
-    var category by rememberSaveable { mutableStateOf(RoutineCategory.FOCUS_ANALYTICAL) }
+    var times by rememberSaveable(editing?.key, stateSaver = TimeEntrySaver) {
+        mutableStateOf(TimeEntryState.at(initial.toLocalTime(), continuation?.durationMinutes ?: 90))
+    }
+    val startText = times.startText
+    val endText = times.endText
+    var category by rememberSaveable { mutableStateOf(if (continuation != null) RoutineCategory.SCHOOL else RoutineCategory.FOCUS_ANALYTICAL) }
     var kind by rememberSaveable(editing?.key) { mutableStateOf(if (editing == null) EntryKind.BLOCK else if (editing.isExam) EntryKind.EXAM else EntryKind.DEADLINE) }
     var subjectId by rememberSaveable(editing?.key) { mutableStateOf(editing?.subject?.id) }
-    var weekly by rememberSaveable { mutableStateOf(false) }
+    var weekly by rememberSaveable { mutableStateOf(continuation?.weekly ?: false) }
+    var repeatDays by rememberSaveable { mutableIntStateOf(continuation?.weekdaysMask ?: Weekdays.mask(setOf(initial.dayOfWeek))) }
+    var daysTouched by rememberSaveable { mutableStateOf(continuation != null) }
+    var includeBreak by rememberSaveable { mutableStateOf((continuation?.breakMinutes ?: 0) > 0) }
+    var breakMinutes by rememberSaveable { mutableStateOf((continuation?.breakMinutes?.takeIf { it > 0 } ?: defaults.lessonBreakMinutes).toString()) }
     var notifications by rememberSaveable { mutableStateOf(true) }
     var allDay by rememberSaveable(editing?.key) { mutableStateOf(editing != null && editing.dueTime == null) }
     var error by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -82,20 +93,23 @@ fun EntryEditorSheet(
         title = preset.title(context)
         kind = if (preset.isExam) EntryKind.EXAM else EntryKind.BLOCK
         category = preset.category
-        subjectId = preset.subjectId ?: subjectId.takeUnless { preset.kind == PresetKind.WALK }
+        subjectId = preset.subjectId ?: subjectId.takeUnless { preset.kind in setOf(PresetKind.WALK, PresetKind.LUNCH, PresetKind.SNACK, PresetKind.RESERVE) }
         val start = ScheduleValidation.parseTime(startText) ?: initial.toLocalTime()
-        startText = start.clockLabel()
-        endText = preset.window(selectedDate, start).end.toLocalTime().clockLabel()
+        times = TimeEntryState.at(start,preset.durationMinutes)
         allDay = false
         minimum = ""; elasticity = "1.0"; priority = if (preset.category.isBuffer) "1.0" else "3.0"; fixed = false
+        if (preset.kind == PresetKind.LUNCH || preset.kind == PresetKind.SNACK) {
+            fixed = true; weekly = true; repeatDays = Weekdays.WORKDAYS; daysTouched = true
+        }
         error = null
     }
-    fun save(preset: QuickAddPreset? = null) {
+    fun save(preset: QuickAddPreset? = null, keepOpen: Boolean = false) {
         val chosenKind = if (preset?.isExam == true) EntryKind.EXAM else kind
         val chosenTitle = preset?.title(context) ?: title.trim()
         val date = ScheduleValidation.parseDate(dateText)
         val start = if (chosenKind != EntryKind.BLOCK && allDay) null else ScheduleValidation.parseTime(startText)
         val end = if (chosenKind == EntryKind.BLOCK) ScheduleValidation.parseTime(endText) else null
+        val afterBreak = if (chosenKind == EntryKind.BLOCK && category == RoutineCategory.SCHOOL && includeBreak) breakMinutes.toIntOrNull() else 0
         val minimumValue = if (minimum.isBlank()) null else minimum.toIntOrNull()
         val elasticityValue = elasticity.replace(',', '.').toDoubleOrNull()
         val priorityValue = priority.replace(',', '.').toDoubleOrNull()
@@ -106,6 +120,8 @@ fun EntryEditorSheet(
             date == null -> R.string.error_date
             (chosenKind == EntryKind.BLOCK || !allDay) && start == null -> R.string.error_time
             chosenKind == EntryKind.BLOCK && (end == null || end == start) -> R.string.error_time_range
+            chosenKind == EntryKind.BLOCK && weekly && repeatDays == 0 -> R.string.repeat_days_required
+            afterBreak == null || afterBreak !in 0..60 || (includeBreak && category == RoutineCategory.SCHOOL && chosenKind == EntryKind.BLOCK && afterBreak == 0) -> R.string.lesson_break_invalid
             chosenKind == EntryKind.BLOCK && ((minimum.isNotBlank() && (minimumValue == null || minimumValue !in (if (category.isBuffer) 0 else 1)..raw)) ||
                 elasticityValue == null || !elasticityValue.isFinite() || elasticityValue !in 0.0..1000000.0 ||
                 priorityValue == null || !priorityValue.isFinite() || priorityValue <= 0 || priorityValue > 1000000) -> R.string.elastic_invalid
@@ -116,7 +132,8 @@ fun EntryEditorSheet(
             val chosenSubject = preset?.subjectId ?: subjectId
             onSave(EntryDraft(chosenTitle, chosenSubject?.takeIf { id -> subjects.any { it.id == id } }, chosenKind, date, start, end,
                 preset?.category ?: category, weekly, notifications, editing?.milestoneId ?: 0, editing?.isCompleted ?: false,
-                minimumValue, elasticityValue ?: 1.0, priorityValue ?: 3.0, fixed, calibrate, effortValue ?: 0.0, terminal && chosenKind == EntryKind.EXAM))
+                minimumValue, elasticityValue ?: 1.0, priorityValue ?: 3.0, fixed, calibrate, effortValue ?: 0.0, terminal && chosenKind == EntryKind.EXAM,
+                repeatDays, afterBreak ?: 0, context.getString(R.string.lesson_break_title), keepOpen))
         }
     }
 
@@ -174,7 +191,9 @@ fun EntryEditorSheet(
                     }
                 }
                 OutlinedTextField(title, { title = it.take(120); error = null }, label = { Text(stringResource(R.string.entry_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
-                OutlinedTextField(dateText, { dateText = it; error = null }, label = { Text(stringResource(R.string.entry_date)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
+                OutlinedTextField(dateText, { dateText = it; error = null
+                    if (!daysTouched) ScheduleValidation.parseDate(it)?.let { date -> repeatDays = Weekdays.mask(setOf(date.dayOfWeek)) }
+                }, label = { Text(stringResource(R.string.entry_date)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), trailingIcon = {
                         IconButton(onClick = { pickingDate = true; haptics.tap() }, enabled = !busy) { Icon(Icons.Outlined.CalendarMonth, stringResource(R.string.choose_date)) }
                     })
@@ -184,17 +203,36 @@ fun EntryEditorSheet(
                 }
                 AnimatedVisibility(kind == EntryKind.BLOCK || !allDay) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(startText, { startText = it; error = null }, label = { Text(stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due)) },
-                            singleLine = true, modifier = Modifier.weight(1f), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
-                        if (kind == EntryKind.BLOCK) OutlinedTextField(endText, { endText = it; error = null }, label = { Text(stringResource(R.string.entry_end)) },
-                            singleLine = true, modifier = Modifier.weight(1f), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
+                        OutlinedTextField(startText, { times = times.withStart(it); error = null }, label = { Text(stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due)) },
+                            singleLine = true, modifier = Modifier.weight(1f).testTag("entry-start"), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
+                        if (kind == EntryKind.BLOCK) OutlinedTextField(endText, { times = times.withEnd(it); error = null }, label = { Text(stringResource(R.string.entry_end)) },
+                            singleLine = true, modifier = Modifier.weight(1f).testTag("entry-end"), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
                     }
                 }
                 if (kind == EntryKind.BLOCK) {
+                    Text(stringResource(R.string.duration_follows_start, times.durationMinutes), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(listOf(30,45,60,90,times.durationMinutes).distinct().sorted(), key={it}) { minutes ->
+                            FilterChip(selected=times.durationMinutes==minutes, onClick={ times=times.withDuration(minutes); haptics.tap(); error=null },
+                                enabled=!busy, label={ Text(stringResource(R.string.duration_minutes,minutes)) }, shape=RoutineShapes.Chip)
+                        }
+                    }
                     Text(stringResource(R.string.entry_overnight_hint), style = MaterialTheme.typography.bodySmall)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(RoutineCategory.entries, key = { it.name }) { option -> FilterChip(category == option, { category = option; haptics.tap() }, enabled = !busy,
+                        items(RoutineCategory.entries, key = { it.name }) { option -> FilterChip(category == option, {
+                            category = option; haptics.tap()
+                            if (option == RoutineCategory.SCHOOL) times = times.withDuration(subjects.firstOrNull { it.id == subjectId }?.defaultDurationMinutes ?: defaults.lessonDurationMinutes)
+                        }, enabled = !busy,
                             label = { Text(option.label()) }, leadingIcon = { Icon(categoryIcon(option), null, Modifier.size(16.dp)) }, shape = RoutineShapes.Chip) }
+                    }
+                    if (category == RoutineCategory.SCHOOL) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(includeBreak,{ includeBreak=it;haptics.tap() },enabled=!busy,modifier=Modifier.testTag("lesson-break-toggle"))
+                            Text(stringResource(R.string.lesson_break_option),Modifier.weight(1f))
+                            if (includeBreak) OutlinedTextField(breakMinutes,{ breakMinutes=it.filter(Char::isDigit).take(2) },
+                                label={ Text(stringResource(R.string.minutes_short)) },singleLine=true,enabled=!busy,modifier=Modifier.width(82.dp),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))
+                        }
+                        if (includeBreak) Text(stringResource(R.string.lesson_break_hint),style=MaterialTheme.typography.bodySmall,color=RoutineColors.TextSecondary)
                     }
                     TextButton(onClick = { advanced = !advanced; haptics.tap() }) {
                         Icon(Icons.Outlined.ExpandMore, null)
@@ -235,7 +273,11 @@ fun EntryEditorSheet(
                             Text(stringResource(R.string.entry_repeat), style = MaterialTheme.typography.titleSmall)
                             Text(stringResource(if (weekly) R.string.entry_repeat_hint else R.string.entry_once_hint), style = MaterialTheme.typography.bodySmall)
                         }
-                        Switch(weekly, { weekly = it; haptics.tap() }, enabled = !busy)
+                        Switch(weekly, { weekly = it; haptics.tap() }, enabled = !busy, modifier = Modifier.testTag("repeat-weekly"))
+                    }
+                    if (weekly) {
+                        Text(stringResource(R.string.repeat_days_label),style=MaterialTheme.typography.titleSmall)
+                        WeekdayPicker(repeatDays,!busy) { repeatDays=it;daysTouched=true }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -266,13 +308,15 @@ fun EntryEditorSheet(
             }
             error?.let { Text(stringResource(it), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning) }
             HorizontalDivider(color = RoutineColors.Border)
+            if (editing == null && kind == EntryKind.BLOCK && category == RoutineCategory.SCHOOL) TextButton(enabled=!busy,
+                modifier=Modifier.fillMaxWidth().testTag("save-next-lesson"),onClick={ save(keepOpen=true) }) { Text(stringResource(R.string.save_next_lesson)) }
             Button(enabled = !busy, shape = RoutineShapes.Pill, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp).heightIn(min = 52.dp), onClick = { save() }) {
                 Text(stringResource(if (busy) R.string.saving else if (editing == null) R.string.entry_save else R.string.entry_save_milestone))
             }
         }
     }
     if (pickingDate) AppDatePicker(ScheduleValidation.parseDate(dateText) ?: selectedDate,
-        onDismiss = { pickingDate = false }, onDate = { dateText = it.toString(); pickingDate = false })
+        onDismiss = { pickingDate = false }, onDate = { dateText = it.toString(); if (!daysTouched) repeatDays=Weekdays.mask(setOf(it.dayOfWeek)); pickingDate = false })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

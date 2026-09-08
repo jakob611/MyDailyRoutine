@@ -87,4 +87,37 @@ object DatabaseMigrations {
         """.trimIndent())
     }
 
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE routine_blocks ADD COLUMN seriesKey TEXT")
+            db.execSQL("ALTER TABLE routine_blocks ADD COLUMN parentRoutineId INTEGER REFERENCES routine_blocks(id) ON DELETE CASCADE ON UPDATE NO ACTION")
+            db.execSQL("ALTER TABLE routine_blocks ADD COLUMN origin TEXT NOT NULL DEFAULT 'USER'")
+            db.execSQL("ALTER TABLE routine_blocks ADD COLUMN isEnabled INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_routine_blocks_seriesKey ON routine_blocks(seriesKey)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_routine_blocks_parentRoutineId ON routine_blocks(parentRoutineId)")
+            installPatternIntegrity(db)
+        }
+    }
+    fun installPatternIntegrity(db: SupportSQLiteDatabase) {
+        for (operation in listOf("INSERT", "UPDATE")) db.execSQL("""
+            CREATE TRIGGER IF NOT EXISTS validate_pattern_${operation.lowercase()} BEFORE $operation ON routine_blocks
+            WHEN NEW.isEnabled NOT IN (0,1) OR NEW.origin NOT IN ('USER','LESSON_BREAK','SLEEP','MORNING_BUFFER')
+                OR (NEW.seriesKey IS NOT NULL AND length(trim(NEW.seriesKey)) NOT BETWEEN 1 AND 80)
+                OR (NEW.parentRoutineId IS NOT NULL AND (NEW.parentRoutineId = NEW.id OR NEW.category != 'REST_BUFFER'
+                    OR NEW.origin NOT IN ('LESSON_BREAK','MORNING_BUFFER') OR NEW.isFixedCommitment != 1 OR NEW.elasticity != 0
+                    OR NEW.minDurationMinutes != NEW.durationMinutes
+                    OR EXISTS(SELECT 1 FROM routine_blocks p WHERE p.id=NEW.parentRoutineId AND
+                        (p.parentRoutineId IS NOT NULL OR p.dayOfWeek != NEW.dayOfWeek
+                         OR (NEW.origin='LESSON_BREAK' AND p.category!='SCHOOL') OR (NEW.origin='MORNING_BUFFER' AND p.origin!='SLEEP')))))
+                OR (NEW.origin IN ('LESSON_BREAK','MORNING_BUFFER') AND NEW.parentRoutineId IS NULL)
+                OR (NEW.origin='SLEEP' AND (NEW.category!='ADMIN' OR NEW.parentRoutineId IS NOT NULL OR NEW.isFixedCommitment!=1 OR NEW.isNotificationEnabled!=0))
+                OR (NEW.origin='MORNING_BUFFER' AND NEW.isNotificationEnabled!=0)
+                OR (NEW.seriesKey IS NOT NULL AND NEW.parentRoutineId IS NULL AND EXISTS(
+                    SELECT 1 FROM routine_blocks b WHERE b.seriesKey=NEW.seriesKey AND b.parentRoutineId IS NULL AND b.dayOfWeek=NEW.dayOfWeek AND b.id!=NEW.id))
+                OR EXISTS(SELECT 1 FROM routine_blocks child WHERE child.parentRoutineId=NEW.id AND
+                    (child.dayOfWeek!=NEW.dayOfWeek OR (child.origin='LESSON_BREAK' AND NEW.category!='SCHOOL') OR (child.origin='MORNING_BUFFER' AND NEW.origin!='SLEEP')))
+            BEGIN SELECT RAISE(ABORT, 'Invalid recurrence pattern'); END
+        """.trimIndent())
+    }
+
 }

@@ -1,6 +1,8 @@
 package com.example.mydailyroutine.domain.model
 
 import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.routines.RoutineOrigin
+import com.example.mydailyroutine.domain.routines.EntryDefaults
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -44,6 +46,10 @@ data class RoutineBlueprint(
     val topicId: Long? = null,
     val milestoneId: Long? = null,
     val stageOrder: Int? = null,
+    val seriesKey: String? = null,
+    val parentRoutineId: Long? = null,
+    val origin: RoutineOrigin = RoutineOrigin.USER,
+    val isEnabled: Boolean = true,
 ) {
     fun occursOn(date: LocalDate): Boolean = date.dayOfWeek == dayOfWeek &&
         (validFrom == null || !date.isBefore(validFrom)) &&
@@ -135,12 +141,17 @@ sealed interface ResolvedTimelineItem {
         val reviewId: Long? = null,
         val stageOrder: Int? = null,
         val actualTiming: ActualTiming? = null,
+        val seriesKey: String? = null,
+        val seriesDays: Set<DayOfWeek> = emptySet(),
+        val parentRoutineId: Long? = null,
+        val origin: RoutineOrigin = RoutineOrigin.USER,
+        val companionConflict: Boolean = false,
     ) : ResolvedTimelineItem {
         override val key: String get() = "block:$routineBlockId:$occurrenceDate:$date"
         val occurrenceKey: String get() = "block:$routineBlockId:$occurrenceDate"
         override val startTime: LocalTime get() = LocalTime.ofSecondOfDay(startMinute * 60L)
         val durationMinutes: Int get() = endMinute - startMinute
-        val isSuppressed: Boolean get() = category == RoutineCategory.SCHOOL && holidayTitle != null
+        val isSuppressed: Boolean get() = companionConflict || ((category == RoutineCategory.SCHOOL || origin == RoutineOrigin.LESSON_BREAK) && holidayTitle != null)
         val isCarryIn: Boolean get() = startsAt.toLocalDate() < date
     }
 
@@ -169,6 +180,7 @@ data class SchedulePreferences(
     val teachingEndDate: LocalDate = LocalDate.of(2027, 6, 24),
     val hapticsEnabled: Boolean = true,
     val automaticHealingEnabled: Boolean = true,
+    val entryDefaults: EntryDefaults = EntryDefaults(),
     val health: HealthConfig = HealthConfig(),
     val planning: com.example.mydailyroutine.domain.planning.PlanningConfig = com.example.mydailyroutine.domain.planning.PlanningConfig(),
 ) {
