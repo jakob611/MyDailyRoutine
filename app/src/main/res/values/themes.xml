@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.MyDailyRoutine" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.MyDailyRoutine" parent="android:Theme.Material.NoActionBar">
+        <item name="android:fontFamily">@font/roboto_flex</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
 </resources>
