@@ -30,7 +30,7 @@ class RoutinePatternsIntegrationTest {
     @Before fun setup() {
         db=Room.inMemoryDatabaseBuilder(context,RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback(context.resources)).build()
         timeline=RoomTimelineRepository(db,{})
-        patterns=RoomRoutinePatternsRepository(db,timeline,{},clock)
+        patterns=RoomRoutinePatternsRepository(db,timeline,{},clock) { ZoneOffset.UTC }
     }
     @After fun cleanup() { db.close() }
     private fun lesson()=RoutineBlueprint(subjectId=null,title="Pouk",category=RoutineCategory.SCHOOL,dayOfWeek=monday.dayOfWeek,

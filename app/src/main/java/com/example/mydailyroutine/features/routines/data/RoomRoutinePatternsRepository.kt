@@ -16,7 +16,8 @@ import kotlinx.coroutines.withContext
 
 /** Atomic multi-day creation and managed sleep patterns; the canonical timeline remains the only agenda. */
 class RoomRoutinePatternsRepository(private val db: RoutineDatabase, private val timeline: TimelineRepository,
-    private val onChanged: () -> Unit, private val clock: Clock = Clock.systemDefaultZone()) : RoutinePatternsRepository {
+    private val onChanged: () -> Unit, private val clock: Clock = Clock.systemUTC(),
+    private val zoneProvider: () -> ZoneId = ZoneId::systemDefault) : RoutinePatternsRepository {
     override val sleep = db.invalidationTracker.createFlow("routine_blocks",emitInitialState=true).map {
         withContext(Dispatchers.IO) { db.withTransaction { decodeSleep(db.routines().currentSleep()) } }
     }.distinctUntilChanged()
@@ -55,7 +56,7 @@ class RoomRoutinePatternsRepository(private val db: RoutineDatabase, private val
         val active = db.execution().get()
         if (roots.any { it.id==active?.routineBlockId }) throw ScheduleConflict(ScheduleConflictReason.ACTIVE_EXECUTION)
         roots.forEach { root ->
-            val date = (root.validFrom ?: LocalDate.now(clock)).with(java.time.temporal.TemporalAdjusters.nextOrSame(root.dayOfWeek))
+            val date = (root.validFrom ?: LocalDate.now(clock.withZone(zoneProvider()))).with(java.time.temporal.TemporalAdjusters.nextOrSame(root.dayOfWeek))
             timeline.editBlock(root.id,date,title,start,end,true)
         }
     }
@@ -70,7 +71,7 @@ class RoomRoutinePatternsRepository(private val db: RoutineDatabase, private val
         ScheduleValidation.title(sleepTitle); ScheduleValidation.title(morningTitle)
         val previous = db.routines().currentSleep()
         if (previous.isNotEmpty() && decodeSleep(previous)==schedule) return@write
-        val now = LocalDateTime.now(clock)
+        val now = LocalDateTime.ofInstant(clock.instant(),zoneProvider())
         // Preserve an already-started night. New hours apply to the next bedtime, not past history.
         val effective = if (previous.any { it.isEnabled && it.dayOfWeek==now.dayOfWeek && it.startMinutes <= now.toLocalTime().toSecondOfDay()/60 }) now.toLocalDate().plusDays(1) else now.toLocalDate()
         val exceptions = mutableListOf<Triple<java.time.DayOfWeek,RoutineOrigin,EventOverrideEntity>>()

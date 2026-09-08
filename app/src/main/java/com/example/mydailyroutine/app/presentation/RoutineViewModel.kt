@@ -208,7 +208,7 @@ class RoutineViewModel(
             TimelineAction.CloseEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingBlock = null) }
             is TimelineAction.Edit -> when (val item = action.item) {
                 is ResolvedTimelineItem.Block -> panels.update { it.copy(editingBlock = item) }
-                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryContinuation = null, showSettings = false) }
+                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, entryContinuation = null, showSettings = false) }
             }
             is TimelineAction.SaveEntry -> saveEntry(action.draft)
             is TimelineAction.SaveBlockEdit -> perform {
