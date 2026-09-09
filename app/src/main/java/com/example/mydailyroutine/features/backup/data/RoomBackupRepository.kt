@@ -92,7 +92,7 @@ class RoomBackupRepository(
                     val subjectId = subjectIds[o.optString("subject", "")]
                     val weekly = o.optBoolean("weekly", true)
                     val start = parseTime(o.optString("start", "08:00"))
-                    val end = if (o.isNull("end")) start.plusMinutes(45) else parseTime(o.optString("end"))
+                    val end = if (o.isNull("end")) start.plusMinutes(45L) else parseTime(o.optString("end"))
                     val bp = RoutineBlueprint(
                         subjectId = subjectId,
                         title = o.optString("title", mapCategory(o.optString("category", "SCHOOL")).name),
