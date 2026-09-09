@@ -51,6 +51,8 @@ class RoomBackupRepository(
                 put("start", r.startTime.toString())
                 put("end", r.endTime.toString())
                 put("weekly", r.validUntil == null)
+                r.validFrom?.let { put("validFrom", it.toString()) }
+                r.validUntil?.let { put("validUntil", it.toString()) }
                 put("notifications", r.isNotificationEnabled)
             })
         }
@@ -99,8 +101,8 @@ class RoomBackupRepository(
                         startTime = start,
                         endTime = end,
                         isNotificationEnabled = o.optBoolean("notifications", false),
-                        validFrom = LocalDate.of(2020, 1, 1),
-                        validUntil = if (weekly) null else LocalDate.of(2020, 1, 1),
+                        validFrom = o.optString("validFrom", "").takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.of(2020, 1, 1),
+                        validUntil = o.optString("validUntil", "").takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
                     )
                     db.routines().insert(bp.entity())
                 }
