@@ -6,6 +6,7 @@ import com.example.mydailyroutine.domain.planning.*
 import com.example.mydailyroutine.domain.learning.*
 import androidx.annotation.StringRes
 import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.health.PeriodicBreakConfig
 import com.example.mydailyroutine.domain.presets.QuickAddPreset
 import com.example.mydailyroutine.domain.health.DailyMetrics
 import com.example.mydailyroutine.domain.health.WarningType
@@ -64,6 +65,7 @@ data class TimelinePanels(
     val completionTarget: ResolvedTimelineItem.Block? = null,
     val showTopicEditor: Boolean = false,
     val confirmCancelExecution: Boolean = false,
+    val exportJson: String? = null,
 )
 
 @Immutable
@@ -153,6 +155,7 @@ sealed interface TimelineAction {
     data class InsertRecovery(val type: WarningType, val anchorKey: String, val recoveryTitle: String, val continuationSuffix: String) : TimelineAction
     data class SetHaptics(val enabled: Boolean) : TimelineAction
     data class SetHealthConfig(val config: HealthConfig) : TimelineAction
+    data class SetPeriodicBreak(val config: PeriodicBreakConfig) : TimelineAction
     data object RequestDemo : TimelineAction
     data object DismissDemo : TimelineAction
     data object LoadDemo : TimelineAction
@@ -162,6 +165,8 @@ sealed interface TimelineAction {
     data class SetMute(val muted: Boolean) : TimelineAction
     data class SetSchoolWindow(val start: LocalTime, val end: LocalTime) : TimelineAction
     data class SetTeachingEnd(val date: LocalDate) : TimelineAction
+    data class ExportSchedule : TimelineAction
+    data class ImportSchedule(val json: String) : TimelineAction
 }
 
 sealed interface TimelineEffect {

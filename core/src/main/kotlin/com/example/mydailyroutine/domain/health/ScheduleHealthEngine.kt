@@ -28,7 +28,7 @@ data class HealthWarning(
  * - Warnings carry facts only. All displayed copy is localized by the Android resource layer.
  */
 class ScheduleHealthEngine {
-    fun evaluate(items: List<ResolvedTimelineItem>, config: HealthConfig = HealthConfig()): List<HealthWarning> {
+    fun evaluate(items: List<ResolvedTimelineItem>, config: HealthConfig = HealthConfig(), periodic: PeriodicBreakConfig? = null): List<HealthWarning> {
         require(items.map { it.date }.distinct().size <= 1) { "Evaluate one display date at a time." }
         val blocks = items.filterIsInstance<ResolvedTimelineItem.Block>()
             .filter { !it.isSuppressed && it.durationMinutes > 0 }
@@ -87,6 +87,23 @@ class ScheduleHealthEngine {
                 if (blocks.none { it.interval().intersects(gap) }) {
                     val related = focus.filter { it.endMinute == before.end || it.startMinute == after.start }
                     warn(WarningType.FRAGMENTED_TIME, related, before.end)
+                }
+            }
+        }
+        if (periodic != null && periodic.enabled) {
+            val every = periodic.everyMinutes
+            val len = periodic.breakMinutes
+            val buffer = blocks.filter { it.category.isBuffer }.map { it.interval() }
+            focus.forEach { block ->
+                var t = block.startMinute + every
+                while (t + len <= block.endMinute) {
+                    val slot = MinuteInterval(t, t + len)
+                    val coveredByRest = buffer.any { it.intersects(slot) }
+                    val inFreeGap = free.any { it.start <= slot.start && it.end >= slot.end }
+                    if (!coveredByRest && !inFreeGap) {
+                        warnings += HealthWarning(WarningType.CONCENTRATION_LIMIT, setOf(block.key), t)
+                    }
+                    t += every + len
                 }
             }
         }
