@@ -7,7 +7,7 @@ class PeriodicBreaksTest {
 
     @Test
     fun `block shorter than the interval needs no breaks`() {
-        assertEquals(emptyList<MinuteInterval>(), PeriodicBreaks.plan(MinuteInterval(0, 90), everyMinutes = 60, breakMinutes = 5))
+        assertEquals(emptyList<MinuteInterval>(), PeriodicBreaks.plan(MinuteInterval(0, 50), everyMinutes = 60, breakMinutes = 5))
     }
 
     @Test
