@@ -2,6 +2,7 @@ package com.example.mydailyroutine.features.backup.data
 
 import androidx.room.withTransaction
 import com.example.mydailyroutine.core.database.RoutineDatabase
+import com.example.mydailyroutine.core.database.entity
 import com.example.mydailyroutine.domain.model.Milestone
 import com.example.mydailyroutine.domain.model.RoutineBlueprint
 import com.example.mydailyroutine.domain.model.RoutineCategory
@@ -111,7 +112,7 @@ class RoomBackupRepository(
                 for (i in 0 until arr.length()) {
                     val o = arr.getJSONObject(i)
                     val subjectId = subjectIds[o.optString("subject", "")]
-                    val due = runCatching { LocalDate.parse(o.getString("date")) }.getOrElse(0) { LocalDate.now() }
+                    val due = runCatching { LocalDate.parse(o.getString("date")) }.getOrElse { LocalDate.now() }
                     val time = o.optString("time", "").takeIf { it.isNotBlank() }?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
                     db.milestones().insert(
                         Milestone(0, subjectId, o.getString("title"), due, time, o.optBoolean("isExam", false), false, 0.0, false).entity(),

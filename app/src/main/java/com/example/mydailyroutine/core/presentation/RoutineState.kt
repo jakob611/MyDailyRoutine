@@ -165,7 +165,7 @@ sealed interface TimelineAction {
     data class SetMute(val muted: Boolean) : TimelineAction
     data class SetSchoolWindow(val start: LocalTime, val end: LocalTime) : TimelineAction
     data class SetTeachingEnd(val date: LocalDate) : TimelineAction
-    data class ExportSchedule : TimelineAction
+    data object ExportSchedule : TimelineAction
     data class ImportSchedule(val json: String) : TimelineAction
 }
 
