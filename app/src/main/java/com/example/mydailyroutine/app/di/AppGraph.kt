@@ -10,6 +10,7 @@ import com.example.mydailyroutine.features.timeline.data.RoomTimelineRepository
 import com.example.mydailyroutine.features.routines.data.RoomRoutinePatternsRepository
 import com.example.mydailyroutine.features.planning.data.RoomPlanningRepository
 import com.example.mydailyroutine.features.execution.data.RoomExecutionRepository
+import com.example.mydailyroutine.features.backup.data.RoomBackupRepository
 import com.example.mydailyroutine.scheduling.ScheduleAlarmScheduler
 import com.example.mydailyroutine.scheduling.ScheduleCoordinator
 import com.example.mydailyroutine.scheduling.ScheduleNotifier
@@ -29,6 +30,7 @@ class AppGraph(context: Context) {
     val patterns = RoomRoutinePatternsRepository(database, repository, ::requestRefresh)
     val planning = RoomPlanningRepository(database, repository, ::requestRefresh)
     val execution = RoomExecutionRepository(database, repository, planning, ::requestRefresh)
+    val backup = RoomBackupRepository(database, repository, ::requestRefresh)
     val preferences = DataStorePreferencesRepository(context, ::requestRefresh)
     val exampleData = DemoDataSeeder(context, database, preferences, ::requestRefresh, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches)
     val scheduler = ScheduleAlarmScheduler(context)

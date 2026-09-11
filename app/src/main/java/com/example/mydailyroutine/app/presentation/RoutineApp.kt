@@ -143,7 +143,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, state.panels.editingMilestone, state.panels.isSaving,
                 onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation)
         }
-        if (state.panels.showSettings) SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, state.sleep, onAction,
+        if (state.panels.showSettings) SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, state.sleep, onAction = onAction,
+            exportJson = state.panels.exportJson,
             onDismiss = { onAction(TimelineAction.CloseSettings) }, requestNotifications = requestNotifications, requestExactAlarms = requestExactAlarms, openNotificationSettings = openNotificationSettings)
         if (state.panels.showPlanning) PlanningSheet(state, onAction)
         if (state.panels.showTopicEditor) TopicEditorSheet(state, onAction)

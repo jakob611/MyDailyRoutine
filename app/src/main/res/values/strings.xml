@@ -539,4 +539,17 @@
     <string name="managed_sleep_notice">Zaščiten načrt · brez budilke</string>
     <string name="managed_morning_notice">Sledi načrtovanemu zbujanju</string>
     <string name="sleep_before_workdays">Noči pred delovniki (zbujanje po–pe)</string>
+    <string name="periodic_break_title">Samodejni odmori med učenjem</string>
+    <string name="periodic_break_description">Vstavi kratek odmor vsakih N minut osredotočenega dela.</string>
+    <string name="periodic_break_every">Odmor vsakih (min)</string>
+    <string name="periodic_break_len">Dolžina odmora (min)</string>
+    <string name="periodic_break_hint">Odmori se predlagajo le tam, kjer ni že naravnega počitka (kosilo, prosta ura ali daljši odmor). Zadnji del ni označen.</string>
+    <string name="backup_heading">Varnostna kopija (JSON)</string>
+    <string name="backup_description">Izvozi urnik v datoteko JSON, ki jo lahko kadarkoli uvoziš nazaj. Ustrezen format lahko pripravi tudi AI iz slike tvojega šolskega urnika.</string>
+    <string name="backup_export">Izvozi urnik (JSON)</string>
+    <string name="backup_export_hint">Kopiraj JSON v odložišče in ga shrani ali pošlji AI za urejanje.</string>
+    <string name="backup_import">Uvozi urnik (JSON)</string>
+    <string name="backup_import_hint">Prilepi sem JSON (npr. ustvarjen z AI iz slike urnika) in uvozi.</string>
+    <string name="backup_copy">Kopiraj v odložišče</string>
+    <string name="message_imported">Urnik je uvožen.</string>
 </resources>

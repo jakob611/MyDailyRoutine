@@ -2,6 +2,7 @@ package com.example.mydailyroutine.domain.repository
 
 import com.example.mydailyroutine.domain.model.*
 import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.health.PeriodicBreakConfig
 import com.example.mydailyroutine.domain.health.WarningType
 import com.example.mydailyroutine.domain.health.RecoveryResult
 import kotlinx.coroutines.flow.Flow
@@ -40,6 +41,7 @@ interface PreferencesRepository {
     suspend fun setEntryDefaults(defaults: com.example.mydailyroutine.domain.routines.EntryDefaults)
     suspend fun setHealthConfig(config: HealthConfig)
     suspend fun setPlanningConfig(config: com.example.mydailyroutine.domain.planning.PlanningConfig)
+    suspend fun setPeriodicBreak(config: PeriodicBreakConfig)
 }
 
 /** Opt-in sample import, separate from application/database initialization. */

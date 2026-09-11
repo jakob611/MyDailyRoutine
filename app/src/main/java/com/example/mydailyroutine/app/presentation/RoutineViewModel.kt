@@ -17,6 +17,7 @@ import com.example.mydailyroutine.domain.health.ScheduleMetrics
 import com.example.mydailyroutine.domain.model.*
 import com.example.mydailyroutine.domain.repository.PreferencesRepository
 import com.example.mydailyroutine.domain.repository.TimelineRepository
+import com.example.mydailyroutine.domain.repository.ScheduleBackupRepository
 import com.example.mydailyroutine.domain.repository.TimelineResolver
 import java.time.Clock
 import java.time.LocalDate
@@ -47,6 +48,7 @@ class RoutineViewModel(
     private val planningRepository: PlanningRepository,
     private val executionRepository: com.example.mydailyroutine.domain.execution.ExecutionRepository,
     private val patternsRepository: RoutinePatternsRepository,
+    private val backup: ScheduleBackupRepository,
     private val clock: Clock = Clock.systemUTC(),
 ) : ViewModel() {
     private fun today(): LocalDate = LocalDate.now(clock.withZone(ZoneId.systemDefault()))
@@ -65,8 +67,8 @@ class RoutineViewModel(
         LocalDate.ofEpochDay(epoch) to TimelineMode.valueOf(mode)
     }.flatMapLatest { (date, mode) ->
         val (from, through) = PeriodRanges.range(date, mode)
-        combine(repository.observeSnapshot(from, through), settings.preferences.map { it.health }.distinctUntilChanged()) { snapshot, config ->
-            withContext(Dispatchers.Default) { resolveContent(date, mode, snapshot, config) }
+        combine(repository.observeSnapshot(from, through), settings.preferences.map { it.health to it.periodicBreak }.distinctUntilChanged()) { snapshot, (health, periodic) ->
+            withContext(Dispatchers.Default) { resolveContent(date, mode, snapshot, health, periodic) }
         }
             .onStart { emit(TimelineContent(date, mode)) }
             .catch { error ->
@@ -84,7 +86,7 @@ class RoutineViewModel(
         .combine(patternsRepository.sleep) { state, sleep -> state.copy(sleep = sleep) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimelineUiState(TimelineContent(initialDate)))
 
-    private suspend fun resolveContent(date: LocalDate, mode: TimelineMode, snapshot: ScheduleSnapshot, config: HealthConfig): TimelineContent {
+    private suspend fun resolveContent(date: LocalDate, mode: TimelineMode, snapshot: ScheduleSnapshot, config: HealthConfig, periodic: PeriodicBreakConfig = PeriodicBreakConfig()): TimelineContent {
         val prepared = resolver.prepare(snapshot)
         val calendarByDate = snapshot.calendar.groupBy { it.date }
         val days = linkedMapOf<LocalDate, DayUi>()
@@ -95,7 +97,7 @@ class RoutineViewModel(
             days[current] = DayUi(
                 date = current,
                 items = items.toPersistentList(),
-                warnings = healthEngine.evaluate(items, config).map {
+                warnings = healthEngine.evaluate(items, config, periodic).map {
                     WarningUi(it.type, it.relatedItemKeys.toPersistentSet(), it.atMinute, RecoveryPlanner().recommendedMinutes(it, config, items))
                 }.toPersistentList(),
                 calendar = calendarByDate[current].orEmpty().toPersistentList(),
@@ -263,6 +265,18 @@ class RoutineViewModel(
             is TimelineAction.SetHealthConfig -> perform {
                 settings.setHealthConfig(action.config)
                 messages.send(TimelineEffect.Message(R.string.message_thresholds_saved))
+            }
+            is TimelineAction.SetPeriodicBreak -> perform {
+                settings.setPeriodicBreak(action.config)
+            }
+            is TimelineAction.ExportSchedule -> perform {
+                val json = backup.exportJson()
+                panels.update { it.copy(exportJson = json) }
+            }
+            is TimelineAction.ImportSchedule -> perform {
+                backup.importJson(action.json)
+                panels.update { it.copy(exportJson = null) }
+                messages.send(TimelineEffect.Message(R.string.message_imported))
             }
             TimelineAction.RequestDemo -> panels.update { it.copy(confirmDemo = true) }
             TimelineAction.DismissDemo -> if (!panels.value.isSaving) panels.update { it.copy(confirmDemo = false) }

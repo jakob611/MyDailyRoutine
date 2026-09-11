@@ -16,6 +16,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.routines.SleepSchedule
@@ -38,6 +42,7 @@ data class NotificationAccess(val notificationsEnabled: Boolean, val exactAlarms
 @Composable
 fun SettingsSheet(
     preferences: SchedulePreferences, subjects: List<Subject>, busy: Boolean, access: NotificationAccess, exampleLoaded: Boolean, sleep: SleepSchedule,
+    exportJson: String? = null,
     onAction: (TimelineAction) -> Unit, onDismiss: () -> Unit,
     requestNotifications: () -> Unit, requestExactAlarms: () -> Unit, openNotificationSettings: () -> Unit,
 ) {
@@ -112,6 +117,7 @@ fun SettingsSheet(
             OutlinedButton(onClick = { advanced = !advanced }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.advanced_settings)) }
             AnimatedVisibility(advanced, enter = fadeIn(tween(TransitionMillis)), exit = fadeOut(tween(TransitionMillis))) {
                 AdvancedHealthSettings(preferences.health, busy) { onAction(TimelineAction.SetHealthConfig(it)) }
+            PeriodicBreakSettings(preferences.periodicBreak, busy) { onAction(it) }
             }
             HorizontalDivider()
             PlanningSettings(preferences.planning, busy) { onAction(TimelineAction.SetPlanningConfig(it)) }
@@ -122,6 +128,13 @@ fun SettingsSheet(
                 Text(stringResource(if (exampleLoaded) R.string.demo_loaded else R.string.load_example_data))
             }
             Text(stringResource(R.string.battery_note), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
+            HorizontalDivider()
+            Text(stringResource(R.string.backup_heading), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.backup_description), style = MaterialTheme.typography.bodySmall)
+            Button(enabled = !busy, onClick = { onAction(TimelineAction.ExportSchedule) }) { Text(stringResource(R.string.backup_export)) }
+            var importText by rememberSaveable { mutableStateOf("") }
+            OutlinedTextField(importText, { importText = it }, label = { Text(stringResource(R.string.backup_import_hint)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp), maxLines = 6)
+            Button(enabled = !busy && importText.isNotBlank(), onClick = { onAction(TimelineAction.ImportSchedule(importText)) }) { Text(stringResource(R.string.backup_import)) }
         }
     }
     subjects.firstOrNull { it.id == deleteSubjectId }?.let { subject ->
@@ -129,6 +142,24 @@ fun SettingsSheet(
             text = { Text(stringResource(R.string.delete_subject_body)) },
             confirmButton = { TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteSubject(subject.id)); deleteSubjectId = null }) { Text(stringResource(R.string.delete_subject)) } },
             dismissButton = { TextButton(onClick = { deleteSubjectId = null }) { Text(stringResource(R.string.cancel)) } })
+    }
+    var showExport by remember { mutableStateOf(false) }
+    LaunchedEffect(exportJson) { showExport = exportJson != null }
+    if (showExport && exportJson != null) {
+        AlertDialog(
+            onDismissRequest = { showExport = false },
+            title = { Text(stringResource(R.string.backup_export)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(stringResource(R.string.backup_export_hint), style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(8.dp))
+                    SelectionContainer { Text(exportJson, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
+                    val clipboard = LocalClipboardManager.current
+                    TextButton(onClick = { clipboard.setText(AnnotatedString(exportJson)) }) { Text(stringResource(R.string.backup_copy)) }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showExport = false }) { Text(stringResource(R.string.close)) } },
+        )
     }
 }
 
@@ -192,4 +223,32 @@ private fun MinuteField(value: String, onValue: (String) -> Unit, label: String,
     OutlinedTextField(value, { onValue(it.filter(Char::isDigit).take(4)) }, label = { Text(label) },
         supportingText = { Text(stringResource(R.string.threshold_range, range.first, range.last)) },
         singleLine = true, enabled = enabled, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = modifier)
+}
+
+@Composable
+private fun PeriodicBreakSettings(
+    config: PeriodicBreakConfig,
+    busy: Boolean,
+    onAction: (TimelineAction) -> Unit,
+) {
+    var enabled by rememberSaveable(config) { mutableStateOf(config.enabled) }
+    var every by rememberSaveable(config) { mutableStateOf(config.everyMinutes.toString()) }
+    var len by rememberSaveable(config) { mutableStateOf(config.breakMinutes.toString()) }
+    fun push() = onAction(TimelineAction.SetPeriodicBreak(PeriodicBreakConfig(enabled, every.toIntOrNull() ?: 60, len.toIntOrNull() ?: 5)))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.periodic_break_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.periodic_break_description), style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(enabled, { enabled = it; push() }, enabled = !busy)
+    }
+    AnimatedVisibility(enabled) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(every, { every = it.filter(Char::isDigit).take(3); push() }, label = { Text(stringResource(R.string.periodic_break_every)) }, singleLine = true, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                OutlinedTextField(len, { len = it.filter(Char::isDigit).take(2); push() }, label = { Text(stringResource(R.string.periodic_break_len)) }, singleLine = true, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            }
+            Text(stringResource(R.string.periodic_break_hint), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
+        }
+    }
 }

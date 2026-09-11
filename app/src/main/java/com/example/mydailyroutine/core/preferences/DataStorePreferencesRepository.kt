@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.health.PeriodicBreakConfig
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.routines.EntryDefaults
 import com.example.mydailyroutine.domain.model.ScheduleValidation
@@ -31,6 +32,9 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
     private val hapticsKey = booleanPreferencesKey("haptics_enabled")
     private val lessonKey = intPreferencesKey("default_lesson_minutes")
     private val breakKey = intPreferencesKey("default_lesson_break_minutes")
+    private val periodicKey = booleanPreferencesKey("periodic_break_enabled")
+    private val periodicEveryKey = intPreferencesKey("periodic_break_every_minutes")
+    private val periodicLenKey = intPreferencesKey("periodic_break_minutes")
     private val defaults = SchedulePreferences()
 
     override val preferences = store.data.catch { error ->
@@ -45,6 +49,11 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             entryDefaults = EntryDefaults(values[lessonKey]?.takeIf { it in 1..240 } ?: 45, values[breakKey]?.takeIf { it in 1..60 } ?: 5),
             health = HealthPreferenceCodec.read(values),
             planning = PlanningPreferenceCodec.read(values),
+            periodicBreak = PeriodicBreakConfig(
+                values[periodicKey] ?: false,
+                values[periodicEveryKey]?.takeIf { it in 30..240 } ?: 60,
+                values[periodicLenKey]?.takeIf { it in 1..60 } ?: 5,
+            ),
             teachingEndDate = values[teachingEndKey]?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
                 ?: defaults.teachingEndDate,
         )
@@ -94,6 +103,14 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
 
     override suspend fun setEntryDefaults(defaults: EntryDefaults) {
         store.edit { it[lessonKey] = defaults.lessonDurationMinutes; it[breakKey] = defaults.lessonBreakMinutes }
+        onChanged()
+    }
+    override suspend fun setPeriodicBreak(config: PeriodicBreakConfig) {
+        store.edit {
+            it[periodicKey] = config.enabled
+            it[periodicEveryKey] = config.everyMinutes
+            it[periodicLenKey] = config.breakMinutes
+        }
         onChanged()
     }
 }

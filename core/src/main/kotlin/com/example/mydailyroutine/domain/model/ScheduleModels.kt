@@ -1,6 +1,7 @@
 package com.example.mydailyroutine.domain.model
 
 import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.health.PeriodicBreakConfig
 import com.example.mydailyroutine.domain.routines.RoutineOrigin
 import com.example.mydailyroutine.domain.routines.EntryDefaults
 import java.time.DayOfWeek
@@ -183,6 +184,7 @@ data class SchedulePreferences(
     val entryDefaults: EntryDefaults = EntryDefaults(),
     val health: HealthConfig = HealthConfig(),
     val planning: com.example.mydailyroutine.domain.planning.PlanningConfig = com.example.mydailyroutine.domain.planning.PlanningConfig(),
+    val periodicBreak: PeriodicBreakConfig = PeriodicBreakConfig(),
 ) {
     /** Half-open window. Overnight quiet windows are supported; equal endpoints are rejected. */
     fun isQuietAt(time: LocalTime): Boolean = muteDuringSchoolHours && when {
