@@ -1,6 +1,5 @@
 package com.example.mydailyroutine.core.database
 
-import androidx.sqlite.db.SimpleQuery
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** Cross-column invariants complement SQLite's strict, enabled FK enforcement. */
@@ -119,7 +118,7 @@ object DatabaseIntegrity {
         // body immediately and would abort with "no such table". The final migration and onCreate re-run
         // install() when everything is present, so no trigger is ever missed in a fully migrated database.
         val existing = HashSet<String>()
-        db.query(SimpleQuery("SELECT name FROM sqlite_master WHERE type = 'table'")).use { cursor ->
+        db.query("SELECT name FROM sqlite_master WHERE type = 'table'").use { cursor ->
             while (cursor.moveToNext()) existing.add(cursor.getString(0))
         }
         predicates.forEach { (table, fullPredicate) ->
