@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -99,42 +100,14 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onActi
             if (open.isEmpty()) item(key = "tasks-empty") {
                 Text(stringResource(R.string.tasks_empty), style = MaterialTheme.typography.bodyMedium, color = RoutineColors.TextSecondary)
             }
-            if (overdue.isNotEmpty()) {
-                item(key = "tasks-h-overdue") { TaskSectionHeader(R.string.tasks_section_overdue, RoutineColors.Crimson) }
-                items(overdue, key = { "task:${it.id}" }) { task ->
-                    TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
-                        onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
-                        onExpand = { expandedId = if (expandedId == task.id) null else task.id },
-                        onRequestDelete = { deleteId = task.id }, onAction = onAction)
-                }
-            }
-            if (dueToday.isNotEmpty()) {
-                item(key = "tasks-h-today") { TaskSectionHeader(R.string.tasks_section_today, RoutineColors.Amber) }
-                items(dueToday, key = { "task:${it.id}" }) { task ->
-                    TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
-                        onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
-                        onExpand = { expandedId = if (expandedId == task.id) null else task.id },
-                        onRequestDelete = { deleteId = task.id }, onAction = onAction)
-                }
-            }
-            if (upcoming.isNotEmpty()) {
-                item(key = "tasks-h-upcoming") { TaskSectionHeader(R.string.tasks_section_upcoming, RoutineColors.Cobalt) }
-                items(upcoming, key = { "task:${it.id}" }) { task ->
-                    TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
-                        onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
-                        onExpand = { expandedId = if (expandedId == task.id) null else task.id },
-                        onRequestDelete = { deleteId = task.id }, onAction = onAction)
-                }
-            }
-            if (noDue.isNotEmpty()) {
-                item(key = "tasks-h-nodue") { TaskSectionHeader(R.string.tasks_section_no_due, RoutineColors.TextMuted) }
-                items(noDue, key = { "task:${it.id}" }) { task ->
-                    TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
-                        onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
-                        onExpand = { expandedId = if (expandedId == task.id) null else task.id },
-                        onRequestDelete = { deleteId = task.id }, onAction = onAction)
-                }
-            }
+            taskSection("overdue", R.string.tasks_section_overdue, RoutineColors.Crimson, overdue, subjects, subjectsById, today, busy, expandedId,
+                onAction = onAction, onExpand = { expandedId = it }, onRequestDelete = { deleteId = it })
+            taskSection("today", R.string.tasks_section_today, RoutineColors.Amber, dueToday, subjects, subjectsById, today, busy, expandedId,
+                onAction = onAction, onExpand = { expandedId = it }, onRequestDelete = { deleteId = it })
+            taskSection("upcoming", R.string.tasks_section_upcoming, RoutineColors.Cobalt, upcoming, subjects, subjectsById, today, busy, expandedId,
+                onAction = onAction, onExpand = { expandedId = it }, onRequestDelete = { deleteId = it })
+            taskSection("nodue", R.string.tasks_section_no_due, RoutineColors.TextMuted, noDue, subjects, subjectsById, today, busy, expandedId,
+                onAction = onAction, onExpand = { expandedId = it }, onRequestDelete = { deleteId = it })
             if (done.isNotEmpty()) item(key = "tasks-h-done") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.tasks_section_done, done.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
@@ -159,6 +132,20 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onActi
             text = { Text(stringResource(R.string.tasks_delete_body, target.title)) },
             confirmButton = { TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteTask(target.id)); deleteId = null }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
             dismissButton = { TextButton(onClick = { deleteId = null }) { Text(stringResource(R.string.keep)) } })
+    }
+}
+
+private fun LazyListScope.taskSection(key: String, titleRes: Int, color: Color, tasks: List<Task>,
+                                      subjects: List<Subject>, subjectsById: Map<Long, Subject>, today: LocalDate,
+                                      busy: Boolean, expandedId: Long?, onAction: (TimelineAction) -> Unit,
+                                      onExpand: (Long) -> Unit, onRequestDelete: (Long) -> Unit) {
+    if (tasks.isEmpty()) return
+    item(key = "tasks-h-" + key) { TaskSectionHeader(titleRes, color) }
+    items(tasks, key = { "task:${it.id}" }) { task ->
+        TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
+            onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
+            onExpand = { onExpand(task.id) },
+            onRequestDelete = { onRequestDelete(task.id) }, onAction = onAction)
     }
 }
 

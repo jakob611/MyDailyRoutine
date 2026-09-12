@@ -72,7 +72,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         }
     }
     val onAction: (TimelineAction) -> Unit = remember(viewModel, haptics) { { action ->
-        if (action !is TimelineAction.ToggleComplete && action !is TimelineAction.SyncExecution) haptics.tap()
+        if (action !is TimelineAction.ToggleComplete && action !is TimelineAction.SyncExecution && action !is TimelineAction.ToggleTask && action !is TimelineAction.ToggleGoalMilestone) haptics.tap()
         viewModel.onAction(action)
     } }
     val snackbars = remember { SnackbarHostState() }

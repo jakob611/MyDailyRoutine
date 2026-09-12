@@ -127,7 +127,7 @@ object DatabaseMigrations {
             db.execSQL("CREATE TABLE IF NOT EXISTS `tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `subjectId` INTEGER, `title` TEXT NOT NULL, `dueDate` INTEGER, `note` TEXT, `createdAtEpochMillis` INTEGER NOT NULL, `completedAtEpochMillis` INTEGER, FOREIGN KEY(`subjectId`) REFERENCES `subjects`(`id`) ON DELETE SET NULL ON UPDATE NO ACTION)")
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_subjectId` ON `tasks`(`subjectId`)")
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_dueDate` ON `tasks`(`dueDate`)")
-            DatabaseIntegrity.install(db)
+            // Triggers arrive in 8->9: install() would reference goals_* tables that do not exist yet at v8.
         }
     }
 
