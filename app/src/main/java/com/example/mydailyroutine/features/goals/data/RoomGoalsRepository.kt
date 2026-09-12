@@ -36,7 +36,7 @@ class RoomGoalsRepository(private val db: RoutineDatabase, private val onChanged
         if (clean.id == 0L) db.goals().insertProject(clean.entity())
         else { check(db.goals().updateProject(clean.entity()) == 1) { "This project was deleted." }; clean.id }
     }
-    override suspend fun deleteProject(id: Long) = transaction { db.goals().deleteProject(id) }
+    override suspend fun deleteProject(id: Long) { transaction { db.goals().deleteProject(id) } }
 
     override suspend fun saveActivity(activity: GoalActivity): Long = transaction {
         val title = activity.title.trim()
@@ -51,8 +51,8 @@ class RoomGoalsRepository(private val db: RoutineDatabase, private val onChanged
         if (clean.id == 0L) db.goals().insertActivity(clean.entity())
         else { check(db.goals().updateActivity(clean.entity()) == 1) { "This activity was deleted." }; clean.id }
     }
-    override suspend fun deleteActivity(id: Long) = transaction { db.goals().deleteActivity(id) }
-    override suspend fun setActivityScheduled(id: Long, scheduled: Boolean) = transaction { db.goals().setActivityScheduled(id, scheduled) }
+    override suspend fun deleteActivity(id: Long) { transaction { db.goals().deleteActivity(id) } }
+    override suspend fun setActivityScheduled(id: Long, scheduled: Boolean) { transaction { db.goals().setActivityScheduled(id, scheduled) } }
 
     override suspend fun saveMilestone(milestone: GoalMilestone): Long = transaction {
         val title = milestone.title.trim()
@@ -64,17 +64,19 @@ class RoomGoalsRepository(private val db: RoutineDatabase, private val onChanged
     override suspend fun toggleMilestone(id: Long) {
         transaction { db.goals().getMilestone(id)?.let { db.goals().setMilestoneDone(id, !it.isDone) } }
     }
-    override suspend fun deleteMilestone(id: Long) = transaction { db.goals().deleteMilestone(id) }
+    override suspend fun deleteMilestone(id: Long) { transaction { db.goals().deleteMilestone(id) } }
 
-    override suspend fun addProgress(entry: GoalProgress) = transaction {
-        val kind = entry.kind
-        val amount = entry.amount
-        val note = entry.note
-        require(kind in setOf("hour", "word", "reflection") && amount > 0 &&
-            (kind != "hour" || amount <= 16) && (kind != "word" || amount <= 20000) &&
-            (kind != "reflection" || !note.isNullOrBlank()) &&
-            (note == null || note.length <= 2000))
-        db.goals().insertProgress(entry.copy(note = note?.trim()?.takeIf { it.isNotEmpty() }).entity())
+    override suspend fun addProgress(entry: GoalProgress) {
+        transaction {
+            val kind = entry.kind
+            val amount = entry.amount
+            val note = entry.note
+            require(kind in setOf("hour", "word", "reflection") && amount > 0 &&
+                (kind != "hour" || amount <= 16) && (kind != "word" || amount <= 20000) &&
+                (kind != "reflection" || !note.isNullOrBlank()) &&
+                (note == null || note.length <= 2000))
+            db.goals().insertProgress(entry.copy(note = note?.trim()?.takeIf { it.isNotEmpty() }).entity())
+        }
     }
-    override suspend fun deleteProgress(id: Long) = transaction { db.goals().deleteProgress(id) }
+    override suspend fun deleteProgress(id: Long) { transaction { db.goals().deleteProgress(id) } }
 }

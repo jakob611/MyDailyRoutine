@@ -92,7 +92,7 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onActi
                                 }
                             }
                         }
-                        FilledButton(enabled = !busy && newTitle.isNotBlank(), onClick = { submitNew() }) { Text(stringResource(R.string.tasks_add)) }
+                        FilledTonalButton(enabled = !busy && newTitle.isNotBlank(), onClick = { submitNew() }) { Text(stringResource(R.string.tasks_add)) }
                     }
                 }
             }

@@ -2,6 +2,7 @@ package com.example.mydailyroutine.features.goals.presentation
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -104,7 +105,7 @@ private fun GoalEmptyState(busy: Boolean, onAction: (TimelineAction) -> Unit, on
         Spacer(Modifier.weight(1f))
         Text(stringResource(R.string.goals_title), style = MaterialTheme.typography.headlineMedium)
         Text(stringResource(R.string.goals_empty_body), style = MaterialTheme.typography.bodyMedium, color = RoutineColors.TextSecondary)
-        FilledButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
+        FilledTonalButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
             onAction(TimelineAction.SeedGoalProject("CAS", context.getString(R.string.goals_seed_cas_name), emptyList(),
                 listOf(R.string.goals_cas_meeting_1, R.string.goals_cas_meeting_2, R.string.goals_cas_meeting_3, R.string.goals_cas_statement).map { context.getString(it) }))
         }) { Text(stringResource(R.string.goals_seed_cas)) }

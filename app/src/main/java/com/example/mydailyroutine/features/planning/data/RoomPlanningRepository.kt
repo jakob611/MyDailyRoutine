@@ -36,8 +36,8 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
         if (clean.id == 0L) db.tasks().insert(clean.entity())
         else { check(db.tasks().update(clean.entity()) == 1) { "This task was deleted." }; clean.id }
     }
-    override suspend fun toggleTask(id: Long) = transaction {
-        db.tasks().get(id)?.let { db.tasks().setCompleted(id, if (it.completedAtEpochMillis == null) System.currentTimeMillis() else null) }
+    override suspend fun toggleTask(id: Long) {
+        transaction { db.tasks().get(id)?.let { db.tasks().setCompleted(id, if (it.completedAtEpochMillis == null) System.currentTimeMillis() else null) } }
     }
     override suspend fun deleteTask(id: Long) = transaction { db.tasks().delete(id) }
     override suspend fun clearCompletedTasks() = transaction { db.tasks().clearCompleted() }
