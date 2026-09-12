@@ -185,6 +185,7 @@ sealed interface TimelineAction {
     data class SaveGoalsProject(val project: GoalsProject) : TimelineAction
     data class DeleteGoalsProject(val id: Long) : TimelineAction
     data class SaveGoalActivity(val activity: GoalActivity) : TimelineAction
+    data class ToggleGoalActivity(val id: Long) : TimelineAction
     data class DeleteGoalActivity(val id: Long) : TimelineAction
     data class SaveGoalMilestone(val milestone: GoalMilestone) : TimelineAction
     data class ToggleGoalMilestone(val id: Long) : TimelineAction

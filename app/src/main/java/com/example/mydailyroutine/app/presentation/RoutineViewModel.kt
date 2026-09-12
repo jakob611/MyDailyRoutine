@@ -347,8 +347,9 @@ class RoutineViewModel(
                 messages.send(TimelineEffect.Message(R.string.tasks_updated))
             }
             is TimelineAction.ToggleTask -> perform {
+                val wasOpen = state.value.planning.tasks.any { it.id == action.id && it.completedAtEpochMillis == null }
                 planningRepository.toggleTask(action.id)
-                messages.send(TimelineEffect.Completed)
+                if (wasOpen) messages.send(TimelineEffect.Completed)
             }
             is TimelineAction.DeleteTask -> perform {
                 planningRepository.deleteTask(action.id)
@@ -384,8 +385,16 @@ class RoutineViewModel(
                 messages.send(TimelineEffect.Message(R.string.goals_saved))
             }
             is TimelineAction.ToggleGoalMilestone -> perform {
+                val wasOpen = state.value.goals.milestones.any { it.id == action.id && !it.isDone }
                 goals.toggleMilestone(action.id)
-                messages.send(TimelineEffect.Completed)
+                if (wasOpen) messages.send(TimelineEffect.Completed)
+            }
+            is TimelineAction.ToggleGoalActivity -> {
+                val current = state.value.goals.activities.firstOrNull { it.id == action.id }
+                if (current != null) perform {
+                    goals.saveActivity(current.copy(isDone = !current.isDone))
+                    if (!current.isDone) messages.send(TimelineEffect.Completed)
+                }
             }
             is TimelineAction.DeleteGoalMilestone -> perform { goals.deleteMilestone(action.id) }
             is TimelineAction.AddGoalProgress -> perform {

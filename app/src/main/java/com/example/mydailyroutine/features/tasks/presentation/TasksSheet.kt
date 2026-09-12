@@ -1,6 +1,14 @@
 package com.example.mydailyroutine.features.tasks.presentation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,17 +21,20 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.*
 import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.core.presentation.TimelineAction
@@ -41,6 +52,8 @@ private val taskDateFormat = DateTimeFormatter.ofPattern("d. MMM", Slovenian)
 @Composable
 fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onAction: (TimelineAction) -> Unit) {
     val today = LocalDate.now()
+    val haptics = LocalRoutineHaptics.current
+    var showDone by rememberSaveable { mutableStateOf(false) }
     val subjectsById = remember(subjects) { subjects.associateBy { it.id } }
     var newTitle by rememberSaveable { mutableStateOf("") }
     var newDueEpoch by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -77,7 +90,7 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onActi
                         OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = { pickingNewDate = true }) {
                             Icon(Icons.Outlined.CalendarMonth, null)
                             Spacer(Modifier.width(6.dp))
-                            Text(newDueEpoch?.let { LocalDate.ofEpochDay(it).format(taskDateFormat) } ?: stringResource(R.string.tasks_no_due), maxLines = 1)
+                            Text(taskDueButtonLabel(newDueEpoch?.let(LocalDate::ofEpochDay), today), maxLines = 1)
                         }
                         if (newDueEpoch != null) TextButton(enabled = !busy, onClick = { newDueEpoch = null }) {
                             Text(stringResource(R.string.tasks_clear_date), color = RoutineColors.Crimson)
@@ -109,15 +122,19 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onActi
             taskSection("nodue", R.string.tasks_section_no_due, RoutineColors.TextMuted, noDue, subjects, subjectsById, today, busy, expandedId,
                 onAction = onAction, onExpand = { expandedId = it }, onRequestDelete = { deleteId = it })
             if (done.isNotEmpty()) item(key = "tasks-h-done") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                val doneChevron by animateFloatAsState(if (showDone) 180f else 0f, SnappySpring, label = "done-chevron")
+                Row(Modifier.fillMaxWidth().clickable(enabled = !busy) { haptics.tap(); showDone = !showDone },
+                    verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.tasks_section_done, done.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    TextButton(enabled = !busy, onClick = { onAction(TimelineAction.ClearCompletedTasks) }) { Text(stringResource(R.string.tasks_clear_done)) }
+                    Icon(Icons.Outlined.ExpandMore, null, tint = RoutineColors.TextSecondary, modifier = Modifier.size(20.dp).rotate(doneChevron))
+                    TextButton(enabled = !busy, onClick = { haptics.warning(); onAction(TimelineAction.ClearCompletedTasks) }) { Text(stringResource(R.string.tasks_clear_done)) }
                 }
             }
-            items(done, key = { "done:${it.id}" }) { task ->
-                OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border)) {
+            if (showDone) items(done, key = { "done:${it.id}" }) { task ->
+                OutlinedCard(modifier = Modifier.animateItem(placementSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)),
+                    shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border)) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Checkbox(true, { if (!busy) onAction(TimelineAction.ToggleTask(task.id)) }, enabled = !busy)
+                        Checkbox(true, { if (!busy) { haptics.tap(); onAction(TimelineAction.ToggleTask(task.id)) } }, enabled = !busy)
                         Text(task.title, style = MaterialTheme.typography.bodyMedium, color = RoutineColors.TextMuted, modifier = Modifier.weight(1f), maxLines = 2)
                         task.dueDate?.let { Text(it.format(taskDateFormat), style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextMuted) }
                     }
@@ -142,10 +159,12 @@ private fun LazyListScope.taskSection(key: String, titleRes: Int, color: Color, 
     if (tasks.isEmpty()) return
     item(key = "tasks-h-" + key) { TaskSectionHeader(titleRes, color) }
     items(tasks, key = { "task:${it.id}" }) { task ->
-        TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
-            onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
-            onExpand = { onExpand(task.id) },
-            onRequestDelete = { onRequestDelete(task.id) }, onAction = onAction)
+        Box(Modifier.animateItem(placementSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))) {
+            TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
+                onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
+                onExpand = { onExpand(task.id) },
+                onRequestDelete = { onRequestDelete(task.id) }, onAction = onAction)
+        }
     }
 }
 
@@ -168,9 +187,11 @@ private fun TaskRow(task: Task, subjects: List<Subject>, subjectsById: Map<Long,
     var pickingEditDate by rememberSaveable { mutableStateOf(false) }
     var subjectMenu by rememberSaveable { mutableStateOf(false) }
     val isDone = task.completedAtEpochMillis != null
+    val haptics = LocalRoutineHaptics.current
+    val chevron by animateFloatAsState(if (expanded) 180f else 0f, SnappySpring, label = "task-chevron")
     OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(Modifier.fillMaxWidth().clickable(onClick = onExpand), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth().clickable { haptics.tap(); onExpand() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Checkbox(isDone, { if (!busy) onToggle() }, enabled = !busy)
                 task.subjectId?.let(subjectsById::get)?.let { subject ->
                     Box(Modifier.size(8.dp).clip(CircleShape).background(Color(subject.colorHex.toInt())))
@@ -180,8 +201,9 @@ private fun TaskRow(task: Task, subjects: List<Subject>, subjectsById: Map<Long,
                     Text(taskDueLabel(date, today), style = MaterialTheme.typography.labelMedium,
                         color = if (!isDone && date.isBefore(today)) RoutineColors.Crimson else RoutineColors.TextSecondary)
                 }
+                Icon(Icons.Outlined.ExpandMore, null, tint = RoutineColors.TextSecondary, modifier = Modifier.size(20.dp).rotate(chevron))
             }
-            AnimatedVisibility(expanded) {
+            AnimatedVisibility(expanded, enter = fadeIn(tween(TransitionMillis)) + expandVertically(tween(TransitionMillis)), exit = fadeOut(tween(120)) + shrinkVertically(tween(120))) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(editTitle, { editTitle = it.take(120) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy,
                         label = { Text(stringResource(R.string.tasks_edit_title)) })
@@ -189,7 +211,7 @@ private fun TaskRow(task: Task, subjects: List<Subject>, subjectsById: Map<Long,
                         OutlinedButton(enabled = !busy, onClick = { pickingEditDate = true }) {
                             Icon(Icons.Outlined.CalendarMonth, null)
                             Spacer(Modifier.width(6.dp))
-                            Text(editDueEpoch?.let { LocalDate.ofEpochDay(it).format(taskDateFormat) } ?: stringResource(R.string.tasks_no_due), maxLines = 1)
+                            Text(taskDueButtonLabel(editDueEpoch?.let(LocalDate::ofEpochDay), today), maxLines = 1)
                         }
                         if (editDueEpoch != null) TextButton(enabled = !busy, onClick = { editDueEpoch = null }) {
                             Text(stringResource(R.string.tasks_clear_date), color = RoutineColors.Crimson)
@@ -215,7 +237,7 @@ private fun TaskRow(task: Task, subjects: List<Subject>, subjectsById: Map<Long,
                         }) { Text(stringResource(R.string.save)) }
                         TextButton(enabled = !busy, onClick = { onAction(TimelineAction.TaskToSchedule(task)) }) { Text(stringResource(R.string.tasks_schedule)) }
                         Spacer(Modifier.weight(1f))
-                        TextButton(enabled = !busy, onClick = onRequestDelete) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) }
+                        TextButton(enabled = !busy, onClick = { haptics.warning(); onRequestDelete() }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) }
                     }
                 }
             }
@@ -223,6 +245,13 @@ private fun TaskRow(task: Task, subjects: List<Subject>, subjectsById: Map<Long,
     }
     if (pickingEditDate) AppDatePicker(editDueEpoch?.let(LocalDate::ofEpochDay) ?: today,
         onDismiss = { pickingEditDate = false }, onDate = { editDueEpoch = it.toEpochDay(); pickingEditDate = false })
+}
+
+@Composable
+private fun taskDueButtonLabel(date: LocalDate?, today: LocalDate): String = when {
+    date == null -> stringResource(R.string.tasks_no_due)
+    date.isAfter(today.plusDays(7)) || date.isBefore(today) -> date.format(taskDateFormat)
+    else -> taskDueLabel(date, today)
 }
 
 @Composable

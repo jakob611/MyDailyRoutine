@@ -1,5 +1,12 @@
 package com.example.mydailyroutine.features.goals.presentation
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,6 +32,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.*
 import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.core.presentation.*
@@ -46,6 +54,7 @@ private val GoalShortFormat = DateTimeFormatter.ofPattern("d. MMM", Slovenian)
 /** Full-screen long-term planner for CAS/EE: status, Gantt strip, activities, milestones. */
 @Composable
 fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -> Unit) {
+    val haptics = LocalRoutineHaptics.current
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editingActivity by remember { mutableStateOf<GoalActivity?>(null) }
     var addingActivity by remember { mutableStateOf(false) }
@@ -54,36 +63,39 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
     var editingProject by remember { mutableStateOf<GoalsProject?>(null) }
     var addingProject by remember { mutableStateOf(false) }
     val project = goals.projects.firstOrNull { it.id == selectedId } ?: goals.projects.lastOrNull()
-    if (project == null && !addingProject) {
-        GoalEmptyState(busy, onAction) { addingProject = true }
-        return
-    }
-    Column(Modifier.fillMaxSize()) {
-        if (goals.projects.size > 1) {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                goals.projects.forEach { candidate ->
-                    if (project?.id == candidate.id) FilledTonalButton(onClick = { selectedId = candidate.id }) { Text(candidate.name, maxLines = 1) }
-                    else OutlinedButton(onClick = { selectedId = candidate.id }) { Text(candidate.name, maxLines = 1) }
-                }
-            }
-        }
-        if (project != null) {
-            val activities = goals.activities.filter { it.projectId == project.id }
-            val milestones = goals.milestones.filter { it.projectId == project.id }.sortedBy { it.dueDate }
-            val progress = goals.progress.filter { it.projectId == project.id }
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                StatusCard(project, activities, milestones, progress, busy, onEdit = { editingProject = project }, onAction = onAction)
-                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1), shape = RoutineShapes.Card) {
-                    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.goals_gantt), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 14.dp))
-                        GoalGantt(project, activities, milestones) { editingActivity = it }
+    AnimatedContent(targetState = project == null, label = "goals-swap", modifier = Modifier.fillMaxSize(),
+        transitionSpec = {
+            (fadeIn(tween(TransitionMillis)) + slideInVertically(tween(TransitionMillis)) { it / 10 }) togetherWith fadeOut(tween(120))
+        }) { isEmpty ->
+        if (isEmpty) {
+            GoalEmptyState(busy, onAction) { haptics.tap(); addingProject = true }
+        } else Column(Modifier.fillMaxSize()) {
+            if (goals.projects.size > 1) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    goals.projects.forEach { candidate ->
+                        if (project?.id == candidate.id) FilledTonalButton(onClick = { selectedId = candidate.id }) { Text(candidate.name, maxLines = 1) }
+                        else OutlinedButton(onClick = { haptics.tap(); selectedId = candidate.id }) { Text(candidate.name, maxLines = 1) }
                     }
                 }
-                ActivityList(activities, progress, busy, onAction, onAdd = { addingActivity = true }, onEdit = { editingActivity = it })
-                MilestoneList(milestones, busy, onAction, onAdd = { addingMilestone = true }, onEdit = { editingMilestone = it })
             }
-        }
+            if (project != null) {
+                val activities = goals.activities.filter { it.projectId == project.id }
+                val milestones = goals.milestones.filter { it.projectId == project.id }.sortedBy { it.dueDate }
+                val progress = goals.progress.filter { it.projectId == project.id }
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    StatusCard(project, activities, milestones, progress, busy, onEdit = { haptics.tap(); editingProject = project }, onAction = onAction)
+                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1), shape = RoutineShapes.Card) {
+                        Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(stringResource(R.string.goals_gantt), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 14.dp))
+                            GoalGantt(project, activities, milestones) { haptics.tap(); editingActivity = it }
+                        }
+                    }
+                    ActivityList(activities, progress, busy, onAction, onAdd = { haptics.tap(); addingActivity = true }, onEdit = { haptics.tap(); editingActivity = it })
+                    MilestoneList(milestones, busy, onAction, onAdd = { haptics.tap(); addingMilestone = true }, onEdit = { haptics.tap(); editingMilestone = it })
+                }
+            }
+    }
     }
     if (project != null && (addingActivity || editingActivity != null)) {
         ActivityEditorSheet(project, editingActivity, busy, goals.progress,
@@ -185,8 +197,11 @@ private fun StatusCard(project: GoalsProject, activities: List<GoalActivity>, mi
 
 @Composable
 private fun GoalBar(fraction: Float, color: Color) {
+    var shown by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(fraction) { shown = fraction }
+    val width by animateFloatAsState(shown.coerceIn(0f, 1f), SnappySpring, label = "goal-progress")
     Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(RoutineColors.Surface2)) {
-        Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
+        Box(Modifier.fillMaxWidth(width).height(8.dp).clip(RoundedCornerShape(4.dp)).background(color))
     }
 }
 
@@ -261,7 +276,7 @@ private fun ActivityList(activities: List<GoalActivity>, progress: List<GoalProg
             ).joinToString(" · ")
             OutlinedCard(onClick = { onEdit(activity) }, modifier = Modifier.fillMaxWidth(), shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border)) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Checkbox(activity.isDone, { if (!busy) onAction(TimelineAction.SaveGoalActivity(activity.copy(isDone = !activity.isDone))) }, enabled = !busy)
+                    Checkbox(activity.isDone, { if (!busy) onAction(TimelineAction.ToggleGoalActivity(activity.id)) }, enabled = !busy)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(activity.title, style = MaterialTheme.typography.titleSmall, maxLines = 2)
                         Text(details, style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary, maxLines = 2)
@@ -299,6 +314,7 @@ private fun MilestoneList(milestones: List<GoalMilestone>, busy: Boolean, onActi
 @Composable
 private fun ActivityEditorSheet(project: GoalsProject, initial: GoalActivity?, busy: Boolean, progress: List<GoalProgress>,
                                 onDismiss: () -> Unit, onAction: (TimelineAction) -> Unit) {
+    val haptics = LocalRoutineHaptics.current
     var title by rememberSaveable(initial?.id) { mutableStateOf(initial?.title ?: "") }
     var category by rememberSaveable(initial?.id) { mutableStateOf(initial?.category ?: if (project.kind == "EE") "STAGE" else null) }
     var startEpoch by rememberSaveable(initial?.id) { mutableStateOf((initial?.start ?: LocalDate.now()).toEpochDay()) }
@@ -402,13 +418,14 @@ private fun ActivityEditorSheet(project: GoalsProject, initial: GoalActivity?, b
     if (confirmingDelete && initial != null) AlertDialog(onDismissRequest = { confirmingDelete = false },
         title = { Text(stringResource(R.string.goals_delete_activity_title)) },
         text = { Text(stringResource(R.string.goals_delete_activity_body, initial.title)) },
-        confirmButton = { TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteGoalActivity(initial.id)); confirmingDelete = false; onDismiss() }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
+        confirmButton = { TextButton(enabled = !busy, onClick = { haptics.warning(); onAction(TimelineAction.DeleteGoalActivity(initial.id)); confirmingDelete = false; onDismiss() }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
         dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text(stringResource(R.string.keep)) } })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MilestoneEditorSheet(project: GoalsProject, initial: GoalMilestone?, busy: Boolean, onDismiss: () -> Unit, onAction: (TimelineAction) -> Unit) {
+    val haptics = LocalRoutineHaptics.current
     var title by rememberSaveable(initial?.id) { mutableStateOf(initial?.title ?: "") }
     var epoch by rememberSaveable(initial?.id) { mutableStateOf((initial?.dueDate ?: LocalDate.now()).toEpochDay()) }
     var picking by rememberSaveable { mutableStateOf(false) }
@@ -437,13 +454,14 @@ private fun MilestoneEditorSheet(project: GoalsProject, initial: GoalMilestone?,
     if (confirmingDelete && initial != null) AlertDialog(onDismissRequest = { confirmingDelete = false },
         title = { Text(stringResource(R.string.goals_delete_milestone_title)) },
         text = { Text(stringResource(R.string.goals_delete_milestone_body, initial.title)) },
-        confirmButton = { TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteGoalMilestone(initial.id)); confirmingDelete = false; onDismiss() }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
+        confirmButton = { TextButton(enabled = !busy, onClick = { haptics.warning(); onAction(TimelineAction.DeleteGoalMilestone(initial.id)); confirmingDelete = false; onDismiss() }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
         dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text(stringResource(R.string.keep)) } })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProjectEditorSheet(initial: GoalsProject?, busy: Boolean, onDismiss: () -> Unit, onAction: (TimelineAction) -> Unit) {
+    val haptics = LocalRoutineHaptics.current
     var name by rememberSaveable(initial?.id) { mutableStateOf(initial?.name ?: "") }
     var startEpoch by rememberSaveable(initial?.id) { mutableStateOf((initial?.start ?: LocalDate.now()).toEpochDay()) }
     var endEpoch by rememberSaveable(initial?.id) { mutableStateOf((initial?.end ?: LocalDate.now().plusMonths(18)).toEpochDay()) }
@@ -495,7 +513,7 @@ private fun ProjectEditorSheet(initial: GoalsProject?, busy: Boolean, onDismiss:
     if (confirmingDelete && initial != null) AlertDialog(onDismissRequest = { confirmingDelete = false },
         title = { Text(stringResource(R.string.goals_delete_project_title)) },
         text = { Text(stringResource(R.string.goals_delete_project_body, initial.name)) },
-        confirmButton = { TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteGoalsProject(initial.id)); confirmingDelete = false; onDismiss() }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
+        confirmButton = { TextButton(enabled = !busy, onClick = { haptics.warning(); onAction(TimelineAction.DeleteGoalsProject(initial.id)); confirmingDelete = false; onDismiss() }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
         dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text(stringResource(R.string.keep)) } })
 }
 

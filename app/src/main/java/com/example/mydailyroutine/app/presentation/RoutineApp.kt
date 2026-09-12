@@ -7,7 +7,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -72,7 +74,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         }
     }
     val onAction: (TimelineAction) -> Unit = remember(viewModel, haptics) { { action ->
-        if (action !is TimelineAction.ToggleComplete && action !is TimelineAction.SyncExecution && action !is TimelineAction.ToggleTask && action !is TimelineAction.ToggleGoalMilestone) haptics.tap()
+        if (action !is TimelineAction.ToggleComplete && action !is TimelineAction.SyncExecution && action !is TimelineAction.ToggleTask &&
+            action !is TimelineAction.ToggleGoalMilestone && action !is TimelineAction.ToggleGoalActivity) haptics.tap()
         viewModel.onAction(action)
     } }
     val snackbars = remember { SnackbarHostState() }
@@ -134,25 +137,31 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     icon = { Icon(Icons.Default.Add, null) }, text = { Text(stringResource(R.string.add_block)) })
             },
         ) { padding ->
-            if (state.panels.showGoals) Box(Modifier.fillMaxSize().padding(padding)) { GoalsScreen(state.goals, state.panels.isSaving, onAction) }
-            else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
+            AnimatedContent(targetState = state.panels.showGoals, label = "goals-switch",
                 modifier = Modifier.fillMaxSize().padding(padding), transitionSpec = {
-                    (slideInHorizontally(tween(TransitionMillis)) { it / 4 } + fadeIn(tween(TransitionMillis))) togetherWith
-                        (slideOutHorizontally(tween(TransitionMillis)) { -it / 4 } + fadeOut(tween(TransitionMillis)))
-                }) { shown ->
-                Box(Modifier.fillMaxSize()) {
-                    when {
-                        shown.isLoading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                        shown.error != null -> Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(shown.error))
-                            TextButton(onClick = { onAction(TimelineAction.Retry) }) { Text(stringResource(R.string.retry)) }
-                        }
-                        else -> when (shown.mode) {
-                            TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
-                                state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction) }
-                            TimelineMode.WEEK -> WeeklyOverview(shown) { onAction(TimelineAction.SelectDate(it, true)) }
-                            TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
-                            TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
+                    (slideInVertically(tween(TransitionMillis)) { it / 6 } + fadeIn(tween(TransitionMillis))) togetherWith
+                        (slideOutVertically(tween(TransitionMillis)) { -it / 6 } + fadeOut(tween(TransitionMillis)))
+                }) { goalsShown ->
+                if (goalsShown) GoalsScreen(state.goals, state.panels.isSaving, onAction)
+                else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
+                    modifier = Modifier.fillMaxSize(), transitionSpec = {
+                        (slideInHorizontally(tween(TransitionMillis)) { it / 4 } + fadeIn(tween(TransitionMillis))) togetherWith
+                            (slideOutHorizontally(tween(TransitionMillis)) { -it / 4 } + fadeOut(tween(TransitionMillis)))
+                    }) { shown ->
+                    Box(Modifier.fillMaxSize()) {
+                        when {
+                            shown.isLoading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+                            shown.error != null -> Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(stringResource(shown.error))
+                                TextButton(onClick = { onAction(TimelineAction.Retry) }) { Text(stringResource(R.string.retry)) }
+                            }
+                            else -> when (shown.mode) {
+                                TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
+                                    state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction) }
+                                TimelineMode.WEEK -> WeeklyOverview(shown) { onAction(TimelineAction.SelectDate(it, true)) }
+                                TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
+                                TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
+                            }
                         }
                     }
                 }
