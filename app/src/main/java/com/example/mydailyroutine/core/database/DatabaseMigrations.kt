@@ -120,4 +120,30 @@ object DatabaseMigrations {
         """.trimIndent())
     }
 
+    // Version 8: homework/errand tasks (optional due date), kept separate from calendar milestones.
+    // Single-line DDL mirrors Room's generated schema so the v1-to-v9 migration test validates identically.
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS `tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `subjectId` INTEGER, `title` TEXT NOT NULL, `dueDate` INTEGER, `note` TEXT, `createdAtEpochMillis` INTEGER NOT NULL, `completedAtEpochMillis` INTEGER, FOREIGN KEY(`subjectId`) REFERENCES `subjects`(`id`) ON DELETE SET NULL ON UPDATE NO ACTION)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_subjectId` ON `tasks`(`subjectId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_dueDate` ON `tasks`(`dueDate`)")
+            // Triggers arrive in 8->9: install() would reference goals_* tables that do not exist yet at v8.
+        }
+    }
+
+    // Version 9: long-term CAS/EE plans (projects, activities, milestones, progress logs).
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS `goals_project` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `kind` TEXT NOT NULL, `startDate` INTEGER NOT NULL, `endDate` INTEGER NOT NULL, `targetHours` REAL, `targetWords` INTEGER)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS `goals_activity` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `projectId` INTEGER NOT NULL, `title` TEXT NOT NULL, `category` TEXT, `startDate` INTEGER NOT NULL, `endDate` INTEGER NOT NULL, `note` TEXT, `isCasProject` INTEGER NOT NULL, `isDone` INTEGER NOT NULL, `isScheduled` INTEGER NOT NULL, FOREIGN KEY(`projectId`) REFERENCES `goals_project`(`id`) ON DELETE CASCADE ON UPDATE NO ACTION)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_goals_activity_projectId` ON `goals_activity`(`projectId`)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS `goals_milestone` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `projectId` INTEGER NOT NULL, `title` TEXT NOT NULL, `dueDate` INTEGER NOT NULL, `isDone` INTEGER NOT NULL, FOREIGN KEY(`projectId`) REFERENCES `goals_project`(`id`) ON DELETE CASCADE ON UPDATE NO ACTION)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_goals_milestone_projectId` ON `goals_milestone`(`projectId`)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS `goals_progress` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `projectId` INTEGER NOT NULL, `activityId` INTEGER, `kind` TEXT NOT NULL, `amount` REAL NOT NULL, `note` TEXT, `logDate` INTEGER NOT NULL, FOREIGN KEY(`projectId`) REFERENCES `goals_project`(`id`) ON DELETE CASCADE ON UPDATE NO ACTION, FOREIGN KEY(`activityId`) REFERENCES `goals_activity`(`id`) ON DELETE CASCADE ON UPDATE NO ACTION)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_goals_progress_projectId` ON `goals_progress`(`projectId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_goals_progress_activityId` ON `goals_progress`(`activityId`)")
+            DatabaseIntegrity.install(db)
+        }
+    }
+
 }

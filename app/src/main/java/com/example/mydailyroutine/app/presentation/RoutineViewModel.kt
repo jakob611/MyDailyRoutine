@@ -9,6 +9,7 @@ import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.health.*
 import com.example.mydailyroutine.domain.presets.PresetFactory
 import com.example.mydailyroutine.domain.repository.PlanningRepository
+import com.example.mydailyroutine.domain.repository.GoalsRepository
 import com.example.mydailyroutine.domain.model.nominalMinutes
 import com.example.mydailyroutine.domain.routines.*
 import com.example.mydailyroutine.domain.repository.ExampleDataRepository
@@ -49,6 +50,7 @@ class RoutineViewModel(
     private val executionRepository: com.example.mydailyroutine.domain.execution.ExecutionRepository,
     private val patternsRepository: RoutinePatternsRepository,
     private val backup: ScheduleBackupRepository,
+    private val goals: GoalsRepository,
     private val clock: Clock = Clock.systemUTC(),
 ) : ViewModel() {
     private fun today(): LocalDate = LocalDate.now(clock.withZone(ZoneId.systemDefault()))
@@ -77,13 +79,17 @@ class RoutineViewModel(
             }
     }
 
-    private val planning = combine(planningRepository.backlog, planningRepository.history, planningRepository.topics, planningRepository.milestones) { backlog, history, topics, milestones ->
-        PlanningUiState(backlog.toPersistentList(), history.toPersistentList(), topics.toPersistentList(), milestones.toPersistentList())
+    private val planning = combine(planningRepository.backlog, planningRepository.history, planningRepository.topics, planningRepository.milestones, planningRepository.tasks) { backlog, history, topics, milestones, tasks ->
+        PlanningUiState(backlog.toPersistentList(), history.toPersistentList(), topics.toPersistentList(), milestones.toPersistentList(), tasks.toPersistentList())
     }.catch { error -> if (error is CancellationException) throw error else emit(PlanningUiState()) }
+    private val goalsState = combine(goals.projects, goals.activities, goals.milestones, goals.progress) { projects, activities, milestones, progress ->
+        GoalsUiState(projects.toPersistentList(), activities.toPersistentList(), milestones.toPersistentList(), progress.toPersistentList())
+    }.catch { error -> if (error is CancellationException) throw error else emit(GoalsUiState()) }
     val state: StateFlow<TimelineUiState> = combine(content, settings.preferences, panels, exampleData.isLoaded, planning) { data, preferences, panels, loaded, planning ->
         TimelineUiState(data, preferences, panels, loaded, planning)
     }.combine(executionRepository.active) { state, active -> state.copy(execution = active) }
         .combine(patternsRepository.sleep) { state, sleep -> state.copy(sleep = sleep) }
+        .combine(goalsState) { state, goals -> state.copy(goals = goals) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimelineUiState(TimelineContent(initialDate)))
 
     private suspend fun resolveContent(date: LocalDate, mode: TimelineMode, snapshot: ScheduleSnapshot, config: HealthConfig, periodic: PeriodicBreakConfig = PeriodicBreakConfig()): TimelineContent {
@@ -114,6 +120,10 @@ class RoutineViewModel(
             subjectPresets = PresetFactory.forSubjects(snapshot.subjects).toPersistentList(),
             calendar = snapshot.calendar.filter { it.date in snapshot.from..snapshot.through }.toPersistentList(),
             milestones = snapshot.milestones.sortedWith(compareBy<Milestone> { it.dueDate }.thenBy { it.dueTime ?: java.time.LocalTime.MIN }).toPersistentList(),
+            // Due-dated tasks reuse the marker display without touching milestone storage.
+            taskMarkers = snapshot.tasks.mapNotNull { task ->
+                task.dueDate?.let { due -> Milestone(id = task.id, subjectId = task.subjectId, title = task.title, dueDate = due, dueTime = null, isExam = false, isCompleted = task.completedAtEpochMillis != null) }
+            }.sortedWith(compareBy<Milestone> { it.dueDate }).toPersistentList(),
         )
     }
 
@@ -124,7 +134,7 @@ class RoutineViewModel(
                 if (action.openDay) {
                     savedState["mode"] = TimelineMode.DAY.name
                     panels.update { it.copy(showAdd = false, showSettings = false, editingBlock = null,
-                        editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false, showTopicEditor = false, completionTarget = null) }
+                        editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false, showTopicEditor = false, completionTarget = null, showTasks = false, entryPrefillTitle = null) }
                 }
             }
             is TimelineAction.SelectMode -> savedState.set("mode", action.mode.name)
@@ -202,7 +212,7 @@ class RoutineViewModel(
                 settings.setPlanningConfig(action.config)
                 messages.send(TimelineEffect.Message(R.string.planning_saved))
             }
-            TimelineAction.OpenAdd -> panels.update { it.copy(showAdd = true, addSession = it.addSession + 1, entryContinuation = null,
+            TimelineAction.OpenAdd -> panels.update { it.copy(showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryPrefillTitle = null,
                 showSettings = false, editingMilestone = null, editingBlock = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false) }
             TimelineAction.OpenSettings -> panels.update { it.copy(showSettings = true, showAdd = false, showPlanning = false, editingBlock = null, editingMilestone = null) }
             TimelineAction.CloseAdd -> if (!panels.value.isSaving) panels.update { it.copy(showAdd = false, editingMilestone = null) }
@@ -210,7 +220,7 @@ class RoutineViewModel(
             TimelineAction.CloseEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingBlock = null) }
             is TimelineAction.Edit -> when (val item = action.item) {
                 is ResolvedTimelineItem.Block -> panels.update { it.copy(editingBlock = item) }
-                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, entryContinuation = null, showSettings = false) }
+                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryPrefillTitle = null, showSettings = false) }
             }
             is TimelineAction.SaveEntry -> saveEntry(action.draft)
             is TimelineAction.SaveBlockEdit -> perform {
@@ -324,7 +334,115 @@ class RoutineViewModel(
                 settings.setTeachingEndDate(action.date)
                 messages.send(TimelineEffect.Message(R.string.message_teaching_end_saved))
             }
+            TimelineAction.OpenTasks -> panels.update {
+                it.copy(showTasks = true, showAdd = false, showSettings = false, showPlanning = false, showTopicEditor = false, editingBlock = null, editingMilestone = null, editingSubject = null, pendingDelete = null)
+            }
+            TimelineAction.CloseTasks -> if (!panels.value.isSaving) panels.update { it.copy(showTasks = false) }
+            is TimelineAction.AddTask -> perform {
+                planningRepository.saveTask(Task(title = action.title, dueDate = action.dueDate, subjectId = action.subjectId, createdAtEpochMillis = System.currentTimeMillis()))
+                messages.send(TimelineEffect.Message(R.string.tasks_added))
+            }
+            is TimelineAction.UpdateTask -> perform {
+                planningRepository.saveTask(action.task)
+                messages.send(TimelineEffect.Message(R.string.tasks_updated))
+            }
+            is TimelineAction.ToggleTask -> perform {
+                val wasOpen = state.value.planning.tasks.any { it.id == action.id && it.completedAtEpochMillis == null }
+                planningRepository.toggleTask(action.id)
+                if (wasOpen) messages.send(TimelineEffect.Completed)
+            }
+            is TimelineAction.DeleteTask -> perform {
+                planningRepository.deleteTask(action.id)
+                messages.send(TimelineEffect.Message(R.string.tasks_deleted))
+            }
+            TimelineAction.ClearCompletedTasks -> perform { planningRepository.clearCompletedTasks() }
+            is TimelineAction.TaskToSchedule -> {
+                action.task.dueDate?.takeIf { !it.isBefore(today()) }?.let { savedState["date"] = it.toEpochDay() }
+                panels.update {
+                    it.copy(showAdd = true, addSession = it.addSession + 1, entryPrefillTitle = action.task.title, entryContinuation = null,
+                        showTasks = false, showSettings = false, showPlanning = false, editingBlock = null, editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false)
+                }
+            }
+            TimelineAction.OpenGoals -> panels.update {
+                it.copy(showGoals = true, showSettings = false, showPlanning = false, showAdd = false, editingBlock = null, editingMilestone = null)
+            }
+            TimelineAction.CloseGoals -> if (!panels.value.isSaving) panels.update { it.copy(showGoals = false) }
+            is TimelineAction.SaveGoalsProject -> perform {
+                goals.saveProject(action.project)
+                messages.send(TimelineEffect.Message(R.string.goals_saved))
+            }
+            is TimelineAction.DeleteGoalsProject -> perform {
+                goals.deleteProject(action.id)
+                messages.send(TimelineEffect.Message(R.string.goals_deleted))
+            }
+            is TimelineAction.SaveGoalActivity -> perform {
+                goals.saveActivity(action.activity)
+                messages.send(TimelineEffect.Message(R.string.goals_saved))
+            }
+            is TimelineAction.DeleteGoalActivity -> perform { goals.deleteActivity(action.id) }
+            is TimelineAction.SaveGoalMilestone -> perform {
+                goals.saveMilestone(action.milestone)
+                messages.send(TimelineEffect.Message(R.string.goals_saved))
+            }
+            is TimelineAction.ToggleGoalMilestone -> perform {
+                val wasOpen = state.value.goals.milestones.any { it.id == action.id && !it.isDone }
+                goals.toggleMilestone(action.id)
+                if (wasOpen) messages.send(TimelineEffect.Completed)
+            }
+            is TimelineAction.ToggleGoalActivity -> {
+                val current = state.value.goals.activities.firstOrNull { it.id == action.id }
+                if (current != null) perform {
+                    goals.saveActivity(current.copy(isDone = !current.isDone))
+                    if (!current.isDone) messages.send(TimelineEffect.Completed)
+                }
+            }
+            is TimelineAction.DeleteGoalMilestone -> perform { goals.deleteMilestone(action.id) }
+            is TimelineAction.AddGoalProgress -> perform {
+                goals.addProgress(action.entry)
+                messages.send(TimelineEffect.Message(R.string.goals_saved))
+            }
+            is TimelineAction.DeleteGoalProgress -> perform { goals.deleteProgress(action.id) }
+            is TimelineAction.GoalActivityToSchedule -> perform {
+                goals.setActivityScheduled(action.activity.id, true)
+                action.activity.start.takeIf { !it.isBefore(today()) }?.let { savedState["date"] = it.toEpochDay() }
+                panels.update {
+                    it.copy(showAdd = true, addSession = it.addSession + 1, entryPrefillTitle = action.activity.title, entryContinuation = null,
+                        showTasks = false, showSettings = false, showPlanning = false, editingBlock = null, editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false)
+                }
+            }
+            is TimelineAction.SeedGoalProject -> perform { seedProject(action) }
         }
+    }
+
+    /** Pre-fills the official CAS/EE structure; every date stays user-editable afterwards. */
+    private suspend fun seedProject(action: TimelineAction.SeedGoalProject) {
+        if (goals.projects.first().any { it.kind == action.kind }) {
+            messages.send(TimelineEffect.Message(R.string.goals_seed_exists))
+            return
+        }
+        val start = today()
+        val end = if (action.kind == "EE") start.plusMonths(17) else start.plusMonths(20)
+        val projectId = goals.saveProject(GoalsProject(name = action.projectName, kind = action.kind, start = start, end = end,
+            targetHours = if (action.kind == "CAS") 150.0 else null, targetWords = if (action.kind == "EE") 4000 else null))
+        val totalDays = java.time.temporal.ChronoUnit.DAYS.between(start, end)
+        fun at(fraction: Double): LocalDate = start.plusDays((totalDays * fraction).toLong())
+        if (action.kind == "EE") {
+            val ranges = listOf(0.0 to 0.12, 0.12 to 0.24, 0.24 to 0.53, 0.53 to 0.82, 0.82 to 0.94, 0.94 to 1.0)
+            action.activityNames.take(6).zip(ranges).forEach { (name, range) ->
+                goals.saveActivity(GoalActivity(projectId = projectId, title = name, category = "STAGE", start = at(range.first), end = at(range.second)))
+            }
+            val dates = listOf(at(0.24), at(0.94), end.minusDays(14), end.minusDays(7), end)
+            action.milestoneNames.take(dates.size).zip(dates).forEach { (name, date) ->
+                goals.saveMilestone(GoalMilestone(projectId = projectId, title = name, dueDate = date))
+            }
+        } else {
+            val dates = if (action.kind == "CAS") listOf(start.plusDays(30), at(0.5), end.minusDays(30), end) else listOf(start, end)
+            action.milestoneNames.take(dates.size).zip(dates).forEach { (name, date) ->
+                goals.saveMilestone(GoalMilestone(projectId = projectId, title = name, dueDate = date))
+            }
+        }
+        panels.update { it.copy(showGoals = true) }
+        messages.send(TimelineEffect.Message(R.string.goals_seeded))
     }
 
     private fun saveEntry(draft: EntryDraft) = perform {

@@ -30,7 +30,7 @@ import com.example.mydailyroutine.core.designsystem.theme.*
 import java.time.ZonedDateTime
 
 @Composable
-fun DailyTimeline(day: DayUi, now: ZonedDateTime, busy: Boolean, health: HealthConfig, planning: PlanningConfig, backlogCount: Int, execution: com.example.mydailyroutine.domain.execution.ActiveExecution?, onAction: (TimelineAction) -> Unit) {
+fun DailyTimeline(day: DayUi, now: ZonedDateTime, busy: Boolean, health: HealthConfig, planning: PlanningConfig, backlogCount: Int, execution: com.example.mydailyroutine.domain.execution.ActiveExecution?, dueTasks: List<com.example.mydailyroutine.domain.model.Task>, onAction: (TimelineAction) -> Unit) {
     val today = day.date == now.toLocalDate()
     val nowMinute = now.hour * 60 + now.minute
     val activeKey = remember(day.items, now) {
@@ -49,6 +49,18 @@ fun DailyTimeline(day: DayUi, now: ZonedDateTime, busy: Boolean, health: HealthC
                     MetricTile(stringResource(R.string.metric_completed), stringResource(R.string.completed_count, day.metrics.completedCount, day.metrics.blockCount), Modifier.weight(1f))
                 }
                 DayLoadBar(day.items)
+                if (dueTasks.isNotEmpty()) {
+                    OutlinedCard(onClick = { onAction(TimelineAction.OpenTasks) }, modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = RoutineColors.Crimson.copy(alpha = 0.10f)),
+                        border = BorderStroke(1.dp, RoutineColors.Crimson.copy(alpha = 0.35f))) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(if (today) R.string.tasks_due_today else R.string.tasks_due_on_day, dueTasks.size),
+                                style = MaterialTheme.typography.titleSmall, color = RoutineColors.Crimson)
+                            Text(dueTasks.take(2).joinToString(" · ") { it.title }, style = MaterialTheme.typography.bodySmall,
+                                color = RoutineColors.TextSecondary, maxLines = 2)
+                        }
+                    }
+                }
                 execution?.let { active ->
                     Surface(color = RoutineColors.Focus.container, shape = RoutineShapes.Card) {
                         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

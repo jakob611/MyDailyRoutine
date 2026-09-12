@@ -128,7 +128,7 @@ class ResearchIntegrationTest {
                 legacy.execSQL("INSERT INTO routine_blocks VALUES(1,NULL,'Fokus','FOCUS_ANALYTICAL',1,480,90,0,NULL,NULL,25,1.0,3.0,0,NULL,60,NULL,NULL)")
                 legacy.execSQL("INSERT INTO backlog_entries VALUES(1,'Fokus','FOCUS_ANALYTICAL',90,25,1.0,3.0,NULL,1,NULL,NULL,NULL,NULL,'SLIPPAGE')")
             }
-            val migrated=Room.databaseBuilder(context,RoutineDatabase::class.java,name).addMigrations(DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6, DatabaseMigrations.MIGRATION_6_7)
+            val migrated=Room.databaseBuilder(context,RoutineDatabase::class.java,name).addMigrations(DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6, DatabaseMigrations.MIGRATION_6_7, DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9)
                 .addCallback(SeedAndIntegrityCallback(context.resources)).build()
             try {
                 assertEquals(60,migrated.backlog().get(1)!!.rawDurationMinutes)

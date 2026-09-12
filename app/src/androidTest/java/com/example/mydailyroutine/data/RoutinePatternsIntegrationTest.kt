@@ -120,7 +120,7 @@ class RoutinePatternsIntegrationTest {
                 Regex("(?ms)CREATE TABLE.*?;|CREATE (?:UNIQUE )?INDEX.*?;|PRAGMA.*?;").findAll(sql).forEach { legacy.execSQL(it.value.removeSuffix(";")) }
                 legacy.execSQL("INSERT INTO routine_blocks(id,subjectId,title,category,dayOfWeek,startMinutes,durationMinutes,isNotificationEnabled,minDurationMinutes,elasticity,priorityWeight,isFixedCommitment,rawDurationMinutes) VALUES(1,NULL,'Pouk','SCHOOL',1,480,45,0,45,0.0,3.0,1,45)")
             }
-            val migrated=Room.databaseBuilder(context,RoutineDatabase::class.java,name).addMigrations(DatabaseMigrations.MIGRATION_6_7)
+            val migrated=Room.databaseBuilder(context,RoutineDatabase::class.java,name).addMigrations(DatabaseMigrations.MIGRATION_6_7, DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9)
                 .addCallback(SeedAndIntegrityCallback(context.resources)).build()
             try {
                 val row=migrated.routines().get(1)!!

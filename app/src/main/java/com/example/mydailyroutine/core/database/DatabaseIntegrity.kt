@@ -85,9 +85,44 @@ object DatabaseIntegrity {
             OR NEW.rawDurationMinutes NOT BETWEEN 1 AND 1439
             OR NEW.reason NOT IN ('SLIPPAGE','CAPACITY','REVIEW_CAPACITY')
         """.trimIndent(),
+        "tasks" to """
+            length(trim(NEW.title)) NOT BETWEEN 1 AND 120 OR NEW.createdAtEpochMillis < 0
+            OR (NEW.note IS NOT NULL AND length(NEW.note) > 2000)
+            OR (NEW.completedAtEpochMillis IS NOT NULL AND NEW.completedAtEpochMillis < NEW.createdAtEpochMillis)
+        """.trimIndent(),
+        "goals_project" to """
+            length(trim(NEW.name)) NOT BETWEEN 1 AND 60 OR NEW.kind NOT IN ('CAS','EE','CUSTOM')
+            OR NEW.endDate < NEW.startDate OR NEW.endDate - NEW.startDate > 1095
+            OR (NEW.targetHours IS NOT NULL AND (NEW.targetHours <= 0 OR NEW.targetHours > 1000))
+            OR (NEW.targetWords IS NOT NULL AND (NEW.targetWords <= 0 OR NEW.targetWords > 20000))
+        """.trimIndent(),
+        "goals_activity" to """
+            length(trim(NEW.title)) NOT BETWEEN 1 AND 80 OR NEW.endDate < NEW.startDate
+            OR (NEW.category IS NOT NULL AND NEW.category NOT IN ('CREATIVITY','ACTIVITY','SERVICE','STAGE'))
+            OR (NEW.note IS NOT NULL AND length(NEW.note) > 2000)
+            OR NEW.isCasProject NOT IN (0,1) OR NEW.isDone NOT IN (0,1) OR NEW.isScheduled NOT IN (0,1)
+        """.trimIndent(),
+        "goals_milestone" to """
+            length(trim(NEW.title)) NOT BETWEEN 1 AND 80 OR NEW.isDone NOT IN (0,1)
+        """.trimIndent(),
+        "goals_progress" to """
+            NEW.kind NOT IN ('hour','word','reflection') OR NEW.amount <= 0 OR NEW.amount > 1000000
+            OR (NEW.kind = 'hour' AND NEW.amount > 16)
+            OR (NEW.kind = 'reflection' AND (NEW.note IS NULL OR length(trim(NEW.note)) = 0))
+            OR (NEW.note IS NOT NULL AND length(NEW.note) > 2000)
+        """.trimIndent(),
     )
     fun install(db: SupportSQLiteDatabase, validateRawBacklog: Boolean = true) {
+        // Stepwise migrations call this at every upgrade stage; tables created by later migrations
+        // (tasks at v8, goals_* at v9) must be skipped until they exist — CREATE TRIGGER compiles its
+        // body immediately and would abort with "no such table". The final migration and onCreate re-run
+        // install() when everything is present, so no trigger is ever missed in a fully migrated database.
+        val existing = HashSet<String>()
+        db.query("SELECT name FROM sqlite_master WHERE type = 'table'").use { cursor ->
+            while (cursor.moveToNext()) existing.add(cursor.getString(0))
+        }
         predicates.forEach { (table, fullPredicate) ->
+            if (table !in existing) return@forEach
             val predicate = if (table == "backlog_entries" && !validateRawBacklog)
                 fullPredicate.replace("OR NEW.rawDurationMinutes NOT BETWEEN 1 AND 1439", "") else fullPredicate
             listOf("INSERT", "UPDATE").forEach { operation ->

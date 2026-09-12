@@ -47,6 +47,7 @@ data class TimelineContent(
     val subjectPresets: PersistentList<QuickAddPreset> = persistentListOf(),
     val calendar: PersistentList<CalendarEntry> = persistentListOf(),
     val milestones: PersistentList<Milestone> = persistentListOf(),
+    val taskMarkers: PersistentList<Milestone> = persistentListOf(),
 )
 
 @Immutable
@@ -66,6 +67,9 @@ data class TimelinePanels(
     val showTopicEditor: Boolean = false,
     val confirmCancelExecution: Boolean = false,
     val exportJson: String? = null,
+    val showTasks: Boolean = false,
+    val showGoals: Boolean = false,
+    val entryPrefillTitle: String? = null,
 )
 
 @Immutable
@@ -77,6 +81,7 @@ data class TimelineUiState(
     val planning: PlanningUiState = PlanningUiState(),
     val execution: com.example.mydailyroutine.domain.execution.ActiveExecution? = null,
     val sleep: SleepSchedule = SleepSchedule(),
+    val goals: GoalsUiState = GoalsUiState(),
 )
 
 @Immutable
@@ -167,6 +172,28 @@ sealed interface TimelineAction {
     data class SetTeachingEnd(val date: LocalDate) : TimelineAction
     data object ExportSchedule : TimelineAction
     data class ImportSchedule(val json: String) : TimelineAction
+    data object OpenTasks : TimelineAction
+    data object CloseTasks : TimelineAction
+    data class AddTask(val title: String, val dueDate: LocalDate?, val subjectId: Long?) : TimelineAction
+    data class UpdateTask(val task: Task) : TimelineAction
+    data class ToggleTask(val id: Long) : TimelineAction
+    data class DeleteTask(val id: Long) : TimelineAction
+    data object ClearCompletedTasks : TimelineAction
+    data class TaskToSchedule(val task: Task) : TimelineAction
+    data object OpenGoals : TimelineAction
+    data object CloseGoals : TimelineAction
+    data class SaveGoalsProject(val project: GoalsProject) : TimelineAction
+    data class DeleteGoalsProject(val id: Long) : TimelineAction
+    data class SaveGoalActivity(val activity: GoalActivity) : TimelineAction
+    data class ToggleGoalActivity(val id: Long) : TimelineAction
+    data class DeleteGoalActivity(val id: Long) : TimelineAction
+    data class SaveGoalMilestone(val milestone: GoalMilestone) : TimelineAction
+    data class ToggleGoalMilestone(val id: Long) : TimelineAction
+    data class DeleteGoalMilestone(val id: Long) : TimelineAction
+    data class AddGoalProgress(val entry: GoalProgress) : TimelineAction
+    data class DeleteGoalProgress(val id: Long) : TimelineAction
+    data class GoalActivityToSchedule(val activity: GoalActivity) : TimelineAction
+    data class SeedGoalProject(val kind: String, val projectName: String, val activityNames: List<String>, val milestoneNames: List<String>) : TimelineAction
 }
 
 sealed interface TimelineEffect {
@@ -180,6 +207,15 @@ data class PlanningUiState(
     val history: PersistentList<HistoricalVelocity> = persistentListOf(),
     val topics: PersistentList<StudyTopic> = persistentListOf(),
     val milestones: PersistentList<Milestone> = persistentListOf(),
+    val tasks: PersistentList<Task> = persistentListOf(),
+)
+
+@Immutable
+data class GoalsUiState(
+    val projects: PersistentList<GoalsProject> = persistentListOf(),
+    val activities: PersistentList<GoalActivity> = persistentListOf(),
+    val milestones: PersistentList<GoalMilestone> = persistentListOf(),
+    val progress: PersistentList<GoalProgress> = persistentListOf(),
 )
 
 @Immutable
