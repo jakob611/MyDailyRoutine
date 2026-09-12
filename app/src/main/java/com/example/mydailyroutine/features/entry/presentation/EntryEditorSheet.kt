@@ -47,7 +47,7 @@ fun EntryEditorSheet(
     selectedDate: LocalDate, subjects: List<Subject>, subjectPresets: List<QuickAddPreset>, history: List<HistoricalVelocity>,
     editing: ResolvedTimelineItem.Milestone?, busy: Boolean,
     onDismiss: () -> Unit, onSave: (EntryDraft) -> Unit, onNewSubject: () -> Unit,
-    defaults: EntryDefaults = EntryDefaults(), continuation: EntryContinuation? = null,
+    defaults: EntryDefaults = EntryDefaults(), continuation: EntryContinuation? = null, prefillTitle: String? = null,
 ) {
     val initial = remember(selectedDate, editing?.key, continuation?.start) {
         val now = LocalDateTime.now()
@@ -56,7 +56,7 @@ fun EntryEditorSheet(
         else if (selectedDate == now.toLocalDate()) now.plusMinutes((15 - now.minute % 15).toLong()).withSecond(0).withNano(0)
         else selectedDate.atTime(16, 0)
     }
-    var title by rememberSaveable(editing?.key) { mutableStateOf(editing?.title ?: "") }
+    var title by rememberSaveable(editing?.key) { mutableStateOf(editing?.title ?: prefillTitle.orEmpty()) }
     var dateText by rememberSaveable(editing?.key) { mutableStateOf(initial.toLocalDate().toString()) }
     var times by rememberSaveable(editing?.key, stateSaver = TimeEntrySaver) {
         mutableStateOf(TimeEntryState.at(initial.toLocalTime(), continuation?.durationMinutes ?: 90))

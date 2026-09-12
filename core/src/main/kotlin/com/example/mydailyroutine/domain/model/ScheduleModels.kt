@@ -88,6 +88,59 @@ data class Milestone(
     val isTerminalExam: Boolean = false,
 )
 
+/** A lightweight homework/errand item. Optional due date; checked off when done. Deliberately separate from Milestone. */
+data class Task(
+    val id: Long = 0,
+    val subjectId: Long?,
+    val title: String,
+    val dueDate: LocalDate?,
+    val note: String? = null,
+    val createdAtEpochMillis: Long,
+    val completedAtEpochMillis: Long? = null,
+)
+
+/** A long-term CAS/EE plan: one project with activities, milestones and quick hour/word/reflection logs. */
+data class GoalsProject(
+    val id: Long = 0,
+    val name: String,
+    val kind: String, // CAS | EE | CUSTOM
+    val start: LocalDate,
+    val end: LocalDate,
+    val targetHours: Double? = null,
+    val targetWords: Int? = null,
+)
+
+data class GoalActivity(
+    val id: Long = 0,
+    val projectId: Long,
+    val title: String,
+    val category: String? = null, // CREATIVITY | ACTIVITY | SERVICE | STAGE
+    val start: LocalDate,
+    val end: LocalDate,
+    val note: String? = null,
+    val isCasProject: Boolean = false,
+    val isDone: Boolean = false,
+    val isScheduled: Boolean = false,
+)
+
+data class GoalMilestone(
+    val id: Long = 0,
+    val projectId: Long,
+    val title: String,
+    val dueDate: LocalDate,
+    val isDone: Boolean = false,
+)
+
+data class GoalProgress(
+    val id: Long = 0,
+    val projectId: Long,
+    val activityId: Long?,
+    val kind: String, // hour | word | reflection
+    val amount: Double,
+    val note: String? = null,
+    val date: LocalDate,
+)
+
 data class OccurrenceCompletion(val routineBlockId: Long, val date: LocalDate, val actualMinutes: Int? = null, val actualStartedAt: LocalDateTime? = null, val actualTiming: ActualTiming? = null)
 data class CancelledOccurrence(val routineBlockId: Long, val occurrenceDate: LocalDate, val title: String)
 
@@ -102,6 +155,8 @@ data class ScheduleSnapshot(
     val milestones: List<Milestone> = emptyList(),
     val completions: List<OccurrenceCompletion> = emptyList(),
     val reviews: List<com.example.mydailyroutine.domain.learning.SpacedReview> = emptyList(),
+    // Appended last: existing tests construct this type with positional arguments.
+    val tasks: List<Task> = emptyList(),
 )
 
 sealed interface ResolvedTimelineItem {

@@ -35,7 +35,7 @@ class RoomTimelineRepository(
 
     override fun observeSnapshot(from: LocalDate, through: LocalDate): Flow<ScheduleSnapshot> =
         db.invalidationTracker.createFlow(
-            "subjects", "routine_blocks", "event_overrides", "school_calendar", "milestones", "routine_completions", "spaced_reviews",
+            "subjects", "routine_blocks", "event_overrides", "school_calendar", "milestones", "routine_completions", "spaced_reviews", "tasks",
             emitInitialState = true,
         ).map { snapshot(from, through) }.distinctUntilChanged()
 
@@ -53,6 +53,7 @@ class RoomTimelineRepository(
                 overrides = db.overrides().inRange(firstOrigin, through).map { it.domain() },
                 calendar = db.calendar().inRange(firstOrigin, through).map { it.domain() },
                 milestones = db.milestones().inRange(from, through).map { it.domain() },
+                tasks = db.tasks().inRange(from, through).map { it.domain() },
                 completions = db.completions().inRange(firstOrigin, through).map { OccurrenceCompletion(it.routineBlockId, it.date, it.actualMinutes,
                     it.actualStartEpochMinute?.let { minute -> java.time.LocalDateTime.ofEpochSecond(minute * 60, 0, java.time.ZoneOffset.UTC) },
                     if (it.actualStartedAtEpochMillis != null && it.actualEndedAtEpochMillis != null && it.actualZoneId != null)

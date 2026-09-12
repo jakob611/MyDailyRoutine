@@ -118,7 +118,7 @@ fun WeeklyOverview(content: TimelineContent, onDate: (LocalDate) -> Unit) {
                 }
             }
         }
-        milestoneSection(R.string.week_markers, content.milestones, onDate)
+        milestoneSection(R.string.week_markers, content.milestones, content.taskMarkers, onDate)
     }
 }
 
@@ -182,7 +182,8 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onDate: (LocalDa
                 Legend(stringResource(R.string.legend_focus), MaterialTheme.colorScheme.primary)
             }
         }
-        milestoneSection(R.string.month_markers, content.milestones.filter { YearMonth.from(it.dueDate) == month }, onDate)
+        milestoneSection(R.string.month_markers, content.milestones.filter { YearMonth.from(it.dueDate) == month },
+            content.taskMarkers.filter { YearMonth.from(it.dueDate) == month }, onDate)
     }
 }
 
@@ -193,7 +194,9 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
     val targetInCycle = target in start..end
     val remaining = SlovenianAcademicCalendar.daysRemaining(today, target)
     val months = (0L..11L).map { YearMonth.from(start).plusMonths(it) }
-    val upcoming = content.milestones.filter { !it.isCompleted && it.dueDate >= today }
+    val upcomingMilestones = content.milestones.filter { !it.isCompleted && it.dueDate >= today }
+    val upcomingTasks = content.taskMarkers.filter { !it.isCompleted && it.dueDate >= today }
+    val upcoming = upcomingMilestones + upcomingTasks
     LazyColumn(contentPadding = PaddingValues(16.dp, 12.dp, 16.dp, 108.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
         item {
             Card(colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1), shape = RoutineShapes.Card, border = androidx.compose.foundation.BorderStroke(1.dp, RoutineColors.Border)) {
@@ -251,7 +254,7 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                     modifier = Modifier.clickable { onDate(dates.minOf { it.date }) })
             }
         }
-        milestoneSection(R.string.upcoming_milestones, upcoming, onDate)
+        milestoneSection(R.string.upcoming_milestones, upcomingMilestones, upcomingTasks, onDate)
     }
 }
 
@@ -279,20 +282,26 @@ private fun MilestoneRadar(milestones: List<Milestone>, today: LocalDate) {
     }
 }
 
-private fun LazyListScope.milestoneSection(@androidx.annotation.StringRes title: Int, milestones: List<Milestone>, onDate: (LocalDate) -> Unit) {
+private fun LazyListScope.milestoneSection(@androidx.annotation.StringRes title: Int, milestones: List<Milestone>,
+    taskMarkers: List<Milestone> = emptyList(), onDate: (LocalDate) -> Unit) {
+    // Tasks with a due date reuse the marker row; the id prefix keeps the two tables' id spaces apart in list keys.
+    val entries = milestones.map { it to "m" } + taskMarkers.map { it to "t" }
     item(key = "markers-heading:$title") { Text(stringResource(title), style = MaterialTheme.typography.titleLarge) }
-    if (milestones.isEmpty()) item(key = "markers-empty:$title") {
+    if (entries.isEmpty()) item(key = "markers-empty:$title") {
         Text(stringResource(R.string.no_milestones),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    items(milestones, key = { "marker:$title:${it.id}" }, contentType = { "milestone" }) { marker ->
+    items(entries, key = { "marker:$title:${it.second}:${it.first.id}" }, contentType = { "milestone" }) { (marker, source) ->
         OutlinedCard(onClick = { onDate(marker.dueDate) }, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Dot(if (marker.isExam) MaterialTheme.colorScheme.error else RoutineColors.Crimson)
                 Column(Modifier.weight(1f)) {
                     Text(marker.title, fontWeight = FontWeight.Medium)
-                    Text(if (marker.isCompleted) stringResource(R.string.completed_marker, stringResource(if (marker.isExam) R.string.entry_exam else R.string.entry_deadline))
-                        else stringResource(if (marker.isExam) R.string.entry_exam else R.string.entry_deadline), style = MaterialTheme.typography.labelSmall)
+                    Text(when {
+                        source == "t" -> stringResource(R.string.tasks_open)
+                        marker.isCompleted -> stringResource(R.string.completed_marker, stringResource(if (marker.isExam) R.string.entry_exam else R.string.entry_deadline))
+                        else -> stringResource(if (marker.isExam) R.string.entry_exam else R.string.entry_deadline)
+                    }, style = MaterialTheme.typography.labelSmall)
                 }
                 Text(marker.dueDate.format(DateTimeFormatter.ofPattern("d MMM", Slovenian)), style = MaterialTheme.typography.labelLarge)
             }

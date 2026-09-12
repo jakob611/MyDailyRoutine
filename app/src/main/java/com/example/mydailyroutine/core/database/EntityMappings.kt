@@ -31,6 +31,16 @@ internal fun HistoricalVelocityEntity.domain() = HistoricalVelocity(subjectId?.t
 internal fun StudyTopicEntity.domain() = StudyTopic(id, title, subjectId, LocalDate.ofEpochDay(initialEpochDay), LocalDate.ofEpochDay(finalEpochDay), reviewCount, reviewDurationMinutes, priorityWeight, milestoneId)
 internal fun StudyTopic.entity() = StudyTopicEntity(id, title, subjectId, initialDate.toEpochDay(), finalDate.toEpochDay(), reviewCount, reviewDurationMinutes, priorityWeight, milestoneId)
 internal fun SpacedReviewEntity.domain() = SpacedReview(id, topicId, scheduledEpochDay, durationMinutes, priorityWeight, ordinal, timeBlockId, isCompleted)
+internal fun TaskEntity.domain() = Task(id, subjectId, title, dueDate, note, createdAtEpochMillis, completedAtEpochMillis)
+internal fun Task.entity() = TaskEntity(id, subjectId, title, dueDate, note, createdAtEpochMillis, completedAtEpochMillis)
+internal fun GoalsProjectEntity.domain() = GoalsProject(id, name, kind, startDate, endDate, targetHours, targetWords)
+internal fun GoalsProject.entity() = GoalsProjectEntity(id, name, kind, start, end, targetHours, targetWords)
+internal fun GoalActivityEntity.domain() = GoalActivity(id, projectId, title, category, startDate, endDate, note, isCasProject, isDone, isScheduled)
+internal fun GoalActivity.entity() = GoalActivityEntity(id, projectId, title, category, start, end, note, isCasProject, isDone, isScheduled)
+internal fun GoalMilestoneEntity.domain() = GoalMilestone(id, projectId, title, dueDate, isDone)
+internal fun GoalMilestone.entity() = GoalMilestoneEntity(id, projectId, title, dueDate, isDone)
+internal fun GoalProgressEntity.domain() = GoalProgress(id, projectId, activityId, kind, amount, note, logDate)
+internal fun GoalProgress.entity() = GoalProgressEntity(id, projectId, activityId, kind, amount, note, logDate)
 internal fun BacklogEntryEntity.domain() = BacklogEntry(id, title, category, durationMinutes, minDurationMinutes, elasticity, priorityWeight,
     subjectId, sourceRoutineId, occurrenceDate, milestoneId, topicId, reviewId, BacklogReason.valueOf(reason), rawDurationMinutes, stageOrder)
 internal fun BacklogEntry.entity() = BacklogEntryEntity(id, title, category, durationMinutes, minDurationMinutes, elasticity, priorityWeight,
