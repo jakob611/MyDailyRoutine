@@ -1,5 +1,6 @@
 package com.example.mydailyroutine.core.database
 
+import androidx.sqlite.db.SimpleQuery
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** Cross-column invariants complement SQLite's strict, enabled FK enforcement. */
@@ -113,7 +114,16 @@ object DatabaseIntegrity {
         """.trimIndent(),
     )
     fun install(db: SupportSQLiteDatabase, validateRawBacklog: Boolean = true) {
+        // Stepwise migrations call this at every upgrade stage; tables created by later migrations
+        // (tasks at v8, goals_* at v9) must be skipped until they exist — CREATE TRIGGER compiles its
+        // body immediately and would abort with "no such table". The final migration and onCreate re-run
+        // install() when everything is present, so no trigger is ever missed in a fully migrated database.
+        val existing = HashSet<String>()
+        db.query(SimpleQuery("SELECT name FROM sqlite_master WHERE type = 'table'")).use { cursor ->
+            while (cursor.moveToNext()) existing.add(cursor.getString(0))
+        }
         predicates.forEach { (table, fullPredicate) ->
+            if (table !in existing) return@forEach
             val predicate = if (table == "backlog_entries" && !validateRawBacklog)
                 fullPredicate.replace("OR NEW.rawDurationMinutes NOT BETWEEN 1 AND 1439", "") else fullPredicate
             listOf("INSERT", "UPDATE").forEach { operation ->
