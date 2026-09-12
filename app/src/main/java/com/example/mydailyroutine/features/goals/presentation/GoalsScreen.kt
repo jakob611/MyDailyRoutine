@@ -88,7 +88,11 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1), shape = RoutineShapes.Card) {
                         Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(stringResource(R.string.goals_gantt), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 14.dp))
-                            GoalGantt(project, activities, milestones) { haptics.tap(); editingActivity = it }
+                            GoalGantt(goals.projects, goals.activities, goals.milestones, project?.id) { activity ->
+                                haptics.tap()
+                                goals.projects.firstOrNull { it.id == activity.projectId }?.let { selectedId = it.id }
+                                editingActivity = activity
+                            }
                         }
                     }
                     ActivityList(activities, progress, busy, onAction, onAdd = { haptics.tap(); addingActivity = true }, onEdit = { haptics.tap(); editingActivity = it })
@@ -206,55 +210,95 @@ private fun GoalBar(fraction: Float, color: Color) {
 }
 
 @Composable
-private fun GoalGantt(project: GoalsProject, activities: List<GoalActivity>, milestones: List<GoalMilestone>, onActivity: (GoalActivity) -> Unit) {
+private fun GoalGantt(projects: List<GoalsProject>, activities: List<GoalActivity>, milestones: List<GoalMilestone>,
+                      selectedId: Long?, onActivity: (GoalActivity) -> Unit) {
+    if (projects.isEmpty()) return
     val today = LocalDate.now()
-    val spanDays = maxOf(1L, ChronoUnit.DAYS.between(project.start, project.end))
+    val start = projects.minOf { it.start }
+    val end = projects.maxOf { it.end }
+    val spanDays = maxOf(1L, ChronoUnit.DAYS.between(start, end))
     val monthCount = (spanDays / 31 + 1).toInt().coerceIn(2, 30)
     val cellWidth = 64f
+    val laneLabel = 76.dp
+    val laneHeight = 40.dp
     fun xOf(date: LocalDate): Dp {
-        val days = ChronoUnit.DAYS.between(project.start, date).toFloat().coerceIn(0f, spanDays.toFloat())
+        val days = ChronoUnit.DAYS.between(start, date).toFloat().coerceIn(0f, spanDays.toFloat())
         return (days / spanDays.toFloat() * monthCount * cellWidth).dp
     }
+    // One lane per project on a shared day scale: vertical alignment is the overlap detector,
+    // so a CAS weekend and an EE draft deadline in the same week become visible before they bite.
+    // Days where two or more projects both plan work additionally get a soft crimson band.
+    val busyWindows = projects.map { p ->
+        val open = activities.filter { it.projectId == p.id && !it.isDone }
+        val from = open.minOfOrNull { it.start } ?: p.start
+        val to = open.maxOfOrNull { it.end } ?: p.end
+        maxOf(from, p.start) to minOf(to, p.end)
+    }
+    val overlapDays = if (projects.size < 2) emptyList() else run {
+        val days = mutableListOf<LocalDate>()
+        var day = start
+        while (!day.isAfter(end)) {
+            if (busyWindows.count { !day.isBefore(it.first) && !day.isAfter(it.second) } > 1) days += day
+            day = day.plusDays(1)
+        }
+        days.fold(mutableListOf<Pair<LocalDate, LocalDate>>()) { runs, d ->
+            val last = runs.lastOrNull()
+            if (last != null && last.second == d.minusDays(1)) runs[runs.lastIndex] = last.first to d else runs.add(d to d)
+            runs
+        }
+    }
     Column(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-        Box {
-            Column(Modifier.width((monthCount * cellWidth).dp)) {
+        Box(Modifier.width(laneLabel + (monthCount * cellWidth).dp)) {
+            overlapDays.forEach { (from, to) ->
+                val x = laneLabel + xOf(from)
+                Box(Modifier.offset(x = x, y = 22.dp).width((laneLabel + xOf(to.plusDays(1)) - x).coerceAtLeast(6.dp))
+                    .height(laneHeight * projects.size).background(RoutineColors.Crimson.copy(alpha = 0.07f)))
+            }
+            Column(Modifier.fillMaxWidth()) {
                 Box(Modifier.fillMaxWidth().height(20.dp)) {
                     for (index in 0 until monthCount) {
-                        val month = YearMonth.from(project.start).plusMonths(index.toLong())
-                        val markerDate = if (index == 0) project.start else maxOf(month.atDay(1), project.start)
-                        Box(Modifier.offset(x = xOf(markerDate)).padding(start = 4.dp)) {
+                        val month = YearMonth.from(start).plusMonths(index.toLong())
+                        val markerDate = if (index == 0) start else maxOf(month.atDay(1), start)
+                        Box(Modifier.offset(x = laneLabel + xOf(markerDate)).padding(start = 4.dp)) {
                             Text(month.format(GoalMonthFormat), style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary, maxLines = 1)
                         }
                     }
                 }
-                Box(Modifier.fillMaxWidth().height(26.dp)) {
-                    milestones.forEach { milestone ->
-                        Box(Modifier.offset(x = maxOf(0.dp, xOf(milestone.dueDate) - 5.dp), y = 7.dp).size(11.dp).rotate(45f)
-                            .background(if (milestone.isDone) RoutineColors.TextMuted.copy(alpha = 0.5f) else RoutineColors.Crimson, RoundedCornerShape(2.dp)))
-                    }
-                }
-                activities.forEach { activity ->
-                    Box(Modifier.fillMaxWidth().height(42.dp)) {
-                        val left = xOf(activity.start)
-                        val width = (xOf(activity.end) - left).coerceAtLeast(22.dp) - 4.dp
-                        Box(Modifier.offset(x = left, y = 4.dp).width(width).height(34.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(categoryColor(activity.category).copy(alpha = if (activity.isDone) 0.35f else 0.85f))
-                            .then(if (activity.isCasProject) Modifier.border(1.5.dp, RoutineColors.Violet, RoundedCornerShape(6.dp)) else Modifier)
-                            .clickable { onActivity(activity) }
-                            .padding(horizontal = 8.dp, vertical = 8.dp)) {
-                            Text(activity.title, style = MaterialTheme.typography.labelMedium, color = RoutineColors.Background, maxLines = 1)
+                projects.forEach { lane ->
+                    Row(Modifier.fillMaxWidth().height(laneHeight), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.width(laneLabel).padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Box(Modifier.size(6.dp).clip(CircleShape).background(when (lane.kind) { "CAS" -> RoutineColors.Violet; "EE" -> RoutineColors.Cobalt; else -> RoutineColors.TextMuted }))
+                            Text(lane.name, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                                color = if (lane.id == selectedId) RoutineColors.TextPrimary else RoutineColors.TextSecondary)
+                        }
+                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                            milestones.filter { it.projectId == lane.id }.forEach { milestone ->
+                                Box(Modifier.offset(x = maxOf(0.dp, xOf(milestone.dueDate) - 4.dp), y = 3.dp).size(9.dp).rotate(45f)
+                                    .background(if (milestone.isDone) RoutineColors.TextMuted.copy(alpha = 0.5f) else RoutineColors.Crimson, RoundedCornerShape(2.dp)))
+                            }
+                            activities.filter { it.projectId == lane.id }.forEach { activity ->
+                                val left = xOf(activity.start)
+                                val width = (xOf(activity.end) - left).coerceAtLeast(18.dp) - 4.dp
+                                Box(Modifier.offset(x = left, y = 15.dp).width(width).height(20.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(categoryColor(activity.category).copy(alpha = if (activity.isDone) 0.35f else 0.85f))
+                                    .then(if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.Violet, RoundedCornerShape(5.dp)) else Modifier)
+                                    .clickable { onActivity(activity) }
+                                    .padding(horizontal = 6.dp)) {
+                                    Text(activity.title, style = MaterialTheme.typography.labelSmall, color = RoutineColors.Background, maxLines = 1)
+                                }
+                            }
                         }
                     }
                 }
             }
-            if (!today.isBefore(project.start) && !today.isAfter(project.end)) {
-                Box(Modifier.offset(x = xOf(today)).matchParentSize().width(2.dp).background(RoutineColors.Amber.copy(alpha = 0.6f)))
+            if (!today.isBefore(start) && !today.isAfter(end)) {
+                Box(Modifier.offset(x = laneLabel + xOf(today), y = 22.dp).width(2.dp).height(laneHeight * projects.size)
+                    .background(RoutineColors.Amber.copy(alpha = 0.6f)))
             }
         }
     }
 }
-
 @Composable
 private fun ActivityList(activities: List<GoalActivity>, progress: List<GoalProgress>,
                          busy: Boolean, onAction: (TimelineAction) -> Unit, onAdd: () -> Unit, onEdit: (GoalActivity) -> Unit) {
