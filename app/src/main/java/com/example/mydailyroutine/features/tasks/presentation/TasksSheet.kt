@@ -49,9 +49,9 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onActi
     var expandedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var deleteId by rememberSaveable { mutableStateOf<Long?>(null) }
     val open = tasks.filter { it.completedAtEpochMillis == null }
-    val overdue = open.filter { it.dueDate != null && it.dueDate.isBefore(today) }.sortedBy { it.dueDate }
+    val overdue = open.filter { task -> task.dueDate?.let { due -> due.isBefore(today) } == true }.sortedBy { it.dueDate }
     val dueToday = open.filter { it.dueDate == today }.sortedBy { it.createdAtEpochMillis }
-    val upcoming = open.filter { it.dueDate != null && it.dueDate.isAfter(today) }.sortedBy { it.dueDate }
+    val upcoming = open.filter { task -> task.dueDate?.let { due -> due.isAfter(today) } == true }.sortedBy { it.dueDate }
     val noDue = open.filter { it.dueDate == null }.sortedByDescending { it.createdAtEpochMillis }
     val done = tasks.filter { it.completedAtEpochMillis != null }.sortedByDescending { it.completedAtEpochMillis }
     fun submitNew() {

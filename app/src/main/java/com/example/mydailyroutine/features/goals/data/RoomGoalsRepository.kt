@@ -24,10 +24,14 @@ class RoomGoalsRepository(private val db: RoutineDatabase, private val onChanged
 
     override suspend fun saveProject(project: GoalsProject): Long = transaction {
         val name = project.name.trim()
+        val start = project.start
+        val end = project.end
+        val hours = project.targetHours
+        val words = project.targetWords
         require(name.isNotEmpty() && name.length <= 60 && project.kind in setOf("CAS", "EE", "CUSTOM") &&
-            !project.end.isBefore(project.start) && ChronoUnit.DAYS.between(project.start, project.end) <= 1095 &&
-            (project.targetHours == null || project.targetHours > 0 && project.targetHours <= 1000) &&
-            (project.targetWords == null || project.targetWords > 0 && project.targetWords <= 20000))
+            !end.isBefore(start) && ChronoUnit.DAYS.between(start, end) <= 1095 &&
+            (hours == null || hours > 0 && hours <= 1000) &&
+            (words == null || words > 0 && words <= 20000))
         val clean = project.copy(name = name)
         if (clean.id == 0L) db.goals().insertProject(clean.entity())
         else { check(db.goals().updateProject(clean.entity()) == 1) { "This project was deleted." }; clean.id }
@@ -36,10 +40,14 @@ class RoomGoalsRepository(private val db: RoutineDatabase, private val onChanged
 
     override suspend fun saveActivity(activity: GoalActivity): Long = transaction {
         val title = activity.title.trim()
+        val category = activity.category
+        val start = activity.start
+        val end = activity.end
+        val note = activity.note
         require(title.isNotEmpty() && title.length <= 80 &&
-            (activity.category == null || activity.category in setOf("CREATIVITY", "ACTIVITY", "SERVICE", "STAGE")) &&
-            !activity.end.isBefore(activity.start) && (activity.note == null || activity.note.length <= 2000))
-        val clean = activity.copy(title = title, note = activity.note?.trim()?.takeIf { it.isNotEmpty() })
+            (category == null || category in setOf("CREATIVITY", "ACTIVITY", "SERVICE", "STAGE")) &&
+            !end.isBefore(start) && (note == null || note.length <= 2000))
+        val clean = activity.copy(title = title, note = note?.trim()?.takeIf { it.isNotEmpty() })
         if (clean.id == 0L) db.goals().insertActivity(clean.entity())
         else { check(db.goals().updateActivity(clean.entity()) == 1) { "This activity was deleted." }; clean.id }
     }
@@ -53,17 +61,20 @@ class RoomGoalsRepository(private val db: RoutineDatabase, private val onChanged
         if (clean.id == 0L) db.goals().insertMilestone(clean.entity())
         else { check(db.goals().updateMilestone(clean.entity()) == 1) { "This milestone was deleted." }; clean.id }
     }
-    override suspend fun toggleMilestone(id: Long) = transaction {
-        db.goals().getMilestone(id)?.let { db.goals().setMilestoneDone(id, !it.isDone) }
+    override suspend fun toggleMilestone(id: Long) {
+        transaction { db.goals().getMilestone(id)?.let { db.goals().setMilestoneDone(id, !it.isDone) } }
     }
     override suspend fun deleteMilestone(id: Long) = transaction { db.goals().deleteMilestone(id) }
 
     override suspend fun addProgress(entry: GoalProgress) = transaction {
-        require(entry.kind in setOf("hour", "word", "reflection") && entry.amount > 0 &&
-            (entry.kind != "hour" || entry.amount <= 16) && (entry.kind != "word" || entry.amount <= 20000) &&
-            (entry.kind != "reflection" || !entry.note.isNullOrBlank()) &&
-            (entry.note == null || entry.note.length <= 2000))
-        db.goals().insertProgress(entry.copy(note = entry.note?.trim()?.takeIf { it.isNotEmpty() }).entity())
+        val kind = entry.kind
+        val amount = entry.amount
+        val note = entry.note
+        require(kind in setOf("hour", "word", "reflection") && amount > 0 &&
+            (kind != "hour" || amount <= 16) && (kind != "word" || amount <= 20000) &&
+            (kind != "reflection" || !note.isNullOrBlank()) &&
+            (note == null || note.length <= 2000))
+        db.goals().insertProgress(entry.copy(note = note?.trim()?.takeIf { it.isNotEmpty() }).entity())
     }
     override suspend fun deleteProgress(id: Long) = transaction { db.goals().deleteProgress(id) }
 }

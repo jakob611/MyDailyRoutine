@@ -30,7 +30,8 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
 
     override suspend fun saveTask(task: Task): Long = transaction {
         val title = task.title.trim()
-        require(title.isNotEmpty() && title.length <= 120 && (task.note == null || task.note.length <= 2000))
+        val note = task.note
+        require(title.isNotEmpty() && title.length <= 120 && (note == null || note.length <= 2000))
         val clean = task.copy(title = title, note = task.note?.trim()?.takeIf { it.isNotEmpty() })
         if (clean.id == 0L) db.tasks().insert(clean.entity())
         else { check(db.tasks().update(clean.entity()) == 1) { "This task was deleted." }; clean.id }

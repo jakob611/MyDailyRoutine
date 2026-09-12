@@ -133,9 +133,10 @@ private fun StatusCard(project: GoalsProject, activities: List<GoalActivity>, mi
             }
             Text(stringResource(R.string.date_range, project.start.format(GoalDateFormat), project.end.format(GoalDateFormat)),
                 style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary)
-            if (project.targetHours != null) {
-                GoalBar((hours / project.targetHours).toFloat(), RoutineColors.Amber)
-                Text(stringResource(R.string.goals_hours_total, hours.roundToInt(), project.targetHours.roundToInt()), style = MaterialTheme.typography.labelMedium)
+            val hourTarget = project.targetHours
+            if (hourTarget != null) {
+                GoalBar((hours / hourTarget).toFloat(), RoutineColors.Amber)
+                Text(stringResource(R.string.goals_hours_total, hours.roundToInt(), hourTarget.roundToInt()), style = MaterialTheme.typography.labelMedium)
             }
             if (project.kind == "CAS") {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -150,10 +151,11 @@ private fun StatusCard(project: GoalsProject, activities: List<GoalActivity>, mi
                 if (listOf("CREATIVITY", "ACTIVITY", "SERVICE").any { (categoryHours[it]?.sumOf { entry -> entry.amount } ?: 0.0) == 0.0 })
                     Text(stringResource(R.string.goals_balance_missing), style = MaterialTheme.typography.labelSmall, color = RoutineColors.Warning)
             }
-            if (project.kind == "EE" && project.targetWords != null) {
-                GoalBar((words.toFloat() / project.targetWords), RoutineColors.Cobalt)
+            val wordTarget = project.targetWords
+            if (project.kind == "EE" && wordTarget != null) {
+                GoalBar((words.toFloat() / wordTarget), RoutineColors.Cobalt)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.goals_words_total, words, project.targetWords), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.goals_words_total, words, wordTarget), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                     listOf(100, 250, 500).forEach { step ->
                         TextButton(enabled = !busy, onClick = {
                             onAction(TimelineAction.AddGoalProgress(GoalProgress(projectId = project.id, activityId = null, kind = "word", amount = step.toDouble(), date = LocalDate.now())))

@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import com.example.mydailyroutine.features.tasks.presentation.TasksSheet
 import com.example.mydailyroutine.features.goals.presentation.GoalsScreen
 import com.example.mydailyroutine.features.settings.presentation.NotificationAccess
@@ -94,7 +95,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             previousWarnings = warningKeys
         }
     }
-    val overdueTasks = state.planning.tasks.count { it.completedAtEpochMillis == null && it.dueDate != null && it.dueDate.isBefore(now.toLocalDate()) }
+    val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(now.toLocalDate()) }
     CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalHapticFeedback provides gatedHaptics) {
         Scaffold(containerColor = RoutineColors.Background,
             topBar = {
@@ -148,7 +149,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         }
                         else -> when (shown.mode) {
                             TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
-                                state.planning.tasks.filter { task -> task.completedAtEpochMillis == null && task.dueDate != null && (task.dueDate == day.date || (day.date == now.toLocalDate() && task.dueDate.isBefore(now.toLocalDate()))) }, onAction) }
+                                state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction) }
                             TimelineMode.WEEK -> WeeklyOverview(shown) { onAction(TimelineAction.SelectDate(it, true)) }
                             TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
                             TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }

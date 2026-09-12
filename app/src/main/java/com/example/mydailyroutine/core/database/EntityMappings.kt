@@ -40,7 +40,7 @@ internal fun GoalActivity.entity() = GoalActivityEntity(id, projectId, title, ca
 internal fun GoalMilestoneEntity.domain() = GoalMilestone(id, projectId, title, dueDate, isDone)
 internal fun GoalMilestone.entity() = GoalMilestoneEntity(id, projectId, title, dueDate, isDone)
 internal fun GoalProgressEntity.domain() = GoalProgress(id, projectId, activityId, kind, amount, note, logDate)
-internal fun GoalProgress.entity() = GoalProgressEntity(id, projectId, activityId, kind, amount, note, logDate)
+internal fun GoalProgress.entity() = GoalProgressEntity(id, projectId, activityId, kind, amount, note, date)
 internal fun BacklogEntryEntity.domain() = BacklogEntry(id, title, category, durationMinutes, minDurationMinutes, elasticity, priorityWeight,
     subjectId, sourceRoutineId, occurrenceDate, milestoneId, topicId, reviewId, BacklogReason.valueOf(reason), rawDurationMinutes, stageOrder)
 internal fun BacklogEntry.entity() = BacklogEntryEntity(id, title, category, durationMinutes, minDurationMinutes, elasticity, priorityWeight,
