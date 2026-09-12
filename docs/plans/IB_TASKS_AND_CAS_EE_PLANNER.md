@@ -32,7 +32,7 @@ Datum: 11. 9. 2026 · Stanje: predlog za odobritev (brez kode — izključno upo
 - **Nizi (strands):** Creativity (umetnost/ustvarjanje), Activity (fizična aktivnost), Service (skupnostna korist). Praksa: **≥ 2 aktivnosti na niz**.
 - **CAS projekt:** ≥ 1, **sodelovalno** (vsaj še en udeleženec), **≥ 1 mesec** zaporednih izkušenj.
 - **Učni izidi:** **7** (vsak vsaj enkrat dokazan v portfoliu): 1) prepozna moči/območja rasti, 2) prevzema izzive, 3) načrtuje in se začne, 4) zavezanost in vztrajnost, 5) sodelovanje, 6) globalno pomembne teme, 7) etika izbira.
-- **3 formalna srečanja** s koordinatorjem (se beležijo v RPF/portfolio).
+- **3 formalni srečani** s koordinatorjem (se beležijo v CAS record/portfoliu — RPF je forma EE in ne CAS).
 - **Portfolio** (dokazi + refleksije, **ne** se formalno oceni) + **CAS statement ≤ 400 besed** ob koncu DP.
 - **Ocena:** pas/fail (issued / not issued) — ni ocene, a neuspeh = brez diplome.
 - **150 h:** ne več uradno; smernica.
@@ -44,11 +44,11 @@ Datum: 11. 9. 2026 · Stanje: predlog za odobritev (brez kode — izključno upo
 - **Novi kriteriji (skupaj 30 točk):** A Okvir eseja (6) · B Znanje in razumevanje (6) · C Analiza in pot argumenta (6) · **D Diskusija in evalvacija (8 — najtežje)** · E Refleksija (4).
 - **Proces (uradno):** raziskovalno vprašanje → raziskava/pisanje → **3 obvezne refleksijske seje** s supervizorjem → **viva voce** → **RPF: ena refleksija do 500 besed** (napiše se PO viva vocea) → končna oddaja.
 - **Roki:** določa šola (tipično majsko sejo: RQ zgodaj DP2, prvi osnutek sep/okt DP2, **končna oddaja ~sredina februarja**).
-- **E = 0 → avtomatski padec** (failure condition) — torej rok je trd.
+- Če refleksije (RPF) ni, je merilo E = 0 točk; neoddan ES pa je neposreden failure condition — torej rok je trd.
 
 ### Kaj to pomeni za TVOJ plan (sep 2026 → maj 2028, pod predpostavko DP2)
 - **CAS:** neprekinjeno do konca DP (maj 2028) → 20 mesecev od zdaj, od tega ≥ 18 "aktivnih" — planer privzeto **sep 2026 → maj 2028**.
-- **EE:** vprašanje/tema sedaj–nov 2026, prvi osnutek nov/dec 2026, končna oddaja **~sredina februarja 2028** (potrdi pri koordinatorju!).
+- **EE:** raziskovalno vprašanje do konca 2026, prvi celoten osnutek tipično november 2027–januar 2028, končna oddaja **~sredina februarja 2028** — prakse med šolami močno variirajo, vedno veljajo šolski datumi (potrdi pri koordinatorju!).
 - Odločno priporočilo: **vsi privzeti datumi v planu so urejevi** — šolski roki imajo prednost.
 
 ---
@@ -74,7 +74,7 @@ Datum: 11. 9. 2026 · Stanje: predlog za odobritev (brez kode — izključno upo
 │  ☐  Matematika — naloga 3        12. sep (pred 2 d) │
 ├────────────────────────────────────────────┤
 │ DANES                                              │
-│  ☐  Biologija — osnutek reферenta  danes, do 20:00? │
+│  ☐  Biologija — osnutek referata  danes, do 20:00? │
 ├────────────────────────────────────────────┤
 │ PRIHAJAJOČE                                        │
 │  ☐  Ekonomija — domača naloga        14. sep (čez 3 d)│
@@ -154,7 +154,7 @@ Nestorje, ponavljajoče naloge, kategorije ≠ predmeti, skupine, pripovedovalne
  CAS PROJEKT ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│ (sodelovalno, ≥1 mesec)
 ```
 - **Meseca:** vodoravno drsenje; širina meseca ~56 dp → 24 mesecev ~1344 dp (na telefonu drseš); vrstica znakov **lepilna zgoraj**, oznake vrstic (ime aktivnosti) **lepilne levo** — vedno veš, kaj gledaš.
-- **Dan:** amber вертикаlna črta skozi ves gant (enaka kot obstoječi poudarki "zdaj").
+- **Dan:** amber navpična črta skozi ves gant (enaka kot obstoječi poudarki "zdaj").
 - **Barve:** Creativity = **Amber** (obstoječa #F59E0B), Activity = **Sage** (#10B981), Service = **Violet** (#8B5CF6) — vse že v DesignSystem; EE: siva/plavosiva barva + **mejnik-dijamanti Crimson** (#FB7185, enaka kot roki), da vizualni jezik ostane ista kot v app.
 - **Črtica aktivnosti:** zaokrožena (6 dp), višina ~34 dp; znotraj ime + `128 h · 2×/teden`; ikona **🔁** = ima dodeljen ponavljajoči blok v razporedu.
 - **Tap na črtico** → spodnji list **detajl aktivnosti** (3.4).
@@ -261,3 +261,20 @@ Vse lokalno (Room, migracija po obstoječem vzorcu do v7), vključeno v JSON bac
 2. Ali imaš že **CAS aktivnosti** (ali naj so predloge prazne)?
 3. Cilj 150 h: ali tvoja šola zahteva točno to številko (drugače popravim privzeto vrednost)?
 4. Naloge: ali želiš tudi **opombo s podrobnostmi** že v Fazi 1 (predlagam: da, en veččrtno polje v razširitvi postavke)?
+
+---
+
+## 9) Status izvedbe (12. 9. 2026)
+
+- **Faza 1 (Naloge)** in **Faza 2 (Cilji)** implementirani v PR #5 — shema Room v9
+  (`tasks`, `goals_project`, `goals_activity`, `goals_milestone`, `goals_progress`),
+  spodnji list Naloge, celozaslonski načrtovalec z Gantt-ojo, predloga CAS/EE,
+  hitro beljenje ur/besed/refleksij in most „V razpored"/„Dodeli čas".
+  Vsi mejniki predlog so izpeljani iz uradnih pravil (CAS ≥ 18 mesecev kontinuitete,
+  150 h kot nastavljiva smernica; EE nova merila 6+6+6+8+4, 4000 besed, viva voce,
+  RPF ≤ 500 besed) in so v celoti urejevi — šolski roki vedno prednost.
+- **Faza 3 (izposlitev)** še odprta: 7 učnih izidov kot oznake, tedenski cilji
+  besed, obvestila „danes zapade", widget za naslednji mejnik, samodejno knjiženje
+  ur iz opravljenih blokov.
+- Opomba k točki 0.2(3): dokument je bil sprva napačno povezal CAS srečanja z RPF
+  in trditev „E = 0 → padec"; oba sta bila popravljena (glej 1) in 2) zgoraj).
