@@ -108,7 +108,8 @@ class ConnectedFeaturesTest {
             startTime = LocalTime.of(8, 0), endTime = LocalTime.of(9, 15), isNotificationEnabled = false))
         val model = withContext(Dispatchers.Main) { RoutineViewModel(repo, prefs, SavedStateHandle(mapOf("date" to date.toEpochDay())), DemoDataSeeder(context, db, prefs, {}, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches), com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}),
                 com.example.mydailyroutine.features.execution.data.RoomExecutionRepository(db, repo, com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}), {}),
-                com.example.mydailyroutine.features.routines.data.RoomRoutinePatternsRepository(db,repo,{})) }
+                com.example.mydailyroutine.features.routines.data.RoomRoutinePatternsRepository(db,repo,{}),
+                com.example.mydailyroutine.features.backup.data.RoomBackupRepository(db, repo, {})) }
         val collector = launch { model.state.collect() }
         try {
             val initial = withTimeout(10000) { model.state.first { !it.content.isLoading } }

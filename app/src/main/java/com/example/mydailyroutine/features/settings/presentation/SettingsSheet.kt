@@ -27,6 +27,7 @@ import com.example.mydailyroutine.features.routines.presentation.SleepSettings
 import com.example.mydailyroutine.features.entry.presentation.EntryDefaultsSettings
 import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.health.HealthConfig
+import com.example.mydailyroutine.domain.health.PeriodicBreakConfig
 import com.example.mydailyroutine.domain.health.WarningType
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.model.ScheduleValidation
@@ -234,7 +235,15 @@ private fun PeriodicBreakSettings(
     var enabled by rememberSaveable(config) { mutableStateOf(config.enabled) }
     var every by rememberSaveable(config) { mutableStateOf(config.everyMinutes.toString()) }
     var len by rememberSaveable(config) { mutableStateOf(config.breakMinutes.toString()) }
-    fun push() = onAction(TimelineAction.SetPeriodicBreak(PeriodicBreakConfig(enabled, every.toIntOrNull() ?: 60, len.toIntOrNull() ?: 5)))
+    fun push() = onAction(
+        TimelineAction.SetPeriodicBreak(
+            PeriodicBreakConfig(
+                enabled,
+                (every.toIntOrNull() ?: 60).coerceIn(30, 240),
+                (len.toIntOrNull() ?: 5).coerceIn(1, 60),
+            ),
+        ),
+    )
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(stringResource(R.string.periodic_break_title), style = MaterialTheme.typography.titleMedium)
