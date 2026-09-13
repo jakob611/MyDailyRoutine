@@ -55,6 +55,7 @@ private val GoalMonthFormat = DateTimeFormatter.ofPattern("LLL yy", Slovenian)
 private val GoalShortFormat = DateTimeFormatter.ofPattern("d. MMM", Slovenian)
 
 /** Full-screen long-term planner for CAS/EE: status, Gantt strip, activities, milestones. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -> Unit) {
     val haptics = LocalRoutineHaptics.current

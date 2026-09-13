@@ -1,8 +1,8 @@
 package com.example.mydailyroutine.core.designsystem.components
 
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheetValue
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.hide
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,8 +24,7 @@ fun RoutineSheet(visible: Boolean, content: @Composable (sheetState: SheetState)
     LaunchedEffect(visible) {
         if (visible) mounted = true
         else if (mounted) {
-            // animateTo instead of hide(): stable as a member across material3 versions and the sheet never re-expands on the way out.
-            sheetState.animateTo(ModalBottomSheetValue.Hidden)
+            sheetState.hide()
             mounted = false
         }
     }

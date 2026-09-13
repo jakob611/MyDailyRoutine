@@ -3,7 +3,6 @@ package com.example.mydailyroutine.app.presentation
 import com.example.mydailyroutine.core.presentation.*
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.scaleIn
@@ -108,7 +107,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         Scaffold(containerColor = RoutineColors.Background,
             topBar = {
                 AnimatedContent(targetState = state.panels.showGoals, label = "topbar-switch",
-                    transitionSpec = { ContentTransform(fadeIn(tween(TransitionMillis)), fadeOut(tween(TransitionMillis)), SizeTransform(clip = false)) }) { goalsShown ->
+                    transitionSpec = { ContentTransform(fadeIn(tween(TransitionMillis)), fadeOut(tween(TransitionMillis)), sizeTransform = SizeTransform(clip = false)) }) { goalsShown ->
                 if (goalsShown) {
                     TopAppBar(title = { Text(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge) },
                         navigationIcon = { IconButton(onClick = { onAction(TimelineAction.CloseGoals) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back)) } },
@@ -122,7 +121,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                             IconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open)) }
                             Box {
                                 IconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open)) }
-                                AnimatedVisibility(visible = overdueTasks > 0, modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
+                                androidx.compose.animation.AnimatedVisibility(visible = overdueTasks > 0, modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
                                     enter = scaleIn(PopSpring, initialScale = 0.4f) + fadeIn(tween(120)), exit = fadeOut(tween(120))) {
                                     Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Crimson))
                                 }
