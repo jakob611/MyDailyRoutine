@@ -518,6 +518,11 @@
     <string name="sleep_hint">To je načrtovan, zaščiten čas, ne meritev spanja in ne budilka. Samodejni planer vanj ne vstavi učenja.</string>
     <string name="sleep_bedtime">Spanje od · UU:mm</string>
     <string name="sleep_wake">Zbujanje ob · UU:mm</string>
+    <string name="sleep_weekend_mode">Drugače med vikendom (sobota in nedelja)</string>
+    <string name="sleep_weekend_bedtime">Zvečer (vikend)</string>
+    <string name="sleep_weekend_wake">Zjutraj (vikend)</string>
+    <string name="lesson_auto_done">Samodejno opravljeno</string>
+    <string name="subject_edit_hint">Uredi predmet</string>
     <string name="sleep_days">Dnevi odhoda v posteljo</string>
     <string name="sleep_days_hint">Če je zbujanje prej na uri kot odhod v posteljo, pomeni naslednji dan. Npr. nedelja 23:00 → ponedeljek 07:00.</string>
     <string name="sleep_morning">Jutranji prehod (min)</string>

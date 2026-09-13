@@ -55,7 +55,7 @@ private val GoalMonthFormat = DateTimeFormatter.ofPattern("LLL yy", Slovenian)
 private val GoalShortFormat = DateTimeFormatter.ofPattern("d. MMM", Slovenian)
 
 /** Full-screen long-term planner for CAS/EE: status, Gantt strip, activities, milestones. */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -> Unit) {
     val haptics = LocalRoutineHaptics.current
@@ -75,11 +75,11 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
             GoalEmptyState(busy, onAction) { haptics.tap(); addingProject = true }
         } else Column(Modifier.fillMaxSize()) {
             if (goals.projects.size > 1) {
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     goals.projects.forEach { candidate ->
-                        if (project?.id == candidate.id) FilledTonalButton(onClick = { selectedId = candidate.id }) { Text(candidate.name, maxLines = 1) }
-                        else OutlinedButton(onClick = { haptics.tap(); selectedId = candidate.id }) { Text(candidate.name, maxLines = 1) }
+                        if (project?.id == candidate.id) FilledTonalButton(onClick = { selectedId = candidate.id }) { Text(candidate.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        else OutlinedButton(onClick = { haptics.tap(); selectedId = candidate.id }) { Text(candidate.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                 }
             }
@@ -165,7 +165,7 @@ private fun StatusCard(project: GoalsProject, activities: List<GoalActivity>, mi
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     listOf("CREATIVITY" to R.string.goals_category_creativity, "ACTIVITY" to R.string.goals_category_activity, "SERVICE" to R.string.goals_category_service).forEach { (category, res) ->
                         Column(Modifier.weight(1f)) {
-                            Text(stringResource(res), style = MaterialTheme.typography.labelSmall, color = categoryColor(category), maxLines = 1)
+                            Text(stringResource(res), style = MaterialTheme.typography.labelSmall, color = categoryColor(category), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(stringResource(R.string.goals_hours_item, categoryHours[category]?.sumOf { it.amount }?.roundToInt() ?: 0),
                                 style = MaterialTheme.typography.labelMedium)
                         }
@@ -177,10 +177,10 @@ private fun StatusCard(project: GoalsProject, activities: List<GoalActivity>, mi
             val wordTarget = project.targetWords
             if (project.kind == "EE" && wordTarget != null) {
                 GoalBar((words.toFloat() / wordTarget), RoutineColors.Cobalt)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.goals_words_total, words, wordTarget), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(stringResource(R.string.goals_words_total, words, wordTarget), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     listOf(100, 250, 500).forEach { step ->
-                        TextButton(enabled = !busy, onClick = {
+                        TextButton(modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp), enabled = !busy, onClick = {
                             onAction(TimelineAction.AddGoalProgress(GoalProgress(projectId = project.id, activityId = null, kind = "word", amount = step.toDouble(), date = LocalDate.now())))
                         }) { Text(stringResource(R.string.goals_words_step, step)) }
                     }
@@ -191,7 +191,7 @@ private fun StatusCard(project: GoalsProject, activities: List<GoalActivity>, mi
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(when { days < 0 -> RoutineColors.Crimson; days <= 14 -> RoutineColors.Amber; else -> RoutineColors.Sage }))
                     Text(stringResource(R.string.goals_next_milestone), style = MaterialTheme.typography.labelMedium, color = RoutineColors.TextSecondary)
-                    Text(next.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1)
+                    Text(next.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(goalRelative(next.dueDate), style = MaterialTheme.typography.labelMedium,
                         color = if (days < 0) RoutineColors.Crimson else RoutineColors.TextSecondary)
                 }
@@ -226,9 +226,10 @@ private fun GoalGantt(projects: List<GoalsProject>, activities: List<GoalActivit
     val end = projects.maxOf { it.end }
     val spanDays = maxOf(1L, ChronoUnit.DAYS.between(start, end))
     val monthCount = (spanDays / 31 + 1).toInt().coerceIn(2, 30)
-    val cellWidth = 64f
     val laneLabel = 76.dp
-    val laneHeight = 40.dp
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    // Short spans fit the screen; only long timelines keep scrolling. Parallel activities no longer overlap.
+    val cellWidth = ((maxWidth - laneLabel - 8.dp) / monthCount).value.coerceIn(20f, 64f)
     fun xOf(date: LocalDate): Dp {
         val days = ChronoUnit.DAYS.between(start, date).toFloat().coerceIn(0f, spanDays.toFloat())
         return (days / spanDays.toFloat() * monthCount * cellWidth).dp
@@ -257,24 +258,28 @@ private fun GoalGantt(projects: List<GoalsProject>, activities: List<GoalActivit
         }
     }
     Column(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+        val laneRows = projects.map { p -> packActivityRows(activities.filter { it.projectId == p.id }) }
+        val laneHeights = laneRows.map { if (it.size <= 1) 40.dp else (10 + it.size * 22).dp }
+        val laneTotal = laneHeights.fold(0.dp) { a, b -> a + b }
         Box(Modifier.width(laneLabel + (monthCount * cellWidth).dp)) {
             overlapDays.forEach { (from, to) ->
                 val x = laneLabel + xOf(from)
                 Box(Modifier.offset(x = x, y = 22.dp).width((laneLabel + xOf(to.plusDays(1)) - x).coerceAtLeast(6.dp))
-                    .height(laneHeight * projects.size).background(RoutineColors.Crimson.copy(alpha = 0.07f)))
+                    .height(laneTotal).background(RoutineColors.Crimson.copy(alpha = 0.07f)))
             }
             Column(Modifier.fillMaxWidth()) {
                 Box(Modifier.fillMaxWidth().height(20.dp)) {
-                    for (index in 0 until monthCount) {
+                    for (index in 0 until monthCount) { if (cellWidth < 34f && index % 2 == 1) continue
                         val month = YearMonth.from(start).plusMonths(index.toLong())
                         val markerDate = if (index == 0) start else maxOf(month.atDay(1), start)
                         Box(Modifier.offset(x = laneLabel + xOf(markerDate)).padding(start = 4.dp)) {
-                            Text(month.format(GoalMonthFormat), style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary, maxLines = 1)
+                            Text(month.format(GoalMonthFormat), style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
-                projects.forEach { lane ->
-                    Row(Modifier.fillMaxWidth().height(laneHeight), verticalAlignment = Alignment.CenterVertically) {
+                projects.forEachIndexed { laneIndex, lane ->
+                    val rows = laneRows[laneIndex]
+                    Row(Modifier.fillMaxWidth().height(laneHeights[laneIndex]), verticalAlignment = Alignment.CenterVertically) {
                         Row(Modifier.width(laneLabel).padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                             Box(Modifier.size(6.dp).clip(CircleShape).background(when (lane.kind) { "CAS" -> RoutineColors.Violet; "EE" -> RoutineColors.Cobalt; else -> RoutineColors.TextMuted }))
                             Text(lane.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -285,16 +290,20 @@ private fun GoalGantt(projects: List<GoalsProject>, activities: List<GoalActivit
                                 Box(Modifier.offset(x = maxOf(0.dp, xOf(milestone.dueDate) - 4.dp), y = 3.dp).size(9.dp).rotate(45f)
                                     .background(if (milestone.isDone) RoutineColors.TextMuted.copy(alpha = 0.5f) else RoutineColors.Crimson, RoundedCornerShape(2.dp)))
                             }
-                            activities.filter { it.projectId == lane.id }.forEach { activity ->
-                                val left = xOf(activity.start)
-                                val width = (xOf(activity.end) - left).coerceAtLeast(18.dp) - 4.dp
-                                Box(Modifier.offset(x = left, y = 15.dp).width(width).height(20.dp)
-                                    .clip(RoundedCornerShape(5.dp))
-                                    .background(categoryColor(activity.category).copy(alpha = if (activity.isDone) 0.35f else 0.85f))
-                                    .then(if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.Violet, RoundedCornerShape(5.dp)) else Modifier)
-                                    .clickable { onActivity(activity) }
-                                    .padding(horizontal = 6.dp)) {
-                                    Text(activity.title, style = MaterialTheme.typography.labelSmall, color = RoutineColors.Background, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            rows.forEachIndexed { rowIndex, row ->
+                                row.forEach { activity ->
+                                    val barY = if (rows.size <= 1) 15.dp else (8 + rowIndex * 22).dp
+                                    val barH = if (rows.size <= 1) 20.dp else 18.dp
+                                    val left = xOf(activity.start)
+                                    val width = (xOf(activity.end) - left).coerceAtLeast(18.dp) - 4.dp
+                                    Box(Modifier.offset(x = left, y = barY).width(width).height(barH)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(categoryColor(activity.category).copy(alpha = if (activity.isDone) 0.35f else 0.85f))
+                                        .then(if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.Violet, RoundedCornerShape(5.dp)) else Modifier)
+                                        .clickable { onActivity(activity) }
+                                        .padding(horizontal = 6.dp)) {
+                                        Text(activity.title, style = MaterialTheme.typography.labelSmall, color = RoutineColors.Background, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
                                 }
                             }
                         }
@@ -302,11 +311,22 @@ private fun GoalGantt(projects: List<GoalsProject>, activities: List<GoalActivit
                 }
             }
             if (!today.isBefore(start) && !today.isAfter(end)) {
-                Box(Modifier.offset(x = laneLabel + xOf(today), y = 22.dp).width(2.dp).height(laneHeight * projects.size)
+                Box(Modifier.offset(x = laneLabel + xOf(today), y = 22.dp).width(2.dp).height(laneTotal)
                     .background(RoutineColors.Amber.copy(alpha = 0.6f)))
             }
         }
     }
+    }
+}
+
+/** Greedy interval packing so CAS strands that run in parallel get their own sub-row instead of colliding. */
+private fun packActivityRows(activities: List<GoalActivity>): List<List<GoalActivity>> {
+    val rows = mutableListOf<MutableList<GoalActivity>>()
+    activities.sortedWith(compareBy({ it.start }, { it.end })).forEach { activity ->
+        val openRow = rows.firstOrNull { it.last().end.isBefore(activity.start) }
+        if (openRow != null) openRow.add(activity) else rows.add(mutableListOf(activity))
+    }
+    return rows
 }
 @Composable
 private fun ActivityList(activities: List<GoalActivity>, progress: List<GoalProgress>,
@@ -354,7 +374,7 @@ private fun MilestoneList(milestones: List<GoalMilestone>, busy: Boolean, onActi
                     Checkbox(milestone.isDone, { if (!busy) onAction(TimelineAction.ToggleGoalMilestone(milestone.id)) }, enabled = !busy)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(milestone.title, style = MaterialTheme.typography.titleSmall, maxLines = 2)
-                        Text("${milestone.dueDate.format(GoalShortFormat)} · ${goalRelative(milestone.dueDate)}", style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary, maxLines = 1)
+                        Text("${milestone.dueDate.format(GoalShortFormat)} · ${goalRelative(milestone.dueDate)}", style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     TextButton(enabled = !busy, onClick = { onEdit(milestone) }) { Text(stringResource(R.string.edit)) }
                 }
@@ -402,10 +422,10 @@ private fun ActivityEditorSheet(project: GoalsProject, initial: GoalActivity?, b
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = { pickingStart = true }) {
-                    Text("${stringResource(R.string.goals_start_date)} · ${start.format(GoalShortFormat)}", maxLines = 1)
+                    Text("${stringResource(R.string.goals_start_date)} · ${start.format(GoalShortFormat)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = { pickingEnd = true }) {
-                    Text("${stringResource(R.string.goals_end_date)} · ${end.format(GoalShortFormat)}", maxLines = 1)
+                    Text("${stringResource(R.string.goals_end_date)} · ${end.format(GoalShortFormat)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             OutlinedTextField(note, { note = it.take(2000) }, modifier = Modifier.fillMaxWidth(), minLines = 3, enabled = !busy,
@@ -533,10 +553,10 @@ private fun ProjectEditorSheet(initial: GoalsProject?, busy: Boolean, sheetState
                 label = { Text(stringResource(R.string.goals_project_name)) })
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = { pickingStart = true }) {
-                    Text("${stringResource(R.string.goals_start_date)} · ${start.format(GoalShortFormat)}", maxLines = 1)
+                    Text("${stringResource(R.string.goals_start_date)} · ${start.format(GoalShortFormat)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = { pickingEnd = true }) {
-                    Text("${stringResource(R.string.goals_end_date)} · ${end.format(GoalShortFormat)}", maxLines = 1)
+                    Text("${stringResource(R.string.goals_end_date)} · ${end.format(GoalShortFormat)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             OutlinedTextField(hours, { hours = it.filter { c -> c.isDigit() || c == '.' }.take(7) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy,

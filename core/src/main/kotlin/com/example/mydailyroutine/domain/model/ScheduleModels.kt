@@ -191,6 +191,8 @@ sealed interface ResolvedTimelineItem {
         val priorityWeight: Double = 1.0,
         val isFixedCommitment: Boolean = category == RoutineCategory.SCHOOL,
         val completedActualMinutes: Int? = null,
+        /** True when a SCHOOL block ended unmarked and is shown as done by derivation, not by a recorded completion. */
+        val lessonAutoCompleted: Boolean = false,
         val rawDurationMinutes: Int = endMinute - startMinute,
         val topicId: Long? = null,
         val milestoneId: Long? = null,

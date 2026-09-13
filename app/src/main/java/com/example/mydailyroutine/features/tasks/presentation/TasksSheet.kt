@@ -20,7 +20,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -87,19 +89,20 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, sheetS
                     }
                     OutlinedTextField(newTitle, { newTitle = it.take(120) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy,
                         placeholder = { Text(stringResource(R.string.tasks_quick_add_hint)) },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { submitNew() }))
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { submitNew() }),
+                        trailingIcon = { if (newTitle.isNotBlank()) IconButton(enabled = !busy, onClick = { submitNew() }) { Icon(Icons.Default.Check, stringResource(R.string.tasks_add)) } })
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = { pickingNewDate = true }) {
+                        OutlinedButton(modifier = Modifier.weight(1f, fill = false), enabled = !busy, onClick = { pickingNewDate = true }) {
                             Icon(Icons.Outlined.CalendarMonth, null)
                             Spacer(Modifier.width(6.dp))
-                            Text(taskDueButtonLabel(newDueEpoch?.let(LocalDate::ofEpochDay), today), maxLines = 1)
+                            Text(taskDueButtonLabel(newDueEpoch?.let(LocalDate::ofEpochDay), today), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
-                        if (newDueEpoch != null) TextButton(enabled = !busy, onClick = { newDueEpoch = null }) {
-                            Text(stringResource(R.string.tasks_clear_date), color = RoutineColors.Crimson)
+                        if (newDueEpoch != null) IconButton(modifier = Modifier.size(32.dp), enabled = !busy, onClick = { newDueEpoch = null }) {
+                            Icon(Icons.Outlined.Close, stringResource(R.string.tasks_clear_date), tint = RoutineColors.Crimson)
                         }
-                        Box {
-                            OutlinedButton(enabled = !busy, onClick = { newSubjectMenu = true }) {
-                                Text(newSubject?.let(subjectsById::get)?.name ?: stringResource(R.string.tasks_subject_any), maxLines = 1)
+                        Box(Modifier.weight(1f, fill = false)) {
+                            OutlinedButton(modifier = Modifier.fillMaxWidth(), enabled = !busy, onClick = { newSubjectMenu = true }) {
+                                Text(newSubject?.let(subjectsById::get)?.name ?: stringResource(R.string.tasks_subject_any), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             }
                             DropdownMenu(expanded = newSubjectMenu, onDismissRequest = { newSubjectMenu = false }) {
                                 DropdownMenuItem(text = { Text(stringResource(R.string.tasks_subject_none)) }, onClick = { newSubject = null; newSubjectMenu = false })
@@ -108,7 +111,6 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, sheetS
                                 }
                             }
                         }
-                        FilledTonalButton(enabled = !busy && newTitle.isNotBlank(), onClick = { submitNew() }) { Text(stringResource(R.string.tasks_add)) }
                     }
                 }
             }
@@ -210,17 +212,17 @@ private fun TaskRow(task: Task, subjects: List<Subject>, subjectsById: Map<Long,
                     OutlinedTextField(editTitle, { editTitle = it.take(120) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy,
                         label = { Text(stringResource(R.string.tasks_edit_title)) })
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(enabled = !busy, onClick = { pickingEditDate = true }) {
+                        OutlinedButton(modifier = Modifier.weight(1f, fill = false), enabled = !busy, onClick = { pickingEditDate = true }) {
                             Icon(Icons.Outlined.CalendarMonth, null)
                             Spacer(Modifier.width(6.dp))
-                            Text(taskDueButtonLabel(editDueEpoch?.let(LocalDate::ofEpochDay), today), maxLines = 1)
+                            Text(taskDueButtonLabel(editDueEpoch?.let(LocalDate::ofEpochDay), today), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
-                        if (editDueEpoch != null) TextButton(enabled = !busy, onClick = { editDueEpoch = null }) {
-                            Text(stringResource(R.string.tasks_clear_date), color = RoutineColors.Crimson)
+                        if (editDueEpoch != null) IconButton(modifier = Modifier.size(32.dp), enabled = !busy, onClick = { editDueEpoch = null }) {
+                            Icon(Icons.Outlined.Close, stringResource(R.string.tasks_clear_date), tint = RoutineColors.Crimson)
                         }
-                        Box {
-                            OutlinedButton(enabled = !busy, onClick = { subjectMenu = true }) {
-                                Text(editSubject?.let(subjectsById::get)?.name ?: stringResource(R.string.tasks_subject_any), maxLines = 1)
+                        Box(Modifier.weight(1f, fill = false)) {
+                            OutlinedButton(modifier = Modifier.fillMaxWidth(), enabled = !busy, onClick = { subjectMenu = true }) {
+                                Text(editSubject?.let(subjectsById::get)?.name ?: stringResource(R.string.tasks_subject_any), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             }
                             DropdownMenu(expanded = subjectMenu, onDismissRequest = { subjectMenu = false }) {
                                 DropdownMenuItem(text = { Text(stringResource(R.string.tasks_subject_none)) }, onClick = { editSubject = null; subjectMenu = false })

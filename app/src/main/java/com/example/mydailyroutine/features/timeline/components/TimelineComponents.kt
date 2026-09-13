@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.PlayArrow
 import com.example.mydailyroutine.core.designsystem.components.categoryIcon
 import androidx.compose.material3.*
@@ -128,7 +129,9 @@ fun TimelineBlockCard(
                         Column(horizontalAlignment = Alignment.End) {
                             if (canStart && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer)
                                 IconButton(enabled = !busy, onClick = { onAction(TimelineAction.StartExecution(block)) }) { Icon(Icons.Outlined.PlayArrow, stringResource(R.string.execution_start), tint = style.accent) }
-                            Checkbox(block.isCompleted, enabled = !busy && !block.isSuppressed,
+                            if (block.lessonAutoCompleted) Icon(Icons.Default.Check, stringResource(R.string.lesson_auto_done),
+                                Modifier.size(22.dp), tint = RoutineColors.Sage)
+                            else Checkbox(block.isCompleted, enabled = !busy && !block.isSuppressed,
                                 onCheckedChange = { onAction(TimelineAction.ToggleComplete(block)) },
                                 modifier = Modifier.size(40.dp).semantics { contentDescription = toggleDescription })
                             warnings.firstOrNull()?.let { warning -> WarningBadge(warning, busy) {

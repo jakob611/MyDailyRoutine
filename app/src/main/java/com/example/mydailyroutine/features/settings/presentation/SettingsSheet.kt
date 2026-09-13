@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -51,7 +53,6 @@ fun SettingsSheet(
     var end by rememberSaveable(preferences.schoolEnd) { mutableStateOf(preferences.schoolEnd.clockLabel()) }
     var teachingEnd by rememberSaveable(preferences.teachingEndDate) { mutableStateOf(preferences.teachingEndDate.toString()) }
     var error by rememberSaveable { mutableStateOf<Int?>(null) }
-    var deleteSubjectId by rememberSaveable { mutableStateOf<Long?>(null) }
     var advanced by rememberSaveable { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState,
         shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1, tonalElevation = 0.dp) {
@@ -106,9 +107,10 @@ fun SettingsSheet(
             }
             Text(stringResource(R.string.subject_presets_hint), style = MaterialTheme.typography.bodySmall)
             if (subjects.isEmpty()) Text(stringResource(R.string.no_subjects_hint), style = MaterialTheme.typography.bodyMedium)
+            if (subjects.isNotEmpty()) Text(stringResource(R.string.subject_edit_hint), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
             subjects.forEach { subject ->
-                ListItem(headlineContent = { Text(subject.name) }, supportingContent = { Text(stringResource(R.string.subject_default_duration, subject.defaultDurationMinutes)) },
-                    trailingContent = { TextButton(enabled = !busy, onClick = { deleteSubjectId = subject.id }) { Text(stringResource(R.string.delete)) } },
+                ListItem(headlineContent = { Text(subject.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }, supportingContent = { Text(stringResource(R.string.subject_default_duration, subject.defaultDurationMinutes)) },
+                    trailingContent = { Icon(Icons.Outlined.Edit, null, Modifier.size(20.dp), tint = RoutineColors.TextMuted) },
                     modifier = Modifier.clickable(enabled = !busy) { onAction(TimelineAction.EditSubject(subject)) })
             }
             HorizontalDivider()
@@ -137,12 +139,6 @@ fun SettingsSheet(
             OutlinedTextField(importText, { importText = it }, label = { Text(stringResource(R.string.backup_import_hint)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp), maxLines = 6)
             Button(enabled = !busy && importText.isNotBlank(), onClick = { onAction(TimelineAction.ImportSchedule(importText)) }) { Text(stringResource(R.string.backup_import)) }
         }
-    }
-    subjects.firstOrNull { it.id == deleteSubjectId }?.let { subject ->
-        AlertDialog(onDismissRequest = { deleteSubjectId = null }, title = { Text(stringResource(R.string.delete_subject_title, subject.name)) },
-            text = { Text(stringResource(R.string.delete_subject_body)) },
-            confirmButton = { TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteSubject(subject.id)); deleteSubjectId = null }) { Text(stringResource(R.string.delete_subject)) } },
-            dismissButton = { TextButton(onClick = { deleteSubjectId = null }) { Text(stringResource(R.string.cancel)) } })
     }
     var showExport by remember { mutableStateOf(false) }
     LaunchedEffect(exportJson) { showExport = exportJson != null }

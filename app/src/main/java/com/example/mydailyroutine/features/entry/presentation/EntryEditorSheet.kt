@@ -7,7 +7,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Close
@@ -41,12 +43,12 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EntryEditorSheet(
     selectedDate: LocalDate, subjects: List<Subject>, subjectPresets: List<QuickAddPreset>, history: List<HistoricalVelocity>,
     editing: ResolvedTimelineItem.Milestone?, busy: Boolean, sheetState: SheetState,
-    onDismiss: () -> Unit, onSave: (EntryDraft) -> Unit, onNewSubject: () -> Unit,
+    onDismiss: () -> Unit, onSave: (EntryDraft) -> Unit, onNewSubject: () -> Unit, onEditSubject: (Subject) -> Unit = {},
     defaults: EntryDefaults = EntryDefaults(), continuation: EntryContinuation? = null, prefillTitle: String? = null,
 ) {
     val initial = remember(selectedDate, editing?.key, continuation?.start) {
@@ -71,7 +73,7 @@ fun EntryEditorSheet(
     var daysTouched by rememberSaveable { mutableStateOf(continuation != null) }
     var includeBreak by rememberSaveable { mutableStateOf((continuation?.breakMinutes ?: 0) > 0) }
     var breakMinutes by rememberSaveable { mutableStateOf((continuation?.breakMinutes?.takeIf { it > 0 } ?: defaults.lessonBreakMinutes).toString()) }
-    var notifications by rememberSaveable { mutableStateOf(true) }
+    var notifications by rememberSaveable { mutableStateOf(category != RoutineCategory.SCHOOL) }
     var allDay by rememberSaveable(editing?.key) { mutableStateOf(editing != null && editing.dueTime == null) }
     var error by rememberSaveable { mutableStateOf<Int?>(null) }
     var pickingDate by rememberSaveable { mutableStateOf(false) }
@@ -90,7 +92,9 @@ fun EntryEditorSheet(
 
     fun applyPreset(preset: QuickAddPreset) {
         haptics.tap()
-        title = preset.title(context)
+        // A preset may only overwrite a title that is still empty or belongs to another preset — never hand-typed text.
+        if (title.isBlank() || (subjectPresets + standardPresets).any { it.key != preset.key && it.title(context) == title }) title = preset.title(context)
+        if (preset.category == RoutineCategory.SCHOOL) notifications = false
         kind = if (preset.isExam) EntryKind.EXAM else EntryKind.BLOCK
         category = preset.category
         subjectId = preset.subjectId ?: subjectId.takeUnless { preset.kind in setOf(PresetKind.WALK, PresetKind.LUNCH, PresetKind.SNACK, PresetKind.RESERVE) }
@@ -159,10 +163,11 @@ fun EntryEditorSheet(
                     }
                 }
                 Text(stringResource(R.string.saved_subjects), style = MaterialTheme.typography.titleSmall)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item { FilterChip(subjectId == null, onClick = { subjectId = null; haptics.tap() }, enabled = !busy, label = { Text(stringResource(R.string.subject_all)) }, shape = RoutineShapes.Chip) }
-                    items(subjects, key = { it.id }) { subject ->
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(subjectId == null, onClick = { subjectId = null; haptics.tap() }, enabled = !busy, label = { Text(stringResource(R.string.subject_all)) }, shape = RoutineShapes.Chip)
+                    subjects.forEach { subject ->
                         FilterChip(selected = subjectId == subject.id, enabled = !busy, shape = RoutineShapes.Chip,
+                            modifier = Modifier.pointerInput(subject.id) { detectTapGestures(onLongPress = { haptics.tap(); onEditSubject(subject) }) },
                             colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(subject.colorHex.toInt()).copy(alpha = 0.2f)),
                             onClick = {
                                 subjectId = subject.id
@@ -174,9 +179,9 @@ fun EntryEditorSheet(
                                     val desired = if (kind == EntryKind.BLOCK) PresetKind.SUBJECT_LESSON else PresetKind.SUBJECT_TEST
                                     subjectPresets.firstOrNull { it.subjectId == subject.id && it.kind == desired }?.let(::applyPreset)
                                 }
-                            }, label = { Text(subject.name) })
+                            }, label = { Text(subject.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) })
                     }
-                    item { SuggestionChip(onClick = onNewSubject, enabled = !busy, label = { Text(stringResource(R.string.new_subject)) }, shape = RoutineShapes.Chip) }
+                    SuggestionChip(onClick = onNewSubject, enabled = !busy, label = { Text(stringResource(R.string.new_subject)) }, shape = RoutineShapes.Chip)
                 }
                 if (subjects.isEmpty()) Text(stringResource(R.string.no_subjects_hint), style = MaterialTheme.typography.bodySmall)
                 else {
@@ -211,17 +216,17 @@ fun EntryEditorSheet(
                 }
                 if (kind == EntryKind.BLOCK) {
                     Text(stringResource(R.string.duration_follows_start, times.durationMinutes), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(listOf(30,45,60,90,times.durationMinutes).distinct().sorted(), key={it}) { minutes ->
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(30,45,60,90,times.durationMinutes).distinct().sorted().forEach { minutes ->
                             FilterChip(selected=times.durationMinutes==minutes, onClick={ times=times.withDuration(minutes); haptics.tap(); error=null },
                                 enabled=!busy, label={ Text(stringResource(R.string.duration_minutes,minutes)) }, shape=RoutineShapes.Chip)
                         }
                     }
                     Text(stringResource(R.string.entry_overnight_hint), style = MaterialTheme.typography.bodySmall)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(RoutineCategory.entries, key = { it.name }) { option -> FilterChip(category == option, {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        RoutineCategory.entries.forEach { option -> FilterChip(category == option, {
                             category = option; haptics.tap()
-                            if (option == RoutineCategory.SCHOOL) times = times.withDuration(subjects.firstOrNull { it.id == subjectId }?.defaultDurationMinutes ?: defaults.lessonDurationMinutes)
+                            if (option == RoutineCategory.SCHOOL) { times = times.withDuration(subjects.firstOrNull { it.id == subjectId }?.defaultDurationMinutes ?: defaults.lessonDurationMinutes); notifications = false }
                         }, enabled = !busy,
                             label = { Text(option.label()) }, leadingIcon = { Icon(categoryIcon(option), null, Modifier.size(16.dp)) }, shape = RoutineShapes.Chip) }
                     }

@@ -180,7 +180,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
         RoutineSheet(state.panels.showAdd) { sheetState -> key(state.panels.addSession) {
             EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, state.panels.editingMilestone, state.panels.isSaving, sheetState,
-                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation, prefillTitle = state.panels.entryPrefillTitle)
+                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, onEditSubject = { subject -> onAction(TimelineAction.EditSubject(subject)) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation, prefillTitle = state.panels.entryPrefillTitle)
         } }
         RoutineSheet(state.panels.showSettings) { sheetState -> SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, state.sleep, onAction = onAction,
             exportJson = state.panels.exportJson,
@@ -190,7 +190,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         RoutineSheet(state.panels.showTopicEditor) { sheetState -> TopicEditorSheet(state, onAction, sheetState = sheetState) }
         state.panels.completionTarget?.let { ActualCompletionDialog(it, state.panels.isSaving, onAction) }
         state.panels.editingBlock?.let { BlockEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseEditor) }, onSave = onAction) }
-        state.panels.editingSubject?.let { SubjectEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) }, onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) }) }
+        state.panels.editingSubject?.let { editing -> SubjectEditorDialog(editing, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) },
+            onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) },
+            onDelete = if (editing.id == 0L) null else { { onAction(TimelineAction.DeleteSubject(editing.id)); onAction(TimelineAction.CloseSubjectEditor) } }) }
         state.panels.pendingDelete?.let { item ->
             val recurring = item is ResolvedTimelineItem.Block && !item.isOneOff
             val group = (item as? ResolvedTimelineItem.Block)?.takeIf { it.parentRoutineId == null && it.origin == com.example.mydailyroutine.domain.routines.RoutineOrigin.USER }?.seriesKey

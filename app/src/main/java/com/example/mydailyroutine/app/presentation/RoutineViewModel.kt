@@ -100,12 +100,13 @@ class RoutineViewModel(
 
     private suspend fun resolveContent(date: LocalDate, mode: TimelineMode, snapshot: ScheduleSnapshot, config: HealthConfig, periodic: PeriodicBreakConfig = PeriodicBreakConfig()): TimelineContent {
         val prepared = resolver.prepare(snapshot)
+        val autoDoneBefore = java.time.LocalDateTime.now()
         val calendarByDate = snapshot.calendar.groupBy { it.date }
         val days = linkedMapOf<LocalDate, DayUi>()
         var current = snapshot.from
         while (current <= snapshot.through) {
             currentCoroutineContext().ensureActive()
-            val items = prepared.forDate(current)
+            val items = prepared.forDate(current, autoDoneBefore)
             days[current] = DayUi(
                 date = current,
                 items = items.toPersistentList(),

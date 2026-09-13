@@ -28,10 +28,11 @@ private val colorLabels = listOf(R.string.color_cobalt, R.string.color_sage, R.s
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SubjectEditorDialog(subject: Subject, busy: Boolean, onDismiss: () -> Unit, onSave: (Subject) -> Unit) {
+fun SubjectEditorDialog(subject: Subject, busy: Boolean, onDismiss: () -> Unit, onSave: (Subject) -> Unit, onDelete: (() -> Unit)? = null) {
     var name by rememberSaveable(subject.id) { mutableStateOf(subject.name) }
     var duration by rememberSaveable(subject.id) { mutableStateOf(subject.defaultDurationMinutes.toString()) }
     var color by rememberSaveable(subject.id) { mutableLongStateOf(subject.colorHex) }
+    var confirmingDelete by rememberSaveable { mutableStateOf(false) }
     val haptics = LocalRoutineHaptics.current
     val validDuration = duration.toIntOrNull()?.takeIf { it in 1..1439 }
     AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(if (subject.id == 0L) R.string.new_subject_title else R.string.edit_subject_title)) }, text = {
@@ -53,5 +54,15 @@ fun SubjectEditorDialog(subject: Subject, busy: Boolean, onDismiss: () -> Unit, 
     }, confirmButton = {
         TextButton(enabled = !busy && name.isNotBlank() && validDuration != null,
             onClick = { validDuration?.let { onSave(subject.copy(name = name.trim(), colorHex = color, defaultDurationMinutes = it)) } }) { Text(stringResource(if (busy) R.string.saving else R.string.save_subject)) }
-    }, dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.cancel)) } })
+    }, dismissButton = {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (subject.id > 0L && onDelete != null) TextButton(enabled = !busy, onClick = { haptics.warning(); confirmingDelete = true }) { Text(stringResource(R.string.delete_subject), color = RoutineColors.Crimson) }
+            TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    })
+    if (confirmingDelete) AlertDialog(onDismissRequest = { confirmingDelete = false },
+        title = { Text(stringResource(R.string.delete_subject_title, subject.name)) },
+        text = { Text(stringResource(R.string.delete_subject_body)) },
+        confirmButton = { TextButton(enabled = !busy, onClick = { confirmingDelete = false; onDelete?.invoke() }) { Text(stringResource(R.string.delete_subject), color = RoutineColors.Crimson) } },
+        dismissButton = { TextButton(onClick = { confirmingDelete = false }) { Text(stringResource(R.string.cancel)) } })
 }
