@@ -89,7 +89,13 @@ class RoutineViewModel(
         TimelineUiState(data, preferences, panels, loaded, planning)
     }.combine(executionRepository.active) { state, active -> state.copy(execution = active) }
         .combine(patternsRepository.sleep) { state, sleep -> state.copy(sleep = sleep) }
-        .combine(goalsState) { state, goals -> state.copy(goals = goals) }
+        .combine(goalsState) { state, goals ->
+            // Goal milestones are not part of the snapshot; mirror the ones inside the visible range onto day markers.
+            val markers = goals.milestones.filter { !it.isDone && it.dueDate in state.content.days.keys }
+                .map { Milestone(id = it.id, subjectId = null, title = it.title, dueDate = it.dueDate, dueTime = null, isExam = false, isCompleted = false) }
+                .sortedBy { it.dueDate }.toPersistentList()
+            state.copy(goals = goals, content = state.content.copy(goalMarkers = markers))
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TimelineUiState(TimelineContent(initialDate)))
 
     private suspend fun resolveContent(date: LocalDate, mode: TimelineMode, snapshot: ScheduleSnapshot, config: HealthConfig, periodic: PeriodicBreakConfig = PeriodicBreakConfig()): TimelineContent {
@@ -256,7 +262,10 @@ class RoutineViewModel(
             TimelineAction.DismissDelete -> panels.update { it.copy(pendingDelete = null) }
             TimelineAction.ConfirmDelete -> panels.value.pendingDelete?.let { target -> perform {
                 when (target) {
-                    is ResolvedTimelineItem.Block -> repository.deleteRoutine(target.routineBlockId)
+                    is ResolvedTimelineItem.Block -> {
+                        repository.deleteRoutine(target.routineBlockId)
+                        goals.clearScheduledByTitle(target.title) // a booked goal activity must stop showing "v razporedu"
+                    }
                     is ResolvedTimelineItem.Milestone -> repository.deleteMilestone(target.milestoneId)
                 }
                 panels.update { it.copy(pendingDelete = null) }

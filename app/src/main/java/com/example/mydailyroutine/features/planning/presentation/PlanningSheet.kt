@@ -29,14 +29,14 @@ import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlanningSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit) {
+fun PlanningSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit, sheetState: SheetState) {
     val context = LocalContext.current
     val busy = state.panels.isSaving
     var backlogDateId by rememberSaveable { mutableStateOf<Long?>(null) }
     var deleteBacklogId by rememberSaveable { mutableStateOf<Long?>(null) }
     var deleteTopicId by rememberSaveable { mutableStateOf<Long?>(null) }
     ModalBottomSheet(onDismissRequest = { onAction(TimelineAction.ClosePlanning) }, shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1, tonalElevation = 0.dp, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        containerColor = RoutineColors.Surface1, tonalElevation = 0.dp, sheetState = sheetState) {
         LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(24.dp, 0.dp, 24.dp, 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item {
                 Text(stringResource(R.string.planning_title), style = MaterialTheme.typography.headlineSmall)

@@ -31,9 +31,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.core.designsystem.components.RoutineSheet
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.*
 import com.example.mydailyroutine.core.platform.Slovenian
@@ -50,7 +52,7 @@ private val taskDateFormat = DateTimeFormatter.ofPattern("d. MMM", Slovenian)
 /** Homework/errand checklist. Fast entry, relative due labels, one-tap completion. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onAction: (TimelineAction) -> Unit) {
+fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, sheetState: SheetState, onAction: (TimelineAction) -> Unit) {
     val today = LocalDate.now()
     val haptics = LocalRoutineHaptics.current
     var showDone by rememberSaveable { mutableStateOf(false) }
@@ -75,7 +77,7 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onActi
         newTitle = ""; newDueEpoch = null; newSubject = null
     }
     ModalBottomSheet(onDismissRequest = { onAction(TimelineAction.CloseTasks) }, shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1, tonalElevation = 0.dp, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        containerColor = RoutineColors.Surface1, tonalElevation = 0.dp, sheetState = sheetState) {
         LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(24.dp, 0.dp, 24.dp, 32.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "tasks-header") {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -114,16 +116,16 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onActi
                 Text(stringResource(R.string.tasks_empty), style = MaterialTheme.typography.bodyMedium, color = RoutineColors.TextSecondary)
             }
             taskSection("overdue", R.string.tasks_section_overdue, RoutineColors.Crimson, overdue, subjects, subjectsById, today, busy, expandedId,
-                onAction = onAction, onExpand = { expandedId = it }, onRequestDelete = { deleteId = it })
+                onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
             taskSection("today", R.string.tasks_section_today, RoutineColors.Amber, dueToday, subjects, subjectsById, today, busy, expandedId,
-                onAction = onAction, onExpand = { expandedId = it }, onRequestDelete = { deleteId = it })
+                onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
             taskSection("upcoming", R.string.tasks_section_upcoming, RoutineColors.Cobalt, upcoming, subjects, subjectsById, today, busy, expandedId,
-                onAction = onAction, onExpand = { expandedId = it }, onRequestDelete = { deleteId = it })
+                onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
             taskSection("nodue", R.string.tasks_section_no_due, RoutineColors.TextMuted, noDue, subjects, subjectsById, today, busy, expandedId,
-                onAction = onAction, onExpand = { expandedId = it }, onRequestDelete = { deleteId = it })
+                onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
             if (done.isNotEmpty()) item(key = "tasks-h-done") {
                 val doneChevron by animateFloatAsState(if (showDone) 180f else 0f, SnappySpring, label = "done-chevron")
-                Row(Modifier.fillMaxWidth().clickable(enabled = !busy) { haptics.tap(); showDone = !showDone },
+                Row(Modifier.fillMaxWidth().animateItem(placementSpec = TaskListSpring).clickable(enabled = !busy) { haptics.tap(); showDone = !showDone },
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.tasks_section_done, done.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     Icon(Icons.Outlined.ExpandMore, null, tint = RoutineColors.TextSecondary, modifier = Modifier.size(20.dp).rotate(doneChevron))
@@ -131,7 +133,7 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, onActi
                 }
             }
             if (showDone) items(done, key = { "done:${it.id}" }) { task ->
-                OutlinedCard(modifier = Modifier.animateItem(placementSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)),
+                OutlinedCard(modifier = Modifier.animateItem(placementSpec = TaskListSpring),
                     shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border)) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Checkbox(true, { if (!busy) { haptics.tap(); onAction(TimelineAction.ToggleTask(task.id)) } }, enabled = !busy)
@@ -157,9 +159,9 @@ private fun LazyListScope.taskSection(key: String, titleRes: Int, color: Color, 
                                       busy: Boolean, expandedId: Long?, onAction: (TimelineAction) -> Unit,
                                       onExpand: (Long) -> Unit, onRequestDelete: (Long) -> Unit) {
     if (tasks.isEmpty()) return
-    item(key = "tasks-h-" + key) { TaskSectionHeader(titleRes, color) }
+    item(key = "tasks-h-" + key) { Box(Modifier.animateItem(placementSpec = TaskListSpring)) { TaskSectionHeader(titleRes, color) } }
     items(tasks, key = { "task:${it.id}" }) { task ->
-        Box(Modifier.animateItem(placementSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))) {
+        Box(Modifier.animateItem(placementSpec = TaskListSpring)) {
             TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
                 onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
                 onExpand = { onExpand(task.id) },
@@ -247,6 +249,8 @@ private fun TaskRow(task: Task, subjects: List<Subject>, subjectsById: Map<Long,
         onDismiss = { pickingEditDate = false }, onDate = { editDueEpoch = it.toEpochDay(); pickingEditDate = false })
 }
 
+private val TaskListSpring = spring<androidx.compose.ui.unit.IntOffset>(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
+
 @Composable
 private fun taskDueButtonLabel(date: LocalDate?, today: LocalDate): String = when {
     date == null -> stringResource(R.string.tasks_no_due)
@@ -258,6 +262,6 @@ private fun taskDueButtonLabel(date: LocalDate?, today: LocalDate): String = whe
 private fun taskDueLabel(date: LocalDate, today: LocalDate): String = when {
     date == today -> stringResource(R.string.tasks_today_short)
     date == today.plusDays(1) -> stringResource(R.string.tasks_tomorrow)
-    date.isAfter(today) -> stringResource(R.string.tasks_in_days, ChronoUnit.DAYS.between(today, date).toInt())
-    else -> stringResource(R.string.tasks_ago_days, ChronoUnit.DAYS.between(date, today).toInt())
+    date.isAfter(today) -> ChronoUnit.DAYS.between(today, date).toInt().let { pluralStringResource(R.plurals.tasks_in_days, it, it) }
+    else -> ChronoUnit.DAYS.between(date, today).toInt().let { pluralStringResource(R.plurals.tasks_ago_days, it, it) }
 }

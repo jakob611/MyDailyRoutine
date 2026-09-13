@@ -3,6 +3,10 @@ package com.example.mydailyroutine.app.presentation
 import com.example.mydailyroutine.core.presentation.*
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -37,6 +41,7 @@ import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.features.timeline.components.DateNavigator
 import com.example.mydailyroutine.features.entry.presentation.*
 import com.example.mydailyroutine.features.subjects.presentation.SubjectEditorDialog
+import com.example.mydailyroutine.core.designsystem.components.RoutineSheet
 import com.example.mydailyroutine.core.designsystem.haptics.*
 import com.example.mydailyroutine.features.timeline.presentation.overview.*
 import com.example.mydailyroutine.features.timeline.presentation.DailyTimeline
@@ -102,7 +107,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalHapticFeedback provides gatedHaptics) {
         Scaffold(containerColor = RoutineColors.Background,
             topBar = {
-                if (state.panels.showGoals) {
+                AnimatedContent(targetState = state.panels.showGoals, label = "topbar-switch",
+                    transitionSpec = { ContentTransform(fadeIn(tween(TransitionMillis)), fadeOut(tween(TransitionMillis)), SizeTransform(clip = false)) }) { goalsShown ->
+                if (goalsShown) {
                     TopAppBar(title = { Text(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge) },
                         navigationIcon = { IconButton(onClick = { onAction(TimelineAction.CloseGoals) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back)) } },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = RoutineColors.Background))
@@ -115,7 +122,10 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                             IconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open)) }
                             Box {
                                 IconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open)) }
-                                if (overdueTasks > 0) Box(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp).size(8.dp).clip(CircleShape).background(RoutineColors.Crimson))
+                                AnimatedVisibility(visible = overdueTasks > 0, modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
+                                    enter = scaleIn(PopSpring, initialScale = 0.4f) + fadeIn(tween(120)), exit = fadeOut(tween(120))) {
+                                    Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Crimson))
+                                }
                             }
                             IconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open)) }
                             IconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings)) } })
@@ -128,6 +138,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                             }
                         }
                     }
+                }
                 }
             }, snackbarHost = { SnackbarHost(snackbars) },
             floatingActionButton = {
@@ -158,9 +169,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                             else -> when (shown.mode) {
                                 TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
                                     state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction) }
-                                TimelineMode.WEEK -> WeeklyOverview(shown) { onAction(TimelineAction.SelectDate(it, true)) }
-                                TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
-                                TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
+                                TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }) { onAction(TimelineAction.SelectDate(it, true)) }
+                                TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }) { onAction(TimelineAction.SelectDate(it, true)) }
+                                TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }) { onAction(TimelineAction.SelectDate(it, true)) }
                             }
                         }
                     }
@@ -168,16 +179,16 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             }
         }
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
-        if (state.panels.showAdd) key(state.panels.addSession) {
-            EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, state.panels.editingMilestone, state.panels.isSaving,
+        RoutineSheet(state.panels.showAdd) { sheetState -> key(state.panels.addSession) {
+            EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, state.panels.editingMilestone, state.panels.isSaving, sheetState,
                 onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation, prefillTitle = state.panels.entryPrefillTitle)
-        }
-        if (state.panels.showSettings) SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, state.sleep, onAction = onAction,
+        } }
+        RoutineSheet(state.panels.showSettings) { sheetState -> SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, state.sleep, onAction = onAction,
             exportJson = state.panels.exportJson,
-            onDismiss = { onAction(TimelineAction.CloseSettings) }, requestNotifications = requestNotifications, requestExactAlarms = requestExactAlarms, openNotificationSettings = openNotificationSettings)
-        if (state.panels.showPlanning) PlanningSheet(state, onAction)
-        if (state.panels.showTasks) TasksSheet(state.planning.tasks, data.subjects, state.panels.isSaving, onAction)
-        if (state.panels.showTopicEditor) TopicEditorSheet(state, onAction)
+            onDismiss = { onAction(TimelineAction.CloseSettings) }, requestNotifications = requestNotifications, requestExactAlarms = requestExactAlarms, openNotificationSettings = openNotificationSettings, sheetState = sheetState) }
+        RoutineSheet(state.panels.showPlanning) { sheetState -> PlanningSheet(state, onAction, sheetState = sheetState) }
+        RoutineSheet(state.panels.showTasks) { sheetState -> TasksSheet(state.planning.tasks, data.subjects, state.panels.isSaving, sheetState, onAction) }
+        RoutineSheet(state.panels.showTopicEditor) { sheetState -> TopicEditorSheet(state, onAction, sheetState = sheetState) }
         state.panels.completionTarget?.let { ActualCompletionDialog(it, state.panels.isSaving, onAction) }
         state.panels.editingBlock?.let { BlockEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseEditor) }, onSave = onAction) }
         state.panels.editingSubject?.let { SubjectEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) }, onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) }) }

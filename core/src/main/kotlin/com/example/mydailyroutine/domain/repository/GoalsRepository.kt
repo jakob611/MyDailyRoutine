@@ -17,6 +17,8 @@ interface GoalsRepository {
     suspend fun saveActivity(activity: GoalActivity): Long
     suspend fun deleteActivity(id: Long)
     suspend fun setActivityScheduled(id: Long, scheduled: Boolean)
+    /** Clears the scheduled badge on activities whose title matches a block that was removed from the timeline. */
+    suspend fun clearScheduledByTitle(title: String)
     suspend fun saveMilestone(milestone: GoalMilestone): Long
     suspend fun toggleMilestone(id: Long)
     suspend fun deleteMilestone(id: Long)

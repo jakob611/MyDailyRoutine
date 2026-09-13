@@ -28,10 +28,13 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.core.designsystem.components.RoutineSheet
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.*
 import com.example.mydailyroutine.core.platform.Slovenian
@@ -101,16 +104,18 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
             }
     }
     }
-    if (project != null && (addingActivity || editingActivity != null)) {
-        ActivityEditorSheet(project, editingActivity, busy, goals.progress,
-            onDismiss = { addingActivity = false; editingActivity = null }, onAction = onAction)
+    project?.let { current ->
+        RoutineSheet(addingActivity || editingActivity != null) { sheetState ->
+            ActivityEditorSheet(current, editingActivity, busy, goals.progress, sheetState,
+                onDismiss = { addingActivity = false; editingActivity = null }, onAction = onAction)
+        }
+        RoutineSheet(addingMilestone || editingMilestone != null) { sheetState ->
+            MilestoneEditorSheet(current, editingMilestone, busy, sheetState,
+                onDismiss = { addingMilestone = false; editingMilestone = null }, onAction = onAction)
+        }
     }
-    if (project != null && (addingMilestone || editingMilestone != null)) {
-        MilestoneEditorSheet(project, editingMilestone, busy,
-            onDismiss = { addingMilestone = false; editingMilestone = null }, onAction = onAction)
-    }
-    if (addingProject || editingProject != null) {
-        ProjectEditorSheet(editingProject, busy, onDismiss = { addingProject = false; editingProject = null }, onAction = onAction)
+    RoutineSheet(addingProject || editingProject != null) { sheetState ->
+        ProjectEditorSheet(editingProject, busy, sheetState, onDismiss = { addingProject = false; editingProject = null }, onAction = onAction)
     }
 }
 
@@ -176,7 +181,7 @@ private fun StatusCard(project: GoalsProject, activities: List<GoalActivity>, mi
                     listOf(100, 250, 500).forEach { step ->
                         TextButton(enabled = !busy, onClick = {
                             onAction(TimelineAction.AddGoalProgress(GoalProgress(projectId = project.id, activityId = null, kind = "word", amount = step.toDouble(), date = LocalDate.now())))
-                        }) { Text(stringResource(R.string.goals_hours_step, step)) }
+                        }) { Text(stringResource(R.string.goals_words_step, step)) }
                     }
                 }
             }
@@ -191,6 +196,8 @@ private fun StatusCard(project: GoalsProject, activities: List<GoalActivity>, mi
                 }
             } else if (milestones.isEmpty()) {
                 Text(stringResource(R.string.goals_milestones_empty), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary)
+            } else {
+                Text(stringResource(R.string.goals_all_milestones_done), style = MaterialTheme.typography.labelMedium, color = RoutineColors.Sage)
             }
             Text(stringResource(R.string.goals_activity_progress, activities.count { it.isDone }, activities.size),
                 style = MaterialTheme.typography.labelMedium, color = RoutineColors.TextSecondary)
@@ -228,11 +235,12 @@ private fun GoalGantt(projects: List<GoalsProject>, activities: List<GoalActivit
     // One lane per project on a shared day scale: vertical alignment is the overlap detector,
     // so a CAS weekend and an EE draft deadline in the same week become visible before they bite.
     // Days where two or more projects both plan work additionally get a soft crimson band.
-    val busyWindows = projects.map { p ->
+    val busyWindows = projects.mapNotNull { p ->
         val open = activities.filter { it.projectId == p.id && !it.isDone }
-        val from = open.minOfOrNull { it.start } ?: p.start
-        val to = open.maxOfOrNull { it.end } ?: p.end
-        maxOf(from, p.start) to minOf(to, p.end)
+        if (open.isEmpty()) return@mapNotNull null // nothing planned here — never claim an overlap
+        val from = maxOf(open.minOf { it.start }, p.start)
+        val to = minOf(open.maxOf { it.end }, p.end)
+        if (to < from) null else from to to
     }
     val overlapDays = if (projects.size < 2) emptyList() else run {
         val days = mutableListOf<LocalDate>()
@@ -268,7 +276,7 @@ private fun GoalGantt(projects: List<GoalsProject>, activities: List<GoalActivit
                     Row(Modifier.fillMaxWidth().height(laneHeight), verticalAlignment = Alignment.CenterVertically) {
                         Row(Modifier.width(laneLabel).padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                             Box(Modifier.size(6.dp).clip(CircleShape).background(when (lane.kind) { "CAS" -> RoutineColors.Violet; "EE" -> RoutineColors.Cobalt; else -> RoutineColors.TextMuted }))
-                            Text(lane.name, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                            Text(lane.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 color = if (lane.id == selectedId) RoutineColors.TextPrimary else RoutineColors.TextSecondary)
                         }
                         Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -285,7 +293,7 @@ private fun GoalGantt(projects: List<GoalsProject>, activities: List<GoalActivit
                                     .then(if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.Violet, RoundedCornerShape(5.dp)) else Modifier)
                                     .clickable { onActivity(activity) }
                                     .padding(horizontal = 6.dp)) {
-                                    Text(activity.title, style = MaterialTheme.typography.labelSmall, color = RoutineColors.Background, maxLines = 1)
+                                    Text(activity.title, style = MaterialTheme.typography.labelSmall, color = RoutineColors.Background, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }
@@ -357,7 +365,7 @@ private fun MilestoneList(milestones: List<GoalMilestone>, busy: Boolean, onActi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActivityEditorSheet(project: GoalsProject, initial: GoalActivity?, busy: Boolean, progress: List<GoalProgress>,
-                                onDismiss: () -> Unit, onAction: (TimelineAction) -> Unit) {
+                                sheetState: SheetState, onDismiss: () -> Unit, onAction: (TimelineAction) -> Unit) {
     val haptics = LocalRoutineHaptics.current
     var title by rememberSaveable(initial?.id) { mutableStateOf(initial?.title ?: "") }
     var category by rememberSaveable(initial?.id) { mutableStateOf(initial?.category ?: if (project.kind == "EE") "STAGE" else null) }
@@ -374,7 +382,7 @@ private fun ActivityEditorSheet(project: GoalsProject, initial: GoalActivity?, b
     val end = LocalDate.ofEpochDay(endEpoch).let { if (it.isBefore(start)) start else it }
     val saved = initial != null && initial.id > 0
     ModalBottomSheet(onDismissRequest = onDismiss, shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1,
-        tonalElevation = 0.dp, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        tonalElevation = 0.dp, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().padding(24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(if (saved) R.string.goals_edit_activity else R.string.goals_new_activity), style = MaterialTheme.typography.headlineSmall)
             OutlinedTextField(title, { title = it.take(80) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy,
@@ -468,14 +476,14 @@ private fun ActivityEditorSheet(project: GoalsProject, initial: GoalActivity?, b
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MilestoneEditorSheet(project: GoalsProject, initial: GoalMilestone?, busy: Boolean, onDismiss: () -> Unit, onAction: (TimelineAction) -> Unit) {
+private fun MilestoneEditorSheet(project: GoalsProject, initial: GoalMilestone?, busy: Boolean, sheetState: SheetState, onDismiss: () -> Unit, onAction: (TimelineAction) -> Unit) {
     val haptics = LocalRoutineHaptics.current
     var title by rememberSaveable(initial?.id) { mutableStateOf(initial?.title ?: "") }
     var epoch by rememberSaveable(initial?.id) { mutableStateOf((initial?.dueDate ?: LocalDate.now()).toEpochDay()) }
     var picking by rememberSaveable { mutableStateOf(false) }
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1,
-        tonalElevation = 0.dp, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        tonalElevation = 0.dp, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(if (initial == null) R.string.goals_add_milestone else R.string.goals_edit_milestone), style = MaterialTheme.typography.headlineSmall)
             OutlinedTextField(title, { title = it.take(80) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy,
@@ -504,7 +512,7 @@ private fun MilestoneEditorSheet(project: GoalsProject, initial: GoalMilestone?,
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProjectEditorSheet(initial: GoalsProject?, busy: Boolean, onDismiss: () -> Unit, onAction: (TimelineAction) -> Unit) {
+private fun ProjectEditorSheet(initial: GoalsProject?, busy: Boolean, sheetState: SheetState, onDismiss: () -> Unit, onAction: (TimelineAction) -> Unit) {
     val haptics = LocalRoutineHaptics.current
     var name by rememberSaveable(initial?.id) { mutableStateOf(initial?.name ?: "") }
     var startEpoch by rememberSaveable(initial?.id) { mutableStateOf((initial?.start ?: LocalDate.now()).toEpochDay()) }
@@ -517,7 +525,7 @@ private fun ProjectEditorSheet(initial: GoalsProject?, busy: Boolean, onDismiss:
     val start = LocalDate.ofEpochDay(startEpoch)
     val end = LocalDate.ofEpochDay(endEpoch).let { if (it.isBefore(start)) start else it }
     ModalBottomSheet(onDismissRequest = onDismiss, shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1,
-        tonalElevation = 0.dp, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        tonalElevation = 0.dp, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().padding(24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(if (initial == null) R.string.goals_new_project_title else R.string.goals_edit_project), style = MaterialTheme.typography.headlineSmall)
             OutlinedTextField(name, { name = it.take(60) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy,
@@ -570,8 +578,8 @@ private fun goalRelative(date: LocalDate): String {
     return when {
         days == 0L -> stringResource(R.string.tasks_today_short)
         days == 1L -> stringResource(R.string.tasks_tomorrow)
-        days > 0 -> stringResource(R.string.tasks_in_days, days.toInt())
-        else -> stringResource(R.string.tasks_ago_days, (-days).toInt())
+        days > 0 -> pluralStringResource(R.plurals.tasks_in_days, days.toInt(), days.toInt())
+        else -> pluralStringResource(R.plurals.tasks_ago_days, (-days).toInt(), (-days).toInt())
     }
 }
 

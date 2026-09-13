@@ -19,6 +19,8 @@ interface GoalsDao {
     @Update suspend fun updateActivity(activity: GoalActivityEntity): Int
     @Query("DELETE FROM goals_activity WHERE id = :id") suspend fun deleteActivity(id: Long)
     @Query("UPDATE goals_activity SET isScheduled = :scheduled WHERE id = :id") suspend fun setActivityScheduled(id: Long, scheduled: Boolean)
+    // Booking blocks can be deleted from the timeline directly; free the activity again so it can be scheduled once more.
+    @Query("UPDATE goals_activity SET isScheduled = 0 WHERE title = :title AND isScheduled = 1") suspend fun clearScheduledByTitle(title: String)
     @Insert suspend fun insertMilestone(milestone: GoalMilestoneEntity): Long
     @Update suspend fun updateMilestone(milestone: GoalMilestoneEntity): Int
     @Query("UPDATE goals_milestone SET isDone = :done WHERE id = :id") suspend fun setMilestoneDone(id: Long, done: Boolean)

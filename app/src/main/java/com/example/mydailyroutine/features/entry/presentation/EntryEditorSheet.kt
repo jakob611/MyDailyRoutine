@@ -45,7 +45,7 @@ import java.time.LocalTime
 @Composable
 fun EntryEditorSheet(
     selectedDate: LocalDate, subjects: List<Subject>, subjectPresets: List<QuickAddPreset>, history: List<HistoricalVelocity>,
-    editing: ResolvedTimelineItem.Milestone?, busy: Boolean,
+    editing: ResolvedTimelineItem.Milestone?, busy: Boolean, sheetState: SheetState,
     onDismiss: () -> Unit, onSave: (EntryDraft) -> Unit, onNewSubject: () -> Unit,
     defaults: EntryDefaults = EntryDefaults(), continuation: EntryContinuation? = null, prefillTitle: String? = null,
 ) {
@@ -137,7 +137,7 @@ fun EntryEditorSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState,
         shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1, tonalElevation = 0.dp) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).imePadding().testTag("entry-editor")) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {

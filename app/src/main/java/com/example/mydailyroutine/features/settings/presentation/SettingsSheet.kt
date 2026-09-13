@@ -45,7 +45,7 @@ fun SettingsSheet(
     preferences: SchedulePreferences, subjects: List<Subject>, busy: Boolean, access: NotificationAccess, exampleLoaded: Boolean, sleep: SleepSchedule,
     exportJson: String? = null,
     onAction: (TimelineAction) -> Unit, onDismiss: () -> Unit,
-    requestNotifications: () -> Unit, requestExactAlarms: () -> Unit, openNotificationSettings: () -> Unit,
+    requestNotifications: () -> Unit, requestExactAlarms: () -> Unit, openNotificationSettings: () -> Unit, sheetState: SheetState,
 ) {
     var start by rememberSaveable(preferences.schoolStart) { mutableStateOf(preferences.schoolStart.clockLabel()) }
     var end by rememberSaveable(preferences.schoolEnd) { mutableStateOf(preferences.schoolEnd.clockLabel()) }
@@ -53,7 +53,7 @@ fun SettingsSheet(
     var error by rememberSaveable { mutableStateOf<Int?>(null) }
     var deleteSubjectId by rememberSaveable { mutableStateOf<Long?>(null) }
     var advanced by rememberSaveable { mutableStateOf(false) }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState,
         shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1, tonalElevation = 0.dp) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineSmall)

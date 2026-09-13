@@ -48,6 +48,8 @@ data class TimelineContent(
     val calendar: PersistentList<CalendarEntry> = persistentListOf(),
     val milestones: PersistentList<Milestone> = persistentListOf(),
     val taskMarkers: PersistentList<Milestone> = persistentListOf(),
+    // CAS/EE milestones mapped onto the marker display for the days inside the selected range (GoalsScreen owns editing).
+    val goalMarkers: PersistentList<Milestone> = persistentListOf(),
 )
 
 @Immutable

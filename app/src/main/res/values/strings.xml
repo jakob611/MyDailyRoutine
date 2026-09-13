@@ -577,8 +577,18 @@
     <string name="tasks_due_on_day">Zapade ta dan · %1$d</string>
     <string name="tasks_today_short">danes</string>
     <string name="tasks_tomorrow">jutri</string>
-    <string name="tasks_in_days">čez %1$d dni</string>
-    <string name="tasks_ago_days">pred %1$d dnevi</string>
+    <plurals name="tasks_in_days">
+        <item quantity="one">čez %1$d dan</item>
+        <item quantity="two">čez %1$d dneva</item>
+        <item quantity="few">čez %1$d dni</item>
+        <item quantity="other">čez %1$d dni</item>
+    </plurals>
+    <plurals name="tasks_ago_days">
+        <item quantity="one">pred %1$d dnevom</item>
+        <item quantity="two">pred %1$d dnevoma</item>
+        <item quantity="few">pred %1$d dnevi</item>
+        <item quantity="other">pred %1$d dnevi</item>
+    </plurals>
     <string name="tasks_delete_title">Izbrišem nalogo?</string>
     <string name="tasks_delete_body">Naloga »%1$s« bo trajno izbrisana.</string>
     <string name="tasks_added">Naloga dodana.</string>
@@ -624,6 +634,9 @@
     <string name="goals_minutes_step">+%1$d min</string>
     <string name="goals_hours_step">+%1$d h</string>
     <string name="goals_words_total">Besede: %1$d / %2$d</string>
+    <string name="goals_words_step">+%1$d besed</string>
+    <string name="goals_all_milestones_done">Vsi mejniki opravljeni ✓</string>
+    <string name="marker_goal">Cilj</string>
     <string name="goals_reflections">Refleksije</string>
     <string name="goals_add_reflection">Nov refleksijski zapis</string>
     <string name="goals_save_reflection">Shrani zapis</string>

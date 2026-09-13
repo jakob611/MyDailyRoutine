@@ -53,6 +53,7 @@ class RoomGoalsRepository(private val db: RoutineDatabase, private val onChanged
     }
     override suspend fun deleteActivity(id: Long) { transaction { db.goals().deleteActivity(id) } }
     override suspend fun setActivityScheduled(id: Long, scheduled: Boolean) { transaction { db.goals().setActivityScheduled(id, scheduled) } }
+    override suspend fun clearScheduledByTitle(title: String) { transaction { db.goals().clearScheduledByTitle(title) } }
 
     override suspend fun saveMilestone(milestone: GoalMilestone): Long = transaction {
         val title = milestone.title.trim()

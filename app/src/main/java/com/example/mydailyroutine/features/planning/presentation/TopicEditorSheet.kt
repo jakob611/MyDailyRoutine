@@ -29,7 +29,7 @@ import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit) {
+fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit, sheetState: SheetState) {
     val context = LocalContext.current
     val today = maxOf(LocalDate.now(), state.content.date)
     var title by rememberSaveable { mutableStateOf("") }
@@ -49,7 +49,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit)
     var error by rememberSaveable { mutableStateOf(false) }
     val busy = state.panels.isSaving
     ModalBottomSheet(onDismissRequest = { onAction(TimelineAction.CloseTopic) }, shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1,
-        tonalElevation = 0.dp, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        tonalElevation = 0.dp, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.new_topic), style = MaterialTheme.typography.headlineSmall)
             Text(stringResource(R.string.topic_hint), style = MaterialTheme.typography.bodySmall)
