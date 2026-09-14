@@ -149,7 +149,7 @@ fun TimetableImportSheet(
                     modifier = Modifier.weight(1f),
                     enabled = text.isNotBlank(),
                     onClick = {
-                        haptics.confirm()
+                        haptics.complete()
                         preview = TimetablePasteParser.parse(text)
                     },
                 ) { Text(stringResource(R.string.timetable_import_preview)) }
@@ -191,7 +191,7 @@ fun TimetableImportSheet(
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !busy,
-                        onClick = { haptics.confirm(); onImport(rows) },
+                        onClick = { haptics.complete(); onImport(rows) },
                     ) { Text(stringResource(R.string.timetable_import_open)) }
                 }
             }
