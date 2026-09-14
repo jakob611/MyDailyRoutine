@@ -47,10 +47,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
-import com.example.mydailyroutine.core.data.model.Subject
-import com.example.mydailyroutine.core.designsystem.RoutineColors
-import com.example.mydailyroutine.core.designsystem.RoutineShapes
-import com.example.mydailyroutine.core.presentation.LocalRoutineHaptics
+import com.example.mydailyroutine.domain.model.Subject
+import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
+import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.presentation.TimetableRow
 import java.time.DayOfWeek
 
