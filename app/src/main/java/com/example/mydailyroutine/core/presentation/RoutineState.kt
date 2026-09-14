@@ -72,6 +72,10 @@ data class TimelinePanels(
     val showTasks: Boolean = false,
     val showGoals: Boolean = false,
     val entryPrefillTitle: String? = null,
+    // A task captured via the system share sheet pre-fills the Tasks quick-add; cleared on save or close.
+    val sharedTaskTitle: String? = null,
+    val sharedTaskDue: Long? = null,
+    val showTimetableImport: Boolean = false,
 )
 
 @Immutable
@@ -111,6 +115,10 @@ data class EntryDraft(
     val breakTitle: String = "",
     val keepOpen: Boolean = false,
 )
+
+/** One lesson detected from pasted timetable text; the import creates a weekly SCHOOL block per row. */
+@Immutable
+data class TimetableRow(val day: java.time.DayOfWeek, val startMinute: Int, val endMinute: Int, val title: String)
 
 sealed interface TimelineAction {
     data class SelectDate(val date: LocalDate, val openDay: Boolean = false) : TimelineAction
@@ -176,6 +184,10 @@ sealed interface TimelineAction {
     data class ImportSchedule(val json: String) : TimelineAction
     data object OpenTasks : TimelineAction
     data object CloseTasks : TimelineAction
+    data class OpenSharedTask(val title: String, val dueEpochDay: Long?) : TimelineAction
+    data object ShowTimetableImport : TimelineAction
+    data object CloseTimetableImport : TimelineAction
+    data class ImportTimetable(val rows: List<TimetableRow>) : TimelineAction
     data class AddTask(val title: String, val dueDate: LocalDate?, val subjectId: Long?) : TimelineAction
     data class UpdateTask(val task: Task) : TimelineAction
     data class ToggleTask(val id: Long) : TimelineAction

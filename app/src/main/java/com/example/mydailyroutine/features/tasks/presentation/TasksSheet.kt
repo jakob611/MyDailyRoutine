@@ -54,7 +54,7 @@ private val taskDateFormat = DateTimeFormatter.ofPattern("d. MMM", Slovenian)
 /** Homework/errand checklist. Fast entry, relative due labels, one-tap completion. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, sheetState: SheetState, onAction: (TimelineAction) -> Unit) {
+fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, sheetState: SheetState, prefillTitle: String? = null, prefillDueEpoch: Long? = null, onAction: (TimelineAction) -> Unit) {
     val today = LocalDate.now()
     val haptics = LocalRoutineHaptics.current
     var showDone by rememberSaveable { mutableStateOf(false) }
@@ -65,6 +65,9 @@ fun TasksSheet(tasks: List<Task>, subjects: List<Subject>, busy: Boolean, sheetS
     var pickingNewDate by rememberSaveable { mutableStateOf(false) }
     var newSubjectMenu by rememberSaveable { mutableStateOf(false) }
     var expandedId by rememberSaveable { mutableStateOf<Long?>(null) }
+    LaunchedEffect(prefillTitle) {
+        if (!prefillTitle.isNullOrBlank()) { newTitle = prefillTitle; prefillDueEpoch?.let { newDueEpoch = it } }
+    }
     var deleteId by rememberSaveable { mutableStateOf<Long?>(null) }
     val open = tasks.filter { it.completedAtEpochMillis == null }
     val overdue = open.filter { task -> task.dueDate?.let { due -> due.isBefore(today) } == true }.sortedBy { it.dueDate }

@@ -278,3 +278,10 @@ Vse lokalno (Room, migracija po obstoječem vzorcu do v7), vključeno v JSON bac
   ur iz opravljenih blokov.
 - Opomba k točki 0.2(3): dokument je bil sprva napačno povezal CAS srečanja z RPF
   in trditev „E = 0 → padec"; oba sta bila popravljena (glej 1) in 2) zgoraj).
+
+## 10. ManageBac (zunanji vir podatkov) — sklepi septembra 2026
+
+- Uradni **ManageBac+ Public API** (`api.managebac.com`) obstaja, a tokene izdaja **samo šolski administrator** in so šolsko-wide (vpogled v vse učence) — za osebno, lokalno aplikacijo odpade; shranjevanje takega tokena na telefonu bi bilo v nasprotju s privacy načeli appa.
+- Študentu dostopni poti: **osebni iCal feed** (gumb *Subscribe to Calendar* v koledarju ManageBac — pokrije roke/naloge, okno ~ mesec nazaj–3 naprej) in **odrezani/prikopirani urnik** (brez strojnega izvoza za učence).
+- Sklep: **B) share-catcher** — `ACTION_SEND` receiver + tolerantni `ShareTextParser` (ISO / `15. 10. 2026` / `15 Oct 2026`), prekliki v Naloge z predizpolnjenim hitrim dodajanjem. **C) enkraten uvoz urnika iz prilepljenega besedila** (`TimetablePasteParser` → predogled → tedenski SCHOOL bloki prek obstoječega `RoutinePatternRequest`).
+- Namenoma NE: skrapanje z sejo/gesli, šolski API token, dvosmerna sinhronizacija, CAS prepisovanje (ManageBac ostane sistem za nadzornikove potrditve; app je lokalni dnevnik). ICS-uvoz (A) ostane odprt, če študentski feed dejansko deluje na šoli.

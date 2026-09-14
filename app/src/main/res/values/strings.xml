@@ -523,6 +523,15 @@
     <string name="sleep_weekend_wake">Zjutraj (vikend)</string>
     <string name="lesson_auto_done">Samodejno opravljeno</string>
     <string name="subject_edit_hint">Uredi predmet</string>
+    <string name="timetable_import_title">Uvoz urnika iz besedila</string>
+    <string name="timetable_import_hint">Z spletne strani šole (npr. ManageBac) kopiraj vrste razporeda in prilepi sem. Prepoznam oblike »Pon 08:00–08:50 Matematika« in »Monday 8:00-8:50 Math«; iz vsake vrste nastane tedenski blok pouka brez opomnika.</string>
+    <string name="timetable_import_settings_hint">Enkraten uvoz kopiranega razporeda iz ManageBaca. Povezave ni v oblaku — urnik ostane tvoja lokalna nastavitev.</string>
+    <string name="timetable_import_open">Prilepi in uvozi urnik</string>
+    <string name="timetable_import_paste">Kopirane vrste urnika</string>
+    <string name="timetable_import_preview">Predogled</string>
+    <string name="timetable_import_none">Nisem prepoznal nobene ure — vsaka vrsta potrebuje dan in razpon (npr. 08:00–08:50) ter naziv predmeta.</string>
+    <string name="timetable_import_confirm">Ustvari %1$d blokov</string>
+    <string name="timetable_imported">Urnik uvožen — tedenski bloki pouka so pripravljeni</string>
     <string name="sleep_days">Dnevi odhoda v posteljo</string>
     <string name="sleep_days_hint">Če je zbujanje prej na uri kot odhod v posteljo, pomeni naslednji dan. Npr. nedelja 23:00 → ponedeljek 07:00.</string>
     <string name="sleep_morning">Jutranji prehod (min)</string>

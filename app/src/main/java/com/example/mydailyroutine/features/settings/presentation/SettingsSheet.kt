@@ -114,6 +114,10 @@ fun SettingsSheet(
                     modifier = Modifier.clickable(enabled = !busy) { onAction(TimelineAction.EditSubject(subject)) })
             }
             HorizontalDivider()
+            Text(stringResource(R.string.timetable_import_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.timetable_import_settings_hint), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary)
+            OutlinedButton(enabled = !busy, onClick = { onAction(TimelineAction.ShowTimetableImport) }) { Text(stringResource(R.string.timetable_import_open)) }
+            HorizontalDivider()
             Text(stringResource(R.string.settings_health), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(R.string.settings_health_body), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.health_explanation), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning)

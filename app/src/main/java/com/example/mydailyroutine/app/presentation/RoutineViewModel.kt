@@ -347,9 +347,30 @@ class RoutineViewModel(
             TimelineAction.OpenTasks -> panels.update {
                 it.copy(showTasks = true, showAdd = false, showSettings = false, showPlanning = false, showTopicEditor = false, editingBlock = null, editingMilestone = null, editingSubject = null, pendingDelete = null)
             }
-            TimelineAction.CloseTasks -> if (!panels.value.isSaving) panels.update { it.copy(showTasks = false) }
+            TimelineAction.CloseTasks -> if (!panels.value.isSaving) panels.update { it.copy(showTasks = false, sharedTaskTitle = null, sharedTaskDue = null) }
+            is TimelineAction.OpenSharedTask -> panels.update {
+                it.copy(showTasks = true, showAdd = false, showSettings = false, showPlanning = false, showTopicEditor = false, showGoals = false, pendingDelete = null,
+                    sharedTaskTitle = action.title, sharedTaskDue = action.dueEpochDay)
+            }
+            TimelineAction.ShowTimetableImport -> panels.update { it.copy(showTimetableImport = true, showSettings = false) }
+            TimelineAction.CloseTimetableImport -> if (!panels.value.isSaving) panels.update { it.copy(showTimetableImport = false) }
+            is TimelineAction.ImportTimetable -> perform {
+                // A pasted timetable is a one-time import into the same weekly-series machinery as the manual flow.
+                val anchor = LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+                action.rows.forEach { row ->
+                    val subject = state.value.content.subjects.firstOrNull { row.title.contains(it.name, ignoreCase = true) || it.name.equals(row.title, ignoreCase = true) }
+                    patternsRepository.create(com.example.mydailyroutine.domain.routines.RoutinePatternRequest(
+                        com.example.mydailyroutine.domain.model.RoutineBlueprint(subjectId = subject?.id, title = row.title, category = RoutineCategory.SCHOOL, dayOfWeek = row.day,
+                            startTime = java.time.LocalTime.of(row.startMinute / 60, row.startMinute % 60),
+                            endTime = java.time.LocalTime.of(minOf(row.endMinute, 1439) / 60, minOf(row.endMinute, 1439) % 60),
+                            isNotificationEnabled = false, validFrom = anchor),
+                        setOf(row.day), weekly = true))
+                }
+                messages.send(TimelineEffect.Message(R.string.timetable_imported))
+            }
             is TimelineAction.AddTask -> perform {
                 planningRepository.saveTask(Task(title = action.title, dueDate = action.dueDate, subjectId = action.subjectId, createdAtEpochMillis = System.currentTimeMillis()))
+                panels.update { it.copy(sharedTaskTitle = null, sharedTaskDue = null) }
                 messages.send(TimelineEffect.Message(R.string.tasks_added))
             }
             is TimelineAction.UpdateTask -> perform {

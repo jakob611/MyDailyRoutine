@@ -73,6 +73,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun consumeIntent(intent: Intent) {
+        if (intent.action == Intent.ACTION_SEND) {
+            // A deadline shared from ManageBac or any other app lands as a pre-filled quick-add in the Tasks sheet.
+            val draft = com.example.mydailyroutine.core.platform.ShareTextParser.parse(intent.getStringExtra(Intent.EXTRA_TEXT))
+            if (draft != null) viewModel.onAction(TimelineAction.OpenSharedTask(draft.title, draft.dueEpochDay))
+            return
+        }
         if (intent.action != ACTION_OPEN_DAY && intent.action != ACTION_FAST_ADD) return
         val date = intent.getStringExtra(EXTRA_DATE)?.let(ScheduleValidation::parseDate) ?: LocalDate.now()
         viewModel.onAction(TimelineAction.SelectDate(date, openDay = true))

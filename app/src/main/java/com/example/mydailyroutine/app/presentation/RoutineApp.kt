@@ -186,7 +186,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             exportJson = state.panels.exportJson,
             onDismiss = { onAction(TimelineAction.CloseSettings) }, requestNotifications = requestNotifications, requestExactAlarms = requestExactAlarms, openNotificationSettings = openNotificationSettings, sheetState = sheetState) }
         RoutineSheet(state.panels.showPlanning) { sheetState -> PlanningSheet(state, onAction, sheetState = sheetState) }
-        RoutineSheet(state.panels.showTasks) { sheetState -> TasksSheet(state.planning.tasks, data.subjects, state.panels.isSaving, sheetState, onAction) }
+        RoutineSheet(state.panels.showTasks) { sheetState -> TasksSheet(state.planning.tasks, data.subjects, state.panels.isSaving, sheetState, state.panels.sharedTaskTitle, state.panels.sharedTaskDue, onAction) }
+        RoutineSheet(state.panels.showTimetableImport) { sheetState -> TimetableImportSheet(data.subjects, state.panels.isSaving, sheetState, onDismiss = { onAction(TimelineAction.CloseTimetableImport) }, onImport = { rows -> onAction(TimelineAction.ImportTimetable(rows)) }) }
         RoutineSheet(state.panels.showTopicEditor) { sheetState -> TopicEditorSheet(state, onAction, sheetState = sheetState) }
         state.panels.completionTarget?.let { ActualCompletionDialog(it, state.panels.isSaving, onAction) }
         state.panels.editingBlock?.let { BlockEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseEditor) }, onSave = onAction) }
