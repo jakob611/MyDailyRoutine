@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
@@ -41,7 +40,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -144,7 +142,7 @@ fun TimetableImportSheet(
                 label = { Text(stringResource(R.string.timetable_import_paste)) },
                 minLines = 5,
                 maxLines = 10,
-                shape = RoutineShapes.Control,
+                shape = RoutineShapes.Card,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 FilledTonalButton(
@@ -159,7 +157,7 @@ fun TimetableImportSheet(
             val rows = preview
             if (rows != null) {
                 if (rows.isEmpty()) {
-                    Text(stringResource(R.string.timetable_import_none), style = MaterialTheme.typography.bodySmall, color = RoutineColors.WarningText)
+                    Text(stringResource(R.string.timetable_import_none), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning)
                 } else {
                     Text(
                         stringResource(R.string.timetable_import_confirm, rows.size),
@@ -177,15 +175,15 @@ fun TimetableImportSheet(
                                 Modifier
                                     .fillMaxWidth()
                                     .background(
-                                        if (matchesSubject) RoutineColors.Surface2 else RoutineColors.Surface3,
-                                        RoutineShapes.Control,
+                                        if (matchesSubject) RoutineColors.School.container else RoutineColors.Surface2,
+                                        RoutineShapes.Chip,
                                     )
                                     .padding(horizontal = 12.dp, vertical = 9.dp),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(row.day.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()), style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextMuted)
-                                Text("%02d:%02d – %02d:%02d".format(row.startMinute / 60, row.startMinute % 60, row.endMinute / 60, row.endMinute % 60), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = RoutineColors.PrimaryDark)
+                                Text("%02d:%02d – %02d:%02d".format(row.startMinute / 60, row.startMinute % 60, row.endMinute / 60, row.endMinute % 60), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = RoutineColors.School.content)
                                 Text(row.title, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                             }
                         }
