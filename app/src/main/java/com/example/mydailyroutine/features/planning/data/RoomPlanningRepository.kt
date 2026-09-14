@@ -25,7 +25,22 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
     override val history = db.learning().observeHistory().map { it.map { row -> row.domain() } }
     override val topics = db.learning().observeTopics().map { it.map { row -> row.domain() } }
     override val milestones = db.milestones().observeAll().map { it.map { row -> row.domain() } }
+    override val tasks = db.tasks().observeAll().map { it.map { row -> row.domain() } }
     private val resolver = TimelineResolver()
+
+    override suspend fun saveTask(task: Task): Long = transaction {
+        val title = task.title.trim()
+        val note = task.note
+        require(title.isNotEmpty() && title.length <= 120 && (note == null || note.length <= 2000))
+        val clean = task.copy(title = title, note = task.note?.trim()?.takeIf { it.isNotEmpty() })
+        if (clean.id == 0L) db.tasks().insert(clean.entity())
+        else { check(db.tasks().update(clean.entity()) == 1) { "This task was deleted." }; clean.id }
+    }
+    override suspend fun toggleTask(id: Long) {
+        transaction { db.tasks().get(id)?.let { db.tasks().setCompleted(id, if (it.completedAtEpochMillis == null) System.currentTimeMillis() else null) } }
+    }
+    override suspend fun deleteTask(id: Long) = transaction { db.tasks().delete(id) }
+    override suspend fun clearCompletedTasks() = transaction { db.tasks().clearCompleted() }
 
     private suspend fun <T> transaction(operation: suspend () -> T): T = withContext(Dispatchers.IO) {
         db.withTransaction { operation().also { onChanged() } }

@@ -3,11 +3,16 @@ package com.example.mydailyroutine.app.presentation
 import com.example.mydailyroutine.core.presentation.*
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -35,11 +40,20 @@ import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.features.timeline.components.DateNavigator
 import com.example.mydailyroutine.features.entry.presentation.*
 import com.example.mydailyroutine.features.subjects.presentation.SubjectEditorDialog
+import com.example.mydailyroutine.core.designsystem.components.RoutineSheet
 import com.example.mydailyroutine.core.designsystem.haptics.*
 import com.example.mydailyroutine.features.timeline.presentation.overview.*
 import com.example.mydailyroutine.features.timeline.presentation.DailyTimeline
 import com.example.mydailyroutine.features.planning.presentation.*
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import com.example.mydailyroutine.features.tasks.presentation.TasksSheet
+import com.example.mydailyroutine.features.goals.presentation.GoalsScreen
 import com.example.mydailyroutine.features.settings.presentation.NotificationAccess
 import com.example.mydailyroutine.features.settings.presentation.SettingsSheet
 import com.example.mydailyroutine.core.designsystem.theme.*
@@ -64,7 +78,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         }
     }
     val onAction: (TimelineAction) -> Unit = remember(viewModel, haptics) { { action ->
-        if (action !is TimelineAction.ToggleComplete && action !is TimelineAction.SyncExecution) haptics.tap()
+        if (action !is TimelineAction.ToggleComplete && action !is TimelineAction.SyncExecution && action !is TimelineAction.ToggleTask &&
+            action !is TimelineAction.ToggleGoalMilestone && action !is TimelineAction.ToggleGoalActivity) haptics.tap()
         viewModel.onAction(action)
     } }
     val snackbars = remember { SnackbarHostState() }
@@ -87,16 +102,31 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             previousWarnings = warningKeys
         }
     }
+    val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(now.toLocalDate()) }
     CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalHapticFeedback provides gatedHaptics) {
         Scaffold(containerColor = RoutineColors.Background,
             topBar = {
-                Column {
+                AnimatedContent(targetState = state.panels.showGoals, label = "topbar-switch",
+                    transitionSpec = { ContentTransform(fadeIn(tween(TransitionMillis)), fadeOut(tween(TransitionMillis)), sizeTransform = SizeTransform(clip = false)) }) { goalsShown ->
+                if (goalsShown) {
+                    TopAppBar(title = { Text(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge) },
+                        navigationIcon = { IconButton(onClick = { onAction(TimelineAction.CloseGoals) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back)) } },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = RoutineColors.Background))
+                } else Column {
                     TopAppBar(title = { Column {
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
                         Text(stringResource(R.string.app_tagline), style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary)
                     } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = RoutineColors.Background),
                         actions = {
                             IconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open)) }
+                            Box {
+                                IconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open)) }
+                                androidx.compose.animation.AnimatedVisibility(visible = overdueTasks > 0, modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
+                                    enter = scaleIn(PopSpring, initialScale = 0.4f) + fadeIn(tween(120)), exit = fadeOut(tween(120))) {
+                                    Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Crimson))
+                                }
+                            }
+                            IconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open)) }
                             IconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings)) } })
                     DateNavigator(periodTitle(data), onPrevious = { onAction(TimelineAction.Shift(-1)) }, onNext = { onAction(TimelineAction.Shift(1)) },
                         onToday = { onAction(TimelineAction.Today) }, onPick = { haptics.tap(); choosingDate = true })
@@ -108,49 +138,62 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         }
                     }
                 }
+                }
             }, snackbarHost = { SnackbarHost(snackbars) },
             floatingActionButton = {
-                ExtendedFloatingActionButton(onClick = { onAction(TimelineAction.OpenAdd) }, modifier = Modifier.testTag("fast-add"), shape = RoutineShapes.Pill,
+                if (!state.panels.showGoals) ExtendedFloatingActionButton(onClick = { onAction(TimelineAction.OpenAdd) }, modifier = Modifier.testTag("fast-add"), shape = RoutineShapes.Pill,
                     containerColor = RoutineColors.Amber, contentColor = RoutineColors.Background,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp, pressedElevation = 0.dp, focusedElevation = 0.dp, hoveredElevation = 0.dp),
                     icon = { Icon(Icons.Default.Add, null) }, text = { Text(stringResource(R.string.add_block)) })
             },
         ) { padding ->
-            AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
+            AnimatedContent(targetState = state.panels.showGoals, label = "goals-switch",
                 modifier = Modifier.fillMaxSize().padding(padding), transitionSpec = {
-                    (slideInHorizontally(tween(TransitionMillis)) { it / 4 } + fadeIn(tween(TransitionMillis))) togetherWith
-                        (slideOutHorizontally(tween(TransitionMillis)) { -it / 4 } + fadeOut(tween(TransitionMillis)))
-                }) { shown ->
-                Box(Modifier.fillMaxSize()) {
-                    when {
-                        shown.isLoading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                        shown.error != null -> Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(shown.error))
-                            TextButton(onClick = { onAction(TimelineAction.Retry) }) { Text(stringResource(R.string.retry)) }
-                        }
-                        else -> when (shown.mode) {
-                            TimelineMode.DAY -> shown.days[shown.date]?.let { DailyTimeline(it, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution, onAction) }
-                            TimelineMode.WEEK -> WeeklyOverview(shown) { onAction(TimelineAction.SelectDate(it, true)) }
-                            TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
-                            TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate()) { onAction(TimelineAction.SelectDate(it, true)) }
+                    (slideInVertically(tween(TransitionMillis)) { it / 6 } + fadeIn(tween(TransitionMillis))) togetherWith
+                        (slideOutVertically(tween(TransitionMillis)) { -it / 6 } + fadeOut(tween(TransitionMillis)))
+                }) { goalsShown ->
+                if (goalsShown) GoalsScreen(state.goals, state.panels.isSaving, onAction)
+                else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
+                    modifier = Modifier.fillMaxSize(), transitionSpec = {
+                        (slideInHorizontally(tween(TransitionMillis)) { it / 4 } + fadeIn(tween(TransitionMillis))) togetherWith
+                            (slideOutHorizontally(tween(TransitionMillis)) { -it / 4 } + fadeOut(tween(TransitionMillis)))
+                    }) { shown ->
+                    Box(Modifier.fillMaxSize()) {
+                        when {
+                            shown.isLoading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+                            shown.error != null -> Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(stringResource(shown.error))
+                                TextButton(onClick = { onAction(TimelineAction.Retry) }) { Text(stringResource(R.string.retry)) }
+                            }
+                            else -> when (shown.mode) {
+                                TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
+                                    state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction) }
+                                TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }) { onAction(TimelineAction.SelectDate(it, true)) }
+                                TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }) { onAction(TimelineAction.SelectDate(it, true)) }
+                                TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }) { onAction(TimelineAction.SelectDate(it, true)) }
+                            }
                         }
                     }
                 }
             }
         }
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
-        if (state.panels.showAdd) key(state.panels.addSession) {
-            EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, state.panels.editingMilestone, state.panels.isSaving,
-                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation)
-        }
-        if (state.panels.showSettings) SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, state.sleep, onAction = onAction,
+        RoutineSheet(state.panels.showAdd) { sheetState -> key(state.panels.addSession) {
+            EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, state.panels.editingMilestone, state.panels.isSaving, sheetState,
+                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, onEditSubject = { subject -> onAction(TimelineAction.EditSubject(subject)) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation, prefillTitle = state.panels.entryPrefillTitle)
+        } }
+        RoutineSheet(state.panels.showSettings) { sheetState -> SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, state.sleep, onAction = onAction,
             exportJson = state.panels.exportJson,
-            onDismiss = { onAction(TimelineAction.CloseSettings) }, requestNotifications = requestNotifications, requestExactAlarms = requestExactAlarms, openNotificationSettings = openNotificationSettings)
-        if (state.panels.showPlanning) PlanningSheet(state, onAction)
-        if (state.panels.showTopicEditor) TopicEditorSheet(state, onAction)
+            onDismiss = { onAction(TimelineAction.CloseSettings) }, requestNotifications = requestNotifications, requestExactAlarms = requestExactAlarms, openNotificationSettings = openNotificationSettings, sheetState = sheetState) }
+        RoutineSheet(state.panels.showPlanning) { sheetState -> PlanningSheet(state, onAction, sheetState = sheetState) }
+        RoutineSheet(state.panels.showTasks) { sheetState -> TasksSheet(state.planning.tasks, data.subjects, state.panels.isSaving, sheetState, state.panels.sharedTaskTitle, state.panels.sharedTaskDue, onAction) }
+        RoutineSheet(state.panels.showTimetableImport) { sheetState -> TimetableImportSheet(data.subjects, state.panels.isSaving, sheetState, onDismiss = { onAction(TimelineAction.CloseTimetableImport) }, onImport = { rows -> onAction(TimelineAction.ImportTimetable(rows)) }) }
+        RoutineSheet(state.panels.showTopicEditor) { sheetState -> TopicEditorSheet(state, onAction, sheetState = sheetState) }
         state.panels.completionTarget?.let { ActualCompletionDialog(it, state.panels.isSaving, onAction) }
         state.panels.editingBlock?.let { BlockEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseEditor) }, onSave = onAction) }
-        state.panels.editingSubject?.let { SubjectEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) }, onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) }) }
+        state.panels.editingSubject?.let { editing -> SubjectEditorDialog(editing, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) },
+            onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) },
+            onDelete = if (editing.id == 0L) null else { { onAction(TimelineAction.DeleteSubject(editing.id)); onAction(TimelineAction.CloseSubjectEditor) } }) }
         state.panels.pendingDelete?.let { item ->
             val recurring = item is ResolvedTimelineItem.Block && !item.isOneOff
             val group = (item as? ResolvedTimelineItem.Block)?.takeIf { it.parentRoutineId == null && it.origin == com.example.mydailyroutine.domain.routines.RoutineOrigin.USER }?.seriesKey

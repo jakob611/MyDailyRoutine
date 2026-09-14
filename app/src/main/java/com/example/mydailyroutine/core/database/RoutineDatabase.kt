@@ -17,8 +17,9 @@ import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
     entities = [SubjectEntity::class, TimeBlockEntity::class, EventOverrideEntity::class,
         SchoolCalendarEntryEntity::class, MilestoneEntity::class, RoutineCompletionEntity::class,
         AlarmDeliveryEntity::class, DemoImportEntity::class, HistoricalVelocityEntity::class,
-        StudyTopicEntity::class, SpacedReviewEntity::class, BacklogEntryEntity::class, ActiveExecutionEntity::class],
-    version = 7,
+        StudyTopicEntity::class, SpacedReviewEntity::class, BacklogEntryEntity::class, ActiveExecutionEntity::class,
+        TaskEntity::class, GoalsProjectEntity::class, GoalActivityEntity::class, GoalMilestoneEntity::class, GoalProgressEntity::class],
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(TimeConverters::class)
@@ -34,13 +35,15 @@ abstract class RoutineDatabase : RoomDatabase() {
     abstract fun learning(): LearningDao
     abstract fun backlog(): BacklogDao
     abstract fun execution(): ExecutionDao
+    abstract fun tasks(): TaskDao
+    abstract fun goals(): GoalsDao
 
     companion object {
         fun create(context: Context): RoutineDatabase = Room.databaseBuilder(
             context.applicationContext, RoutineDatabase::class.java, "daily-routine.db",
         )
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6, DatabaseMigrations.MIGRATION_6_7)
+            .addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6, DatabaseMigrations.MIGRATION_6_7, DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9)
             .addCallback(SeedAndIntegrityCallback(context.resources))
             // No destructive migration fallback: schema changes must ship an explicit migration.
             .build()

@@ -24,6 +24,9 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
     var bed by rememberSaveable(schedule) { mutableStateOf(schedule.bedtime.clockLabel()) }
     var wake by rememberSaveable(schedule) { mutableStateOf(schedule.wakeTime.clockLabel()) }
     var days by rememberSaveable(schedule) { mutableIntStateOf(schedule.weekdaysMask) }
+    var weekend by rememberSaveable(schedule) { mutableStateOf(schedule.weekendEnabled) }
+    var weekendBed by rememberSaveable(schedule) { mutableStateOf(schedule.weekendBedtime.clockLabel()) }
+    var weekendWake by rememberSaveable(schedule) { mutableStateOf(schedule.weekendWakeTime.clockLabel()) }
     var morning by rememberSaveable(schedule) { mutableStateOf(schedule.morningBufferMinutes.toString()) }
     var invalid by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
@@ -40,6 +43,16 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
         }
         val start=ScheduleValidation.parseTime(bed); val end=ScheduleValidation.parseTime(wake)
         if (start!=null && end!=null && start!=end) Text(stringResource(R.string.sleep_planned_duration,durationLabel(com.example.mydailyroutine.domain.model.nominalMinutes(start,end))),style=MaterialTheme.typography.labelMedium,color=RoutineColors.Sage)
+        Row(verticalAlignment=Alignment.CenterVertically) {
+            Text(stringResource(R.string.sleep_weekend_mode),Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
+            Switch(weekend,{ weekend=it },enabled=!busy)
+        }
+        if (weekend) {
+            Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(weekendBed,{ weekendBed=it;invalid=false },label={ Text(stringResource(R.string.sleep_weekend_bedtime)) },singleLine=true,enabled=!busy,modifier=Modifier.weight(1f))
+                OutlinedTextField(weekendWake,{ weekendWake=it;invalid=false },label={ Text(stringResource(R.string.sleep_weekend_wake)) },singleLine=true,enabled=!busy,modifier=Modifier.weight(1f))
+            }
+        }
         Text(stringResource(R.string.sleep_days),style=MaterialTheme.typography.titleSmall)
         WeekdayPicker(days,!busy) { days=it }
         TextButton(enabled=!busy,onClick={ days=com.example.mydailyroutine.domain.routines.Weekdays.shifted(com.example.mydailyroutine.domain.routines.Weekdays.WORKDAYS,-1) }) {
@@ -50,7 +63,9 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
         Text(stringResource(R.string.sleep_morning_hint),style=MaterialTheme.typography.bodySmall,color=RoutineColors.TextSecondary)
         if(invalid) Text(stringResource(R.string.sleep_invalid),style=MaterialTheme.typography.bodySmall,color=RoutineColors.Warning)
         FilledTonalButton(enabled=!busy,onClick={
-            val value=runCatching { SleepSchedule(enabled,requireNotNull(start),requireNotNull(end),days,morning.toInt()) }.getOrNull()
+            val wStart=if (weekend) ScheduleValidation.parseTime(weekendBed) else java.time.LocalTime.of(0,30)
+            val wEnd=if (weekend) ScheduleValidation.parseTime(weekendWake) else java.time.LocalTime.of(9,30)
+            val value=runCatching { SleepSchedule(enabled,requireNotNull(start),requireNotNull(end),days,morning.toInt(),weekend,requireNotNull(wStart),requireNotNull(wEnd)) }.getOrNull()
             invalid=value==null
             value?.let { onAction(TimelineAction.SaveSleep(it,context.getString(R.string.sleep_title),context.getString(R.string.sleep_morning_title))) }
         }) { Text(stringResource(R.string.sleep_save)) }

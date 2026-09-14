@@ -65,7 +65,8 @@ class ResolvedSchedule internal constructor(snapshot: ScheduleSnapshot) {
         }
     }.sortedWith(compareBy<CancelledOccurrence> { it.occurrenceDate }.thenBy { it.routineBlockId })
 
-    fun forDate(date: LocalDate): List<ResolvedTimelineItem> {
+    /** `autoCompleteLessonsBefore` marks ended SCHOOL blocks done without writing history — absences stay handled through skip. */
+    fun forDate(date: LocalDate, autoCompleteLessonsBefore: LocalDateTime? = null): List<ResolvedTimelineItem> {
         val dayStart = date.atStartOfDay(); val dayEnd = date.plusDays(1).atStartOfDay()
         val blocks = buildList {
             for (offset in (MAX_OCCURRENCE_SHIFT_DAYS + 8) downTo 0) {
@@ -75,16 +76,18 @@ class ResolvedSchedule internal constructor(snapshot: ScheduleSnapshot) {
                     if (window.start >= dayEnd || window.end <= dayStart) continue
                     val exception = overrides[base.id to origin]
                     val completion = completions[base.id to origin]
+                    val autoLesson = autoCompleteLessonsBefore != null && completion == null && base.category == RoutineCategory.SCHOOL &&
+                        window.holiday == null && !window.end.isAfter(autoCompleteLessonsBefore)
                     add(ResolvedTimelineItem.Block(
                         routineBlockId=base.id,occurrenceDate=origin,date=date,title=exception?.customTitle ?: base.title,
                         category=base.category,subject=subjects[base.subjectId],startsAt=window.start,endsAt=window.end,
                         startMinute=Duration.between(dayStart,maxOf(window.start,dayStart)).toMinutes().toInt(),
                         endMinute=Duration.between(dayStart,minOf(window.end,dayEnd)).toMinutes().toInt(),
-                        isNotificationEnabled=base.isNotificationEnabled,isCompleted=completion != null,holidayTitle=window.holiday,
+                        isNotificationEnabled=base.isNotificationEnabled,isCompleted=completion != null || autoLesson,holidayTitle=window.holiday,
                         hasOverride=exception != null || window.inheritedOverride,isOneOff=base.validFrom != null && base.validFrom==base.validUntil,
                         minDurationMinutes=minOf(base.minDurationMinutes,Duration.between(window.start,window.end).toMinutes().toInt()),
                         elasticity=base.elasticity,priorityWeight=base.priorityWeight,isFixedCommitment=base.isFixedCommitment,
-                        completedActualMinutes=completion?.actualMinutes,rawDurationMinutes=base.rawDurationMinutes,
+                        completedActualMinutes=completion?.actualMinutes,rawDurationMinutes=base.rawDurationMinutes,lessonAutoCompleted=autoLesson,
                         topicId=base.topicId,milestoneId=base.milestoneId,reviewId=reviews[base.id]?.id,stageOrder=base.stageOrder,
                         actualTiming=completion?.actualTiming,seriesKey=base.seriesKey,seriesDays=seriesDays[base.seriesKey].orEmpty(),
                         parentRoutineId=base.parentRoutineId,origin=base.origin,

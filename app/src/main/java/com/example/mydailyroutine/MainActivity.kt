@@ -32,7 +32,7 @@ import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<RoutineViewModel> {
-        viewModelFactory { initializer { RoutineViewModel(appGraph.repository, appGraph.preferences, createSavedStateHandle(), appGraph.exampleData, appGraph.planning, appGraph.execution, appGraph.patterns, appGraph.backup) } }
+        viewModelFactory { initializer { RoutineViewModel(appGraph.repository, appGraph.preferences, createSavedStateHandle(), appGraph.exampleData, appGraph.planning, appGraph.execution, appGraph.patterns, appGraph.backup, appGraph.goals) } }
     }
     private var access by mutableStateOf(NotificationAccess(false, false))
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -73,6 +73,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun consumeIntent(intent: Intent) {
+        if (intent.action == Intent.ACTION_SEND) {
+            // A deadline shared from ManageBac or any other app lands as a pre-filled quick-add in the Tasks sheet.
+            val shared = intent.getStringExtra(Intent.EXTRA_TEXT)
+            if (!shared.isNullOrBlank()) {
+                val draft = com.example.mydailyroutine.core.platform.ShareTextParser.parse(shared)
+                viewModel.onAction(TimelineAction.OpenSharedTask(draft.title, draft.dueEpochDay))
+            }
+            return
+        }
         if (intent.action != ACTION_OPEN_DAY && intent.action != ACTION_FAST_ADD) return
         val date = intent.getStringExtra(EXTRA_DATE)?.let(ScheduleValidation::parseDate) ?: LocalDate.now()
         viewModel.onAction(TimelineAction.SelectDate(date, openDay = true))

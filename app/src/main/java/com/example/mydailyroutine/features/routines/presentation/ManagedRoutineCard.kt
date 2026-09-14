@@ -9,6 +9,8 @@ import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -30,13 +32,15 @@ fun ManagedRoutineCard(block: ResolvedTimelineItem.Block, now: ZonedDateTime, sh
     val sleep = block.origin == RoutineOrigin.SLEEP
     val morning = block.origin == RoutineOrigin.MORNING_BUFFER
     val tint = if(block.isSuppressed) RoutineColors.TextMuted else RoutineColors.Sage
+    var cardH by remember { mutableFloatStateOf(0f) }
     Column(modifier.fillMaxWidth(), verticalArrangement=Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.width(60.dp),verticalArrangement=Arrangement.spacedBy(3.dp)) {
                 Text(minuteLabel(block.startMinute),style=MaterialTheme.typography.bodySmall,color=RoutineColors.TextSecondary)
                 Text(minuteLabel(block.endMinute),style=MaterialTheme.typography.bodySmall,color=RoutineColors.TextMuted)
             }
-            OutlinedCard(onClick={ expanded=!expanded;haptics.tap() },modifier=Modifier.weight(1f),shape=RoutineShapes.Card,
+            Box(Modifier.weight(1f).onSizeChanged { cardH = it.height.toFloat() }) {
+            OutlinedCard(onClick={ expanded=!expanded;haptics.tap() },modifier=Modifier.fillMaxWidth(),shape=RoutineShapes.Card,
                 border=BorderStroke(1.dp,RoutineColors.CardBorder),colors=CardDefaults.outlinedCardColors(containerColor=RoutineColors.Surface1)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -58,7 +62,14 @@ fun ManagedRoutineCard(block: ResolvedTimelineItem.Block, now: ZonedDateTime, sh
                     }
                 }
             }
+            if (showNow && cardH > 0f) {
+                val nowMinute = now.hour * 60 + now.minute
+                val span = (block.endMinute - block.startMinute).coerceAtLeast(1)
+                val progress = ((nowMinute - block.startMinute).toFloat() / span).coerceIn(0f, 1f)
+                val offset = with(LocalDensity.current) { (cardH * progress).coerceIn(12f, (cardH - 12f).coerceAtLeast(12f)).toDp() }
+                NowMarker(now.toLocalTime().clockLabel(), Modifier.fillMaxWidth().offset(y = offset))
+            }
+            }
         }
-        if(showNow) NowMarker(now.toLocalTime().clockLabel(),Modifier.fillMaxWidth())
     }
 }

@@ -47,12 +47,15 @@ data class EntryDefaults(val lessonDurationMinutes: Int = 45, val lessonBreakMin
     init { require(lessonDurationMinutes in 1..240 && lessonBreakMinutes in 1..60) }
 }
 data class SleepSchedule(val enabled: Boolean = false, val bedtime: LocalTime = LocalTime.of(23,0),
-    val wakeTime: LocalTime = LocalTime.of(7,0), val weekdaysMask: Int = Weekdays.ALL, val morningBufferMinutes: Int = 30) {
+    val wakeTime: LocalTime = LocalTime.of(7,0), val weekdaysMask: Int = Weekdays.ALL, val morningBufferMinutes: Int = 30,
+    val weekendEnabled: Boolean = false, val weekendBedtime: LocalTime = LocalTime.of(0,30), val weekendWakeTime: LocalTime = LocalTime.of(9,30)) {
     init {
         ScheduleValidation.times(bedtime,wakeTime)
+        if (weekendEnabled) ScheduleValidation.times(weekendBedtime,weekendWakeTime)
         require(weekdaysMask in 1..Weekdays.ALL && morningBufferMinutes in 0..120)
     }
     val durationMinutes: Int get() = nominalMinutes(bedtime,wakeTime)
+    val weekendDurationMinutes: Int get() = nominalMinutes(weekendBedtime, weekendWakeTime)
 }
 data class RoutinePatternRequest(val blueprint: RoutineBlueprint, val weekdays: Set<DayOfWeek>, val weekly: Boolean,
     val afterLessonBreakMinutes: Int = 0, val breakTitle: String = "", val breakNotifications: Boolean = false) {

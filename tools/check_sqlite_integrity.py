@@ -8,7 +8,7 @@ LOCAL=ROOT/'app/src/main/java/com/example/mydailyroutine/core/database'
 
 def install(connection):
     predicates=re.findall(r'"(\w+)" to """(.*?)"""\.trimIndent\(\)',(LOCAL/'DatabaseIntegrity.kt').read_text(),re.S)
-    assert len(predicates)==12 and len(ddl())==13
+    assert len(predicates)==17 and len(ddl())==18
     for table,predicate in predicates:
         for op in ('INSERT','UPDATE'):
             connection.execute(f"CREATE TRIGGER IF NOT EXISTS validate_{table}_{op.lower()} BEFORE {op} ON {table} FOR EACH ROW WHEN ({predicate}) BEGIN SELECT RAISE(ABORT,'Invalid {table} values'); END")
@@ -129,6 +129,8 @@ class SQLiteIntegritySmokeTest(unittest.TestCase):
         db.execute('INSERT INTO alarm_deliveries SELECT * FROM _v2_alarm_deliveries')
         db.execute('ALTER TABLE backlog_entries ADD COLUMN rawDurationMinutes INTEGER NOT NULL DEFAULT 1')
         db.execute('UPDATE backlog_entries SET rawDurationMinutes=COALESCE((SELECT rawDurationMinutes FROM routine_blocks WHERE id=sourceRoutineId),durationMinutes)')
+        for table in ('tasks','goals_project','goals_activity','goals_milestone','goals_progress'):
+            for statement in ddl()[table]: db.execute(statement)
         install(db)
         self.assertEqual(('ADMIN',1380,120,1),db.execute('SELECT category,startMinutes,durationMinutes,isFixedCommitment FROM routine_blocks').fetchone())
         self.assertEqual(1,db.execute('SELECT count(*) FROM event_overrides').fetchone()[0])
@@ -160,6 +162,26 @@ class SQLiteIntegritySmokeTest(unittest.TestCase):
         for sql in re.findall(r'db.execSQL\("([^\"]+)"\)',part):db.execute(sql)
         self.assertEqual((45,None,None,'USER',1),db.execute('SELECT durationMinutes,seriesKey,parentRoutineId,origin,isEnabled FROM routine_blocks').fetchone())
         self.assertEqual([],db.execute('PRAGMA foreign_key_check').fetchall());db.close()
+    def test_tasks_title_due_date_and_completion_order(self):
+        self.fails("INSERT INTO tasks(id,title,createdAtEpochMillis) VALUES(1,'  ',1000)")
+        self.db.execute("INSERT INTO tasks(id,title,subjectId,dueDate,note,createdAtEpochMillis,completedAtEpochMillis) VALUES(1,'Naloga',1,?,?,?,?)",(self.day,None,1000,None))
+        self.fails('UPDATE tasks SET completedAtEpochMillis=999 WHERE id=1')
+        self.db.execute('UPDATE tasks SET completedAtEpochMillis=2000 WHERE id=1')
+        self.db.execute('DELETE FROM subjects WHERE id=1')
+        self.assertIsNone(self.db.execute('SELECT subjectId FROM tasks').fetchone()[0])
+        self.fails("INSERT INTO tasks(id,title,subjectId,createdAtEpochMillis) VALUES(2,'Orphan',42,?)",(self.day,))
+    def test_goals_progress_bounds_and_cascade(self):
+        self.db.execute("INSERT INTO goals_project(id,name,kind,startDate,endDate,targetHours,targetWords) VALUES(1,'CAS','CAS',?,?,150.0,NULL)",(self.day,self.day+500))
+        self.db.execute("INSERT INTO goals_activity(id,projectId,title,category,startDate,endDate,note,isCasProject,isDone,isScheduled) VALUES(1,1,'Tek','ACTIVITY',?,?,'',0,0,0)",(self.day,self.day+100))
+        self.db.execute("INSERT INTO goals_milestone(id,projectId,title,dueDate,isDone) VALUES(1,1,'Srečanje',?,0)",(self.day+30,))
+        self.db.execute("INSERT INTO goals_progress(id,projectId,activityId,kind,amount,note,logDate) VALUES(1,1,1,'hour',2.0,'trening',?)",(self.day,))
+        self.fails("INSERT INTO goals_progress(id,projectId,kind,amount,logDate) VALUES(2,1,'hour',20,?)",(self.day,))
+        self.fails("INSERT INTO goals_progress(id,projectId,kind,amount,note,logDate) VALUES(3,1,'reflection',1,'',?)",(self.day,))
+        self.fails("INSERT INTO goals_project(id,name,kind,startDate,endDate) VALUES(2,'X','BOG',?,?)",(self.day,self.day+1))
+        self.fails("INSERT INTO goals_project(id,name,kind,startDate,endDate) VALUES(2,'X','CUSTOM',?,?)",(self.day+10,self.day))
+        self.db.execute('DELETE FROM goals_project WHERE id=1')
+        for table in ('goals_activity','goals_milestone','goals_progress'):
+            self.assertEqual(0,self.db.execute(f'SELECT count(*) FROM {table}').fetchone()[0])
     def test_privacy_resources(self):
         for file in (ROOT/'app/src/main').rglob('*.xml'):ET.parse(file)
         manifest=ET.parse(ROOT/'app/src/main/AndroidManifest.xml').getroot()

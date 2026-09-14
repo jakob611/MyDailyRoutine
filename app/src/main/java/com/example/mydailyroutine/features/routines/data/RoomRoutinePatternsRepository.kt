@@ -23,10 +23,20 @@ class RoomRoutinePatternsRepository(private val db: RoutineDatabase, private val
     }.distinctUntilChanged()
     private suspend fun decodeSleep(rows: List<TimeBlockEntity>): SleepSchedule {
         if (rows.isEmpty()) return SleepSchedule()
-        val first = rows.first()
-        val start = LocalTime.ofSecondOfDay(first.startMinutes * 60L)
-        val morning = db.routines().companion(first.id)?.durationMinutes ?: 0
-        return SleepSchedule(first.isEnabled,start,start.plusMinutes(first.durationMinutes.toLong()),Weekdays.mask(rows.map { it.dayOfWeek }.toSet()),morning)
+        val weekendDays = setOf(java.time.DayOfWeek.SATURDAY, java.time.DayOfWeek.SUNDAY)
+        val main = rows.filterNot { it.dayOfWeek in weekendDays }
+        val base = main.firstOrNull() ?: rows.first()
+        val start = LocalTime.ofSecondOfDay(base.startMinutes * 60L)
+        val morning = db.routines().companion(base.id)?.durationMinutes ?: 0
+        // Weekend rows with different hours are the separate variant; equal hours stay part of the shared schedule.
+        val variantIds = rows.filter { it.dayOfWeek in weekendDays && (it.startMinutes != base.startMinutes || it.durationMinutes != base.durationMinutes) }
+            .map { it.id }.toSet()
+        val variant = rows.filter { it.id in variantIds }
+        return SleepSchedule(base.isEnabled,start,start.plusMinutes(base.durationMinutes.toLong()),
+            Weekdays.mask(rows.filterNot { it.id in variantIds }.map { it.dayOfWeek }.toSet()),morning,
+            weekendEnabled = main.isNotEmpty() && variant.isNotEmpty(),
+            weekendBedtime = variant.firstOrNull()?.let { LocalTime.ofSecondOfDay(it.startMinutes * 60L) } ?: LocalTime.of(0,30),
+            weekendWakeTime = variant.firstOrNull()?.let { LocalTime.ofSecondOfDay(it.startMinutes * 60L).plusMinutes(it.durationMinutes.toLong()) } ?: LocalTime.of(9,30))
     }
     private suspend fun <T> write(action: suspend () -> T): T = withContext(Dispatchers.IO) {
         db.withTransaction { action().also { onChanged() } }
@@ -95,15 +105,24 @@ class RoomRoutinePatternsRepository(private val db: RoutineDatabase, private val
             effective.minusDays(1) else effective
         val key = UUID.randomUUID().toString()
         val newIds = mutableMapOf<Pair<java.time.DayOfWeek,RoutineOrigin>,Long>()
-        Weekdays.fromMask(schedule.weekdaysMask).sortedBy { it.value }.forEach { day ->
+        val mainDays = Weekdays.fromMask(schedule.weekdaysMask)
+        // Weekend variant fills only Saturday/Sunday the main mask deliberately leaves out; explicit mask days always win.
+        java.time.DayOfWeek.values().forEach { day ->
+            val asWeekend = schedule.weekendEnabled && day !in mainDays &&
+                (day == java.time.DayOfWeek.SATURDAY || day == java.time.DayOfWeek.SUNDAY)
+            if (day !in mainDays && !asWeekend) return@forEach
+            val sleepStart = if (asWeekend) schedule.weekendBedtime else schedule.bedtime
+            val sleepEnd = if (asWeekend) schedule.weekendWakeTime else schedule.wakeTime
+            val duration = com.example.mydailyroutine.domain.model.nominalMinutes(sleepStart, sleepEnd)
             val parent = RoutineBlueprint(subjectId=null,title=sleepTitle,category=RoutineCategory.ADMIN,dayOfWeek=day,
-                startTime=schedule.bedtime,endTime=schedule.wakeTime,isNotificationEnabled=false,validFrom=first,
-                minDurationMinutes=schedule.durationMinutes,elasticity=0.0,priorityWeight=10.0,isFixedCommitment=true,
+                startTime=sleepStart,endTime=sleepEnd,isNotificationEnabled=false,validFrom=first,
+                minDurationMinutes=duration,elasticity=0.0,priorityWeight=10.0,isFixedCommitment=true,
                 seriesKey=key,origin=RoutineOrigin.SLEEP,isEnabled=schedule.enabled)
             ScheduleValidation.routine(parent)
             val id = db.routines().insert(parent.entity())
             newIds[day to RoutineOrigin.SLEEP] = id
-            if (schedule.morningBufferMinutes > 0) newIds[day to RoutineOrigin.MORNING_BUFFER] = insertCompanion(parent.copy(id=id),schedule.morningBufferMinutes,morningTitle,RoutineOrigin.MORNING_BUFFER,false)
+            val buffer = if (asWeekend) 0 else schedule.morningBufferMinutes
+            if (buffer > 0) newIds[day to RoutineOrigin.MORNING_BUFFER] = insertCompanion(parent.copy(id=id),buffer,morningTitle,RoutineOrigin.MORNING_BUFFER,false)
         }
         exceptions.forEach { (day,origin,exception) -> newIds[day to origin]?.let { id ->
             db.overrides().insert(exception.copy(id=0,routineBlockId=id,customStartTime=null,customEndTime=null,dayShift=0))

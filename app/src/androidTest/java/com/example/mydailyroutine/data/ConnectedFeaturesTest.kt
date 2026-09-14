@@ -109,7 +109,8 @@ class ConnectedFeaturesTest {
         val model = withContext(Dispatchers.Main) { RoutineViewModel(repo, prefs, SavedStateHandle(mapOf("date" to date.toEpochDay())), DemoDataSeeder(context, db, prefs, {}, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches), com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}),
                 com.example.mydailyroutine.features.execution.data.RoomExecutionRepository(db, repo, com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}), {}),
                 com.example.mydailyroutine.features.routines.data.RoomRoutinePatternsRepository(db,repo,{}),
-                com.example.mydailyroutine.features.backup.data.RoomBackupRepository(db, repo, {})) }
+                com.example.mydailyroutine.features.backup.data.RoomBackupRepository(db, repo, {}),
+                com.example.mydailyroutine.features.goals.data.RoomGoalsRepository(db, {})) }
         val collector = launch { model.state.collect() }
         try {
             val initial = withTimeout(10000) { model.state.first { !it.content.isLoading } }
@@ -133,7 +134,7 @@ class ConnectedFeaturesTest {
                 statements.forEach { legacy.execSQL(it.value.trim().removeSuffix(";")) }
                 legacy.execSQL("INSERT INTO subjects VALUES (1, 'Matematika', 4282090230, 45)")
             }
-            val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6, DatabaseMigrations.MIGRATION_6_7)
+            val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6, DatabaseMigrations.MIGRATION_6_7, DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9)
                 .addCallback(SeedAndIntegrityCallback(context.resources)).build()
             try {
                 assertEquals("Matematika", migrated.subjects().getAll().single().name)
