@@ -255,15 +255,19 @@ private fun WeeklyBlockCell(position: PositionedBlock, date: LocalDate, onDate: 
             .semantics { contentDescription = description }
             .padding(RoutineSpacing.xs),
     ) {
+        // Hoisted out of the Column: BoxWithConstraints properties are not visible as implicit
+        // receivers inside a nested layout scope.
         val labelFits = maxWidth >= RoutineMetrics.MinLabelWidth && maxHeight >= RoutineMetrics.MinLabelHeight
+        val twoLines = maxHeight >= 40.dp
+        val showsDuration = maxHeight >= 48.dp
         if (labelFits) {
             Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                 RoutineText(
                     text = block.title,
                     style = MaterialTheme.typography.labelSmall,
-                    maxLines = if (maxHeight >= 40.dp) RoutineTextDefaults.Body else 1,
+                    maxLines = if (twoLines) RoutineTextDefaults.Body else 1,
                 )
-                if (maxHeight >= 48.dp) {
+                if (showsDuration) {
                     RoutineLabel(
                         text = if (block.isSuppressed) stringResource(R.string.no_school_short) else duration,
                         style = MaterialTheme.typography.labelSmall,

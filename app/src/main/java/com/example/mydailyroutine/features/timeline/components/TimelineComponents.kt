@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Psychology
@@ -60,9 +61,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.onClickLabel
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -169,7 +170,6 @@ fun TimelineBlockCard(
                     // inside its own opaque bounds and cannot mix its text with a neighbour's.
                     .graphicsLayer { translationY = dragY }
                     .animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
-                    .semantics { onClickLabel = expandLabel }
                     .pointerInput(block.key, block.startsAt, block.endsAt, busy) {
                         if (!busy && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
                             detectDragGesturesAfterLongPress(
@@ -227,6 +227,12 @@ fun TimelineBlockCard(
                                     color = RoutineColors.TextSecondary,
                                 )
                             }
+                            Icon(
+                                Icons.Outlined.ExpandMore,
+                                contentDescription = expandLabel,
+                                modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f),
+                                tint = RoutineColors.TextSecondary,
+                            )
                             if (canStart && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
                                 IconButton(enabled = !busy, onClick = { onAction(TimelineAction.StartExecution(block)) }) {
                                     Icon(Icons.Outlined.PlayArrow, stringResource(R.string.execution_start), tint = style.accent)
@@ -515,7 +521,7 @@ fun MilestoneCard(
             )
             Card(
                 onClick = { haptics.tap(); expanded = !expanded },
-                modifier = Modifier.weight(1f).animateContentSize().semantics { onClickLabel = expandLabel },
+                modifier = Modifier.weight(1f).animateContentSize(),
                 shape = RoutineShapes.Card,
                 border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
@@ -533,6 +539,12 @@ fun MilestoneCard(
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = if (expanded) RoutineTextDefaults.Paragraph else RoutineTextDefaults.Title,
                             textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
+                        )
+                        Icon(
+                            Icons.Outlined.ExpandMore,
+                            contentDescription = expandLabel,
+                            modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f),
+                            tint = RoutineColors.TextSecondary,
                         )
                         Checkbox(
                             checked = item.isCompleted,
