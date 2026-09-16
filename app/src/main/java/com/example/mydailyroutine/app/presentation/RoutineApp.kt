@@ -217,8 +217,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     // Only the expanded bar sets the inset. Content clears the *tall* bar, so when it
                     // folds mid-scroll the lists keep their padding and nothing jumps; scrolled items
                     // simply travel up through the space the folded bar no longer covers, under glass.
-                    .onSizeChanged { height ->
-                        if (!collapsed) topInset = with(density) { height.toDp() }
+                    .onSizeChanged { size ->
+                        if (!collapsed) topInset = with(density) { size.height.toDp() }
                     },
                 shape = RoutineShapes.GlassTopBar,
                 role = GlassRole.Bar,
