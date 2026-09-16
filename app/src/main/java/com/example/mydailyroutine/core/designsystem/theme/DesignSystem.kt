@@ -9,31 +9,73 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.domain.model.RoutineCategory
 
-/** The only palette used by Compose, notifications' accents, and Glance. */
+/**
+ * The only palette used by Compose, notifications' accents, and Glance.
+ *
+ * Built as a tonal system rather than a handful of brand colours:
+ *
+ * * **Surfaces** are one neutral ramp (`Background` → `Surface4`) tinted towards indigo instead of
+ *   pure grey, so stacked cards read as depth and not as unrelated boxes. The base is near-black
+ *   (#07080B) rather than #000000: a hair of blue keeps elevation visible on an OLED panel and gives
+ *   the liquid-glass layers something to refract.
+ * * **Accents** all sit at the same perceived lightness (HCT tone ≈ 80, chroma ≈ 45-60). Equal tone
+ *   across hues is what makes six category colours look like one family instead of a box of crayons,
+ *   and it keeps every accent legible on the dark ramp.
+ * * **Containers** are the matching tone ≈ 22 of the same hue with content at tone ≈ 90, which is the
+ *   pair that passes WCAG AA (4.5:1) for small text without reaching for white-on-saturated.
+ *
+ * Contrast is verified in CI by `tools/check_contrast.py`; do not edit a value without running it.
+ */
 object RoutineColors {
-    val Background = Color(0xFF000000)
-    val Surface1 = Color(0xFF121316)
-    val Surface2 = Color(0xFF1A1C20)
+    /** Ambient base of the whole app; also the colour the glass backdrop is filled with. */
+    val Background = Color(0xFF07080B)
+    /** Neutral surface ramp: cards, rows, sheets, popovers — each step is one elevation level. */
+    val Surface1 = Color(0xFF0C0E13)
+    val Surface2 = Color(0xFF12151B)
+    val Surface3 = Color(0xFF191D25)
+    val Surface4 = Color(0xFF20242E)
+    /** Bottom sheets sit above the dim scrim; slightly darker than Surface1 so glass reads on them. */
+    val SheetSurface = Color(0xFF0E1116)
     val Border = Color.White.copy(alpha = 0.08f)
+    val BorderStrong = Color.White.copy(alpha = 0.14f)
     val CardBorder = Color.White.copy(alpha = 0.06f)
-    val TextPrimary = Color(0xFFF8FAFC)
-    val TextSecondary = Color(0xFF94A3B8)
-    val TextMuted = Color(0xFF64748B)
-    val Spine = Color(0xFF22242A)
-    val Cobalt = Color(0xFF3B82F6)
-    val Amber = Color(0xFFF59E0B)
-    val Sage = Color(0xFF10B981)
-    val Crimson = Color(0xFFFB7185)
-    val Violet = Color(0xFF8B5CF6)
-    val Warning = Color(0xFFFB923C)
-    val WarningContainer = Color(0xFF341A0B)
-    val School = CategoryStyle(Cobalt, Color(0xFF1E293B), Color(0xFF93C5FD))
-    val Focus = CategoryStyle(Amber, Color(0xFF2E210D), Color(0xFFFCD34D))
-    val Recovery = CategoryStyle(Sage, Color(0xFF0A261D), Color(0xFF6EE7B7))
-    val Exam = CategoryStyle(Crimson, Color(0xFF2D1214), Color(0xFFFCA5A5))
-    val Project = CategoryStyle(Violet, Color(0xFF24153B), Color(0xFFC4B5FD))
-    val Personal = CategoryStyle(TextMuted, Surface2, TextSecondary)
-    val subjectSwatches = listOf(0xFF3B82F6L, 0xFF10B981L, 0xFFF59E0BL, 0xFFEF4444L, 0xFF8B5CF6L, 0xFF64748BL)
+    val TextPrimary = Color(0xFFF2F5FA)
+    val TextSecondary = Color(0xFFA3ADBE)
+    val TextMuted = Color(0xFF6C7789)
+    val Spine = Color(0xFF242933)
+
+    /** Accents at equal tone. Names kept stable so every call site keeps its meaning. */
+    val Cobalt = Color(0xFF7FB0FF)
+    val Amber = Color(0xFFF0A93B)
+    val Sage = Color(0xFF5FD9A6)
+    val Crimson = Color(0xFFFF8A9B)
+    val Violet = Color(0xFFB79CFF)
+    val Teal = Color(0xFF6FE3D2)
+    val Indigo = Color(0xFF8C9BFF)
+    val Warning = Color(0xFFFFA861)
+    val WarningContainer = Color(0xFF33200E)
+
+    /** Ambient glow behind the content layer: the liquid glass refracts these two washes. */
+    val AmbientTop = Color(0xFF8C9BFF)
+    val AmbientBottom = Color(0xFFF0A93B)
+    val AmbientTopAlpha = 0.055f
+    val AmbientBottomAlpha = 0.035f
+
+    /** Translucent wash painted on top of refracted glass to keep text at ≥ 4.5:1. */
+    val GlassTint = Color(0xFF0B0D12)
+    val GlassTintAlpha = 0.58f
+    val GlassTintStrongAlpha = 0.72f
+    /** Solid stand-in used when the platform cannot render the effect (below Android 12). */
+    val GlassFallback = Color(0xF2151922)
+    val GlassFallbackStrong = Color(0xF7191D26)
+
+    val School = CategoryStyle(Cobalt, Color(0xFF131C31), Color(0xFFD9E5FF))
+    val Focus = CategoryStyle(Amber, Color(0xFF2B2010), Color(0xFFFFE3B8))
+    val Recovery = CategoryStyle(Sage, Color(0xFF0E2A20), Color(0xFFC9F5E4))
+    val Exam = CategoryStyle(Crimson, Color(0xFF31141B), Color(0xFFFFDCE1))
+    val Project = CategoryStyle(Violet, Color(0xFF1F1633), Color(0xFFE6DDFF))
+    val Personal = CategoryStyle(TextSecondary, Surface2, Color(0xFFDDE3EC))
+    val subjectSwatches = listOf(0xFF7FB0FFL, 0xFF5FD9A6L, 0xFFF0A93BL, 0xFFFF8A9BL, 0xFFB79CFFL, 0xFF6FE3D2L)
 }
 
 @Immutable
@@ -53,6 +95,10 @@ object RoutineShapes {
     val Chip = RoundedCornerShape(8.dp)
     val Pill = RoundedCornerShape(50)
     val Sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    /** All four corners rounded: the glass lens effect needs a non-zero minimum corner radius. */
+    val GlassBar = RoundedCornerShape(22.dp)
+    val GlassPanel = RoundedCornerShape(28.dp)
+    val GlassChip = RoundedCornerShape(14.dp)
 }
 
 /**
@@ -100,6 +146,8 @@ object RoutineMetrics {
     val WeekMinuteHeight = 0.9.dp
     /** Month cell aspect ratio; wide enough for a day number and one status dot. */
     val MonthCellRatio = 0.85f
+    /** Smallest font any auto-sizing label may shrink to before it is allowed to ellipsise. */
+    val MinAutoLabelSp = 11f
 }
 
 val SnappySpring = spring<Float>(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
@@ -109,7 +157,7 @@ const val TransitionMillis = 180
 val OledColorScheme = darkColorScheme(
     primary = RoutineColors.Amber, onPrimary = RoutineColors.Background,
     primaryContainer = RoutineColors.Focus.container, onPrimaryContainer = RoutineColors.Focus.content,
-    secondary = RoutineColors.Cobalt, onSecondary = RoutineColors.Background,
+    secondary = RoutineColors.Indigo, onSecondary = RoutineColors.Background,
     secondaryContainer = RoutineColors.School.container, onSecondaryContainer = RoutineColors.School.content,
     tertiary = RoutineColors.Violet, onTertiary = RoutineColors.Background,
     tertiaryContainer = RoutineColors.Project.container, onTertiaryContainer = RoutineColors.Project.content,
@@ -119,10 +167,12 @@ val OledColorScheme = darkColorScheme(
     surface = RoutineColors.Surface1, onSurface = RoutineColors.TextPrimary,
     surfaceVariant = RoutineColors.Surface2, onSurfaceVariant = RoutineColors.TextSecondary,
     surfaceContainerLowest = RoutineColors.Background,
-    surfaceContainerLow = RoutineColors.Surface1, surfaceContainer = RoutineColors.Surface1,
-    surfaceContainerHigh = RoutineColors.Surface2, surfaceContainerHighest = RoutineColors.Surface2,
-    surfaceDim = RoutineColors.Surface1, surfaceBright = RoutineColors.Surface2,
+    surfaceContainerLow = RoutineColors.Surface1, surfaceContainer = RoutineColors.Surface2,
+    surfaceContainerHigh = RoutineColors.Surface3, surfaceContainerHighest = RoutineColors.Surface4,
+    surfaceDim = RoutineColors.Surface1, surfaceBright = RoutineColors.Surface3,
     outline = RoutineColors.TextMuted, outlineVariant = RoutineColors.Border,
     inverseSurface = RoutineColors.TextPrimary, inverseOnSurface = RoutineColors.Background,
+    inversePrimary = Color(0xFF8A5A12),
+    surfaceTint = RoutineColors.Indigo,
     scrim = Color.Black,
 )
