@@ -441,8 +441,10 @@ fun RoutineSheetScaffold(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     SheetShell(title, modifier, closeLabel, onClose, subtitle, footer) { backdrop, header ->
+        // Wrap, don't fill: the sheet Box is capped at the space the column has left, so a short
+        // sheet still hugs its content instead of growing to the full window height.
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).layerBackdrop(backdrop)
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).layerBackdrop(backdrop)
                 .padding(horizontal = RoutineSpacing.xl)
                 .padding(top = header + RoutineSpacing.lg, bottom = RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
@@ -466,7 +468,7 @@ fun RoutineSheetListScaffold(
 ) {
     SheetShell(title, modifier, closeLabel, onClose, subtitle, footer) { backdrop, header ->
         LazyColumn(
-            Modifier.fillMaxSize().layerBackdrop(backdrop),
+            Modifier.fillMaxWidth().layerBackdrop(backdrop),
             contentPadding = PaddingValues(RoutineSpacing.xl, header + RoutineSpacing.lg,
                 RoutineSpacing.xl, RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
