@@ -3,6 +3,7 @@ package com.example.mydailyroutine.features.goals.presentation
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -142,7 +143,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
         label = "goals-swap",
         modifier = Modifier.fillMaxSize(),
         transitionSpec = {
-            (fadeIn(effectSpec<Float>(reduceMotion)) + slideInVertically(spatialSpec(reduceMotion)) { it / 10 }) togetherWith
+            (fadeIn(effectSpec<Float>(reduceMotion)) + slideInVertically(spatialSpec<IntOffset>(reduceMotion)) { it / 10 }) togetherWith
                 fadeOut(effectSpec<Float>(reduceMotion, 120))
         },
     ) { isEmpty ->
@@ -560,7 +561,7 @@ private fun GoalBar(fraction: Float, color: Color) {
     var shown by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(fraction) { shown = fraction }
     val width by animateFloatAsState(shown.coerceIn(0f, 1f),
-        if (LocalReduceMotion.current) snap() else SnappySpring, label = "goal-progress")
+        if (LocalReduceMotion.current) snap<Float>() else SnappySpring, label = "goal-progress")
     Box(Modifier.fillMaxWidth().height(RoutineSpacing.sm).clip(RoundedCornerShape(4.dp)).background(RoutineColors.Surface2)) {
         Box(Modifier.fillMaxWidth(width).height(RoutineSpacing.sm).clip(RoundedCornerShape(4.dp)).background(color))
     }

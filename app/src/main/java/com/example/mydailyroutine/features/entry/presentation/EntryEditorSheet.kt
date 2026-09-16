@@ -6,6 +6,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyRow
@@ -270,8 +271,8 @@ fun EntryEditorSheet(
                 // remove-animations setting instead of always sliding.
                 AnimatedVisibility(
                     visible = kind == EntryKind.BLOCK || !allDay,
-                    enter = expandVertically(spatialSpec(reduceMotion)) + fadeIn(effectSpec(reduceMotion)),
-                    exit = shrinkVertically(spatialSpec(reduceMotion)) + fadeOut(effectSpec(reduceMotion)),
+                    enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
+                    exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedTextField(startText, { times = times.withStart(it); error = null }, label = { RoutineText(stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due)) },
@@ -327,8 +328,8 @@ fun EntryEditorSheet(
                     }
                     AnimatedVisibility(
                         visible = advanced,
-                        enter = expandVertically(spatialSpec(reduceMotion)) + fadeIn(effectSpec(reduceMotion)),
-                        exit = shrinkVertically(spatialSpec(reduceMotion)) + fadeOut(effectSpec(reduceMotion)),
+                        enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
+                        exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             RoutineText(stringResource(R.string.elastic_settings), style = MaterialTheme.typography.titleSmall,

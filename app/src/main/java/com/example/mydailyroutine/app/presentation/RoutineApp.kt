@@ -5,6 +5,9 @@ import com.example.mydailyroutine.core.presentation.*
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.snap
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.ContentTransform
@@ -68,6 +71,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.semantics.Role
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
@@ -165,8 +169,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                 RoutineAmbientBackground(Modifier.fillMaxSize())
                 AnimatedContent(targetState = state.panels.showGoals, label = "goals-switch",
                     modifier = Modifier.fillMaxSize(), transitionSpec = {
-                        (slideInVertically(spatialSpec(reduceMotion)) { it / 6 } + fadeIn(effectSpec(reduceMotion))) togetherWith
-                            (slideOutVertically(spatialSpec(reduceMotion)) { -it / 6 } + fadeOut(effectSpec(reduceMotion)))
+                        (slideInVertically(spatialSpec<IntOffset>(reduceMotion)) { it / 6 } + fadeIn(effectSpec<Float>(reduceMotion))) togetherWith
+                            (slideOutVertically(spatialSpec<IntOffset>(reduceMotion)) { -it / 6 } + fadeOut(effectSpec<Float>(reduceMotion)))
                     }) { goalsShown ->
                     if (goalsShown) GoalsScreen(state.goals, state.panels.isSaving, onAction, topInset = topInset)
                     else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
@@ -213,7 +217,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     // Only the expanded bar sets the inset. Content clears the *tall* bar, so when it
                     // folds mid-scroll the lists keep their padding and nothing jumps; scrolled items
                     // simply travel up through the space the folded bar no longer covers, under glass.
-                    .onSizeChanged { height -> if (!collapsed) topInset = with(density) { height.toDp() } },
+                    .onSizeChanged { height ->
+                        if (!collapsed) topInset = with(density) { height.toDp() }
+                    },
                 shape = RoutineShapes.GlassTopBar,
                 role = GlassRole.Bar,
             ) {
@@ -226,7 +232,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 // Expanded: the app. Folded: the period being read, because that is
                                 // the only thing in the bar still worth the space.
                                 AnimatedContent(targetState = collapsed, label = "header-title",
-                                    transitionSpec = { ContentTransform(fadeIn(effectSpec(reduceMotion)), fadeOut(effectSpec(reduceMotion)), sizeTransform = SizeTransform(clip = false)) }) { isCollapsed ->
+                                    transitionSpec = { ContentTransform(fadeIn(effectSpec<Float>(reduceMotion)), fadeOut(effectSpec<Float>(reduceMotion)), sizeTransform = SizeTransform(clip = false)) }) { isCollapsed ->
                                     RoutineLabel(
                                         text = if (isCollapsed) periodTitle(data) else stringResource(R.string.app_name),
                                         style = MaterialTheme.typography.titleLarge,
@@ -246,9 +252,15 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 IconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open)) }
                                 Box {
                                     IconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open)) }
+                                    // The badge is the one hero moment allowed a bounce — and the one
+                                    // animation that disappears entirely under remove-animations.
+                                    val badgeEnter: EnterTransition =
+                                        if (reduceMotion) fadeIn(snap<Float>(), initialAlpha = 1f)
+                                        else scaleIn(PopSpring, initialScale = 0.4f) + fadeIn(tween<Float>(120))
+                                    val badgeExit: ExitTransition =
+                                        fadeOut(if (reduceMotion) snap<Float>() else tween<Float>(120))
                                     AnimatedVisibility(visible = overdueTasks > 0, modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
-                                        enter = scaleIn(if (reduceMotion) snap() else PopSpring, initialScale = if (reduceMotion) 1f else 0.4f) + fadeIn(effectSpec(reduceMotion, 120)),
-                                        exit = fadeOut(effectSpec(reduceMotion, 120))) {
+                                        enter = badgeEnter, exit = badgeExit) {
                                         Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Crimson))
                                     }
                                 }
@@ -262,16 +274,16 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     // empty-day state, where there is room and it reads as an invitation.
                     AnimatedVisibility(
                         visible = !state.panels.showGoals && !collapsed,
-                        enter = expandVertically(spatialSpec(reduceMotion)) + fadeIn(effectSpec(reduceMotion)),
-                        exit = shrinkVertically(spatialSpec(reduceMotion)) + fadeOut(effectSpec(reduceMotion)),
+                        enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
+                        exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                     ) {
                         DateNavigator(periodTitle(data), onPrevious = { onAction(TimelineAction.Shift(-1)) }, onNext = { onAction(TimelineAction.Shift(1)) },
                             onToday = { onAction(TimelineAction.Today) }, onPick = { haptics.tap(); choosingDate = true })
                     }
                     AnimatedVisibility(
                         visible = !state.panels.showGoals,
-                        enter = expandVertically(spatialSpec(reduceMotion)) + fadeIn(effectSpec(reduceMotion)),
-                        exit = shrinkVertically(spatialSpec(reduceMotion)) + fadeOut(effectSpec(reduceMotion)),
+                        enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
+                        exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                     ) {
                         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
                             TimelineMode.entries.forEachIndexed { index, mode ->

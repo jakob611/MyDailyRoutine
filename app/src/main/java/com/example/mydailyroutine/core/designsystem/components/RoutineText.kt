@@ -2,6 +2,7 @@ package com.example.mydailyroutine.core.designsystem.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.unit.IntSize
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
@@ -303,8 +304,8 @@ fun CollapsibleSection(
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(spatialSpec(reduceMotion)) + fadeIn(effectSpec(reduceMotion)),
-            exit = shrinkVertically(spatialSpec(reduceMotion)) + fadeOut(effectSpec(reduceMotion, 120)),
+            enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
+            exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion, 120)),
         ) {
             Column(
                 Modifier.fillMaxWidth().padding(top = RoutineSpacing.sm),

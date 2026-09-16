@@ -32,7 +32,7 @@ import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
  * transition in the app resolves with [snap]: no slides, no fades, no rotating chevrons. Motion
  * sensitivity is a vestibular condition, not a taste, so this is not optional polish.
  */
-val LocalReduceMotion = staticCompositionLocalOf(false)
+val LocalReduceMotion = staticCompositionLocalOf { false }
 
 /**
  * Reads the system animation scales once per composition host. Any of the three being zero means the
@@ -52,8 +52,9 @@ fun rememberReduceMotion(): Boolean {
 
 /** Movement: a calm spring, or nothing at all when the system asks for no animation. */
 fun <T> spatialSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
-    if (reduceMotion) snap() else spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+    if (reduceMotion) snap<T>()
+    else spring<T>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
 
 /** Colour and opacity: a short tween that cannot overshoot, or nothing at all. */
 fun <T> effectSpec(reduceMotion: Boolean, millis: Int = TransitionMillis): FiniteAnimationSpec<T> =
-    if (reduceMotion) snap() else tween(millis)
+    if (reduceMotion) snap<T>() else tween<T>(millis)
