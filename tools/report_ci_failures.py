@@ -41,3 +41,20 @@ for report in Path('app/build/reports').glob('lint-results*.xml'):
 # Generated Room schema files are retained by the verification-reports artifact upload.
 for schema in Path('app/schemas').rglob('*.json'):
     print(f'Room schema generated: {schema}')
+
+# UI screenshots are pulled from the emulator by tools/ci-device-tests.sh; list them so the
+# run log (and the step summary) shows whether the visual audit actually made it into artifacts.
+import os
+
+shots = sorted(p for p in Path('app/build/ui-audit').rglob('*') if p.is_file() and p.suffix.lower() in ('.png', '.jpg', '.webp'))
+for shot in shots:
+    print(f'UI screenshot: {shot} ({shot.stat().st_size} B)')
+if not shots:
+    print('::warning title=UI audit::No screenshots were pulled from the emulator (app/build/ui-audit is empty).')
+summary_path = os.environ.get('GITHUB_STEP_SUMMARY')
+if summary_path and shots:
+    lines = ['## UI audit screenshots', '']
+    lines += [f'- `{shot.name}` ({shot.stat().st_size // 1024} KB)' for shot in shots]
+    lines += ['', 'Download the `device-test-reports` artifact to view them.']
+    with open(summary_path, 'a', encoding='utf-8') as summary:
+        summary.write('\n'.join(lines) + '\n')
