@@ -4,7 +4,6 @@ import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.unit.dp
 import java.io.File
 import androidx.lifecycle.Lifecycle
 import androidx.test.platform.app.InstrumentationRegistry
@@ -69,11 +68,13 @@ class TimelineUiTest {
         compose.onNodeWithTag("repeat-weekly").performScrollTo().performClick()
         compose.onNodeWithTag("save-next-lesson").assertIsDisplayed()
         // A 52dp pill whose label wrapped would grow past one text line; catch that regression here.
+        // boundsInRoot is in pixels, so the limits are scaled by the device density.
+        val density = compose.activity.resources.displayMetrics.density
         val sticky = compose.onNodeWithTag("save-next-lesson").fetchSemanticsNode().boundsInRoot
-        assertTrue("sticky footer button grew to ${'$'}{sticky.height}", sticky.height <= 56.dp)
+        assertTrue("sticky footer button grew to ${'$'}{sticky.height}px", sticky.height <= 56f * density)
         val label = compose.onNodeWithText(text(R.string.save_next_lesson), useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot
-        assertTrue("button label wrapped onto ${'$'}{label.height}", label.height <= 32.dp)
+        assertTrue("button label wrapped onto ${'$'}{label.height}px", label.height <= 32f * density)
     }
     @Test fun warmWidgetQuickAddDismissesSettingsAndOpensOneFreshSheet() {
         val activity = compose.activity
