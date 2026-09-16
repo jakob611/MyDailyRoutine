@@ -47,7 +47,7 @@ class TimelineUiTest {
         compose.onNodeWithTag("settings-tab-data").performClick()
         compose.onNodeWithText(text(R.string.demo_heading)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(text(R.string.threshold_focus)).assertDoesNotExist()
-        capture("06-settings-data")
+        captureTag("06-settings-data", "settings-sheet")
     }
     @Test fun menusAreSplitIntoTabsInsteadOfOneLongScroll() {
         compose.onNodeWithContentDescription(text(R.string.planning_open)).performClick()
@@ -59,7 +59,7 @@ class TimelineUiTest {
         compose.onNodeWithText(text(R.string.add_reserve)).assertDoesNotExist()
         compose.onNodeWithTag("planning-tab-markers").performClick()
         compose.onNodeWithText(text(R.string.new_topic)).assertDoesNotExist()
-        capture("07-planning-tabs")
+        captureTag("07-planning-tabs", "planning-sheet")
     }
     @Test fun longSlovenianButtonLabelsStayOnOneLine() {
         compose.onNodeWithTag("fast-add").performClick()
@@ -120,6 +120,12 @@ class TimelineUiTest {
         for(day in 1..5) compose.onNodeWithTag("weekday-$day").assertIsSelected()
         compose.onNodeWithTag("weekday-6").assertIsNotSelected()
         compose.onNodeWithTag("save-next-lesson").assertIsDisplayed()
+    }
+    /** Screenshots a tagged node; used for sheets, which live in their own window. */
+    private fun captureTag(name: String, tag: String) {
+        val directory = File(compose.activity.getExternalFilesDir(null), "ui-audit").apply { mkdirs() }
+        val image = compose.onNodeWithTag(tag, useUnmergedTree = true).captureToImage()
+        File(directory, "$name.png").outputStream().use { image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
     private fun capture(name: String, editor: Boolean = false) {
         val directory = File(compose.activity.getExternalFilesDir(null), "ui-audit").apply { mkdirs() }
