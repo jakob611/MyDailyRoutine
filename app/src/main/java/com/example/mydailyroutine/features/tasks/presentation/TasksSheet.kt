@@ -77,16 +77,14 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.designsystem.theme.SnappySpring
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
-import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.core.presentation.TimelineAction
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.model.Subject
 import com.example.mydailyroutine.domain.model.Task
 import com.example.mydailyroutine.features.entry.presentation.AppDatePicker
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-private val taskDateFormat = DateTimeFormatter.ofPattern("d. MMM", Slovenian)
 
 /**
  * Homework/errand checklist: fast entry, relative due labels, one-tap completion.
@@ -138,7 +136,7 @@ fun TasksSheet(
     ModalBottomSheet(
         onDismissRequest = { onAction(TimelineAction.CloseTasks) },
         shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1,
+        containerColor = RoutineColors.SheetSurface,
         tonalElevation = 0.dp,
         sheetState = sheetState,
     ) {
@@ -244,7 +242,7 @@ fun TasksSheet(
                                 maxLines = RoutineTextDefaults.Body,
                             )
                             task.dueDate?.let {
-                                RoutineLabel(it.format(taskDateFormat), style = MaterialTheme.typography.labelSmall,
+                                RoutineLabel(RoutineDate.normal(it), style = MaterialTheme.typography.labelSmall,
                                     color = RoutineColors.TextMuted)
                             }
                         }
@@ -509,7 +507,7 @@ private val TaskListSpring = spring<androidx.compose.ui.unit.IntOffset>(Spring.D
 @Composable
 private fun taskDueButtonLabel(date: LocalDate?, today: LocalDate): String = when {
     date == null -> stringResource(R.string.tasks_no_due)
-    date.isAfter(today.plusDays(7)) || date.isBefore(today) -> date.format(taskDateFormat)
+    date.isAfter(today.plusDays(7)) || date.isBefore(today) -> RoutineDate.normal(date)
     else -> taskDueLabel(date, today)
 }
 

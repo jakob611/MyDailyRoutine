@@ -34,7 +34,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -52,6 +56,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.core.designsystem.components.CollapsibleSection
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
@@ -66,6 +71,7 @@ import com.example.mydailyroutine.core.presentation.PeriodRanges
 import com.example.mydailyroutine.core.presentation.categoryColor
 import com.example.mydailyroutine.core.presentation.durationLabel
 import com.example.mydailyroutine.core.presentation.minuteLabel
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.health.PositionedBlock
 import com.example.mydailyroutine.domain.health.WeeklyLayout
@@ -77,7 +83,6 @@ import com.example.mydailyroutine.features.timeline.components.Legend
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
@@ -91,7 +96,7 @@ import java.time.temporal.TemporalAdjusters
  * block shows colour plus an accessible description instead of a clipped fragment of its title.
  */
 @Composable
-fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, onDate: (LocalDate) -> Unit) {
+fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, onDate: (LocalDate) -> Unit) {
     val days = content.days.values.sortedBy { it.date }
     val blocks = days.flatMap { it.items.filterIsInstance<ResolvedTimelineItem.Block>() }.filter { it.origin != RoutineOrigin.SLEEP }
     val startHour = minOf(7, (blocks.minOfOrNull { it.startMinute } ?: 420) / 60)
@@ -100,7 +105,7 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, onDate: (
     val gridHeight = minuteHeight * ((endHour - startHour) * 60)
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     LazyColumn(
-        contentPadding = PaddingValues(RoutineSpacing.lg, RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
+        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
@@ -135,7 +140,7 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, onDate: (
                                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
                             ) {
                                 RoutineLabel(
-                                    day.date.format(DateTimeFormatter.ofPattern("EEE d", Slovenian)),
+                                    RoutineDate.weekdayTight(day.date),
                                     style = MaterialTheme.typography.labelLarge,
                                 )
                                 RoutineLabel(
@@ -244,7 +249,7 @@ private fun WeeklyBlockCell(position: PositionedBlock, date: LocalDate, onDate: 
     val description = stringResource(
         R.string.week_block_description,
         block.title,
-        date.format(DateTimeFormatter.ofPattern("EEEE d. MMMM", Slovenian)),
+        RoutineDate.weekdayFull(date),
         range,
         duration,
     )
@@ -281,11 +286,11 @@ private fun WeeklyBlockCell(position: PositionedBlock, date: LocalDate, onDate: 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> Unit = {}, onDate: (LocalDate) -> Unit) {
+fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, onDate: (LocalDate) -> Unit) {
     val month = YearMonth.from(content.date)
     val dates = content.days.keys.sorted()
     LazyColumn(
-        contentPadding = PaddingValues(RoutineSpacing.lg, RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
+        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
@@ -385,7 +390,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
 private fun Modifier.aspectRatioCell(): Modifier = aspectRatio(RoutineMetrics.MonthCellRatio)
 
 @Composable
-fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, today: LocalDate, onGoals: () -> Unit = {}, onDate: (LocalDate) -> Unit) {
+fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, onDate: (LocalDate) -> Unit) {
     val (start, end) = PeriodRanges.range(content.date, TimelineMode.YEAR)
     val target = preferences.teachingEndDate
     val targetInCycle = target in start..end
@@ -396,8 +401,13 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
     // Goal milestones are pre-filtered to open ones in the visible range; the radar should not miss them.
     val upcomingGoals = content.goalMarkers.filter { it.dueDate >= today }
     val upcoming = upcomingMilestones + upcomingTasks + upcomingGoals
+    // The year view folds into panels: the countdown card is always visible, the rest opens on
+    // demand, so nobody has to scroll past three screens of numbers to reach the one they want.
+    var balanceOpen by rememberSaveable { mutableStateOf(true) }
+    var radarOpen by rememberSaveable { mutableStateOf(false) }
+    var recoveryOpen by rememberSaveable { mutableStateOf(true) }
     LazyColumn(
-        contentPadding = PaddingValues(RoutineSpacing.lg, RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
+        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
@@ -414,17 +424,16 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                     RoutineLabel(stringResource(R.string.year_big_picture), style = MaterialTheme.typography.labelLarge,
                         color = RoutineColors.TextSecondary)
                     if (targetInCycle) {
-                        RoutineText(
+                        RoutineLabel(
                             text = if (remaining > 0) remaining.toString() else stringResource(R.string.year_done),
                             style = MaterialTheme.typography.displaySmall,
-                            maxLines = 1,
                         )
                         RoutineText(
                             text = stringResource(if (remaining > 0) R.string.year_count_caption else R.string.year_done_caption),
                             maxLines = RoutineTextDefaults.Body,
                         )
                         RoutineLabel(
-                            target.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Slovenian)),
+                            RoutineDate.full(target),
                             style = MaterialTheme.typography.labelLarge,
                         )
                         val total = ChronoUnit.DAYS.between(start, target).coerceAtLeast(1)
@@ -443,12 +452,14 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                 }
             }
         }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md)) {
-                RoutineText(stringResource(R.string.year_balance), style = MaterialTheme.typography.titleLarge,
-                    maxLines = RoutineTextDefaults.Body)
-                RoutineLabel(stringResource(R.string.school_cycle_label), style = MaterialTheme.typography.bodySmall,
-                    color = RoutineColors.TextSecondary)
+        item(key = "year-balance") {
+            CollapsibleSection(
+                title = stringResource(R.string.year_balance),
+                subtitle = stringResource(R.string.school_cycle_label),
+                expanded = balanceOpen,
+                onToggle = { balanceOpen = !balanceOpen },
+                tag = "year-balance-toggle",
+            ) {
                 if (!SlovenianAcademicCalendar.covers(start)) {
                     RoutineText(stringResource(R.string.coverage_warning), color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall, maxLines = RoutineTextDefaults.Paragraph)
@@ -469,7 +480,7 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                                         Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                                         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
                                     ) {
-                                        RoutineLabel(month.format(DateTimeFormatter.ofPattern("MMM", Slovenian)),
+                                        RoutineLabel(RoutineDate.monthTight(month),
                                             style = MaterialTheme.typography.titleMedium)
                                         RoutineLabel(stringResource(R.string.year_markers_count, markers),
                                             style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary)
@@ -488,11 +499,14 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                 }
             }
         }
-        item { MilestoneRadar(upcoming, today) }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                RoutineText(stringResource(R.string.year_recovery_heading), style = MaterialTheme.typography.titleLarge,
-                    maxLines = RoutineTextDefaults.Body)
+        item(key = "year-radar") { MilestoneRadar(upcoming, today, radarOpen) { radarOpen = !radarOpen } }
+        item(key = "year-recovery") {
+            CollapsibleSection(
+                title = stringResource(R.string.year_recovery_heading),
+                expanded = recoveryOpen,
+                onToggle = { recoveryOpen = !recoveryOpen },
+                tag = "year-recovery-toggle",
+            ) {
                 val vacations = content.calendar.filter { it.isWorkFreeDay && (it.title.contains("počitnice") || it.title.contains("oddih")) }
                     .groupBy { it.title }.entries.sortedBy { entry -> entry.value.minOf { it.date } }
                 if (vacations.isEmpty()) {
@@ -508,8 +522,8 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                             RoutineLabel(
                                 stringResource(
                                     R.string.date_range,
-                                    dates.minOf { it.date }.format(DateTimeFormatter.ofPattern("d. MMM", Slovenian)),
-                                    dates.maxOf { it.date }.format(DateTimeFormatter.ofPattern("d. MMM yyyy", Slovenian)),
+                                    RoutineDate.normal(dates.minOf { it.date }),
+                                    RoutineDate.normalYear(dates.maxOf { it.date }),
                                 ),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = RoutineColors.TextSecondary,
@@ -532,18 +546,20 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
  * the week labels always keep their own space and can never be clipped by the tallest bar.
  */
 @Composable
-private fun MilestoneRadar(milestones: List<Milestone>, today: LocalDate) {
+private fun MilestoneRadar(milestones: List<Milestone>, today: LocalDate, expanded: Boolean, onToggle: () -> Unit) {
     val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val buckets = (0L..7L).map { index ->
         val start = weekStart.plusWeeks(index)
         start to milestones.count { it.dueDate in start..start.plusDays(6) }
     }
     val largest = buckets.maxOf { it.second }.coerceAtLeast(1)
-    Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md)) {
-        RoutineText(stringResource(R.string.milestone_radar), style = MaterialTheme.typography.titleLarge,
-            maxLines = RoutineTextDefaults.Body)
-        RoutineText(stringResource(R.string.milestone_radar_hint), style = MaterialTheme.typography.bodySmall,
-            color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+    CollapsibleSection(
+        title = stringResource(R.string.milestone_radar),
+        subtitle = stringResource(R.string.milestone_radar_hint),
+        expanded = expanded,
+        onToggle = onToggle,
+        tag = "milestone-radar-toggle",
+    ) {
         Row(
             Modifier.fillMaxWidth().height(140.dp),
             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
@@ -562,7 +578,7 @@ private fun MilestoneRadar(milestones: List<Milestone>, today: LocalDate) {
                             .clip(RoundedCornerShape(6.dp)).background(RoutineColors.Crimson.copy(alpha = 0.7f)),
                     )
                     Spacer(Modifier.height(RoutineSpacing.xs))
-                    RoutineLabel(start.format(DateTimeFormatter.ofPattern("d/M", Slovenian)),
+                    RoutineLabel(RoutineDate.axisDay(start),
                         style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextMuted)
                 }
             }
@@ -624,7 +640,7 @@ private fun LazyListScope.milestoneSection(
                     )
                 }
                 RoutineLabel(
-                    marker.dueDate.format(DateTimeFormatter.ofPattern("d MMM", Slovenian)),
+                    RoutineDate.normal(marker.dueDate),
                     style = MaterialTheme.typography.labelLarge,
                 )
             }

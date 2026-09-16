@@ -54,15 +54,27 @@ import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import com.example.mydailyroutine.core.designsystem.glass.GlassRole
+import com.example.mydailyroutine.core.designsystem.glass.LocalRoutineBackdrop
+import com.example.mydailyroutine.core.designsystem.glass.RoutineAmbientBackground
+import com.example.mydailyroutine.core.designsystem.glass.RoutineBackdropProvider
+import com.example.mydailyroutine.core.designsystem.glass.RoutineGlassSurface
+import com.example.mydailyroutine.core.designsystem.glass.routineBackdropLayer
+import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.features.tasks.presentation.TasksSheet
 import com.example.mydailyroutine.features.goals.presentation.GoalsScreen
 import com.example.mydailyroutine.features.settings.presentation.NotificationAccess
 import com.example.mydailyroutine.features.settings.presentation.SettingsSheet
 import com.example.mydailyroutine.core.designsystem.theme.*
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,20 +120,74 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     }
     val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(now.toLocalDate()) }
     CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalHapticFeedback provides gatedHaptics) {
-        Scaffold(containerColor = RoutineColors.Background,
-            topBar = {
+      // One backdrop for the window: the content layer records into it and the floating chrome —
+      // the top bar, the fast-add control — refracts it. They have to stay siblings of the layer,
+      // never inside it, or a panel draws itself into itself.
+      RoutineBackdropProvider {
+        val backdrop = LocalRoutineBackdrop.current
+        val density = LocalDensity.current
+        // Measured, never assumed: the bar is three rows on the day view and one on goals.
+        var topInset by remember { mutableStateOf(0.dp) }
+        // Full-bleed stack instead of a Scaffold: a Scaffold body starts below its top bar, which
+        // would leave nothing for the glass to refract. Here the content fills the window and the
+        // floating chrome sits on top of it — as siblings of the layer, never inside it, or a panel
+        // would draw itself into itself.
+        Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().routineBackdropLayer(backdrop)) {
+                RoutineAmbientBackground(Modifier.fillMaxSize())
+                AnimatedContent(targetState = state.panels.showGoals, label = "goals-switch",
+                    modifier = Modifier.fillMaxSize(), transitionSpec = {
+                        (slideInVertically(tween(TransitionMillis)) { it / 6 } + fadeIn(tween(TransitionMillis))) togetherWith
+                            (slideOutVertically(tween(TransitionMillis)) { -it / 6 } + fadeOut(tween(TransitionMillis)))
+                    }) { goalsShown ->
+                    if (goalsShown) GoalsScreen(state.goals, state.panels.isSaving, onAction, topInset = topInset)
+                    else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
+                        modifier = Modifier.fillMaxSize(), transitionSpec = {
+                            (slideInHorizontally(tween(TransitionMillis)) { it / 4 } + fadeIn(tween(TransitionMillis))) togetherWith
+                                (slideOutHorizontally(tween(TransitionMillis)) { -it / 4 } + fadeOut(tween(TransitionMillis)))
+                        }) { shown ->
+                        Box(Modifier.fillMaxSize()) {
+                            when {
+                                shown.isLoading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+                                shown.error != null -> Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    RoutineText(stringResource(shown.error), style = MaterialTheme.typography.bodyLarge,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        maxLines = RoutineTextDefaults.Paragraph)
+                                    TextButton(onClick = { onAction(TimelineAction.Retry) }) {
+                                        RoutineLabel(stringResource(R.string.retry), style = MaterialTheme.typography.labelLarge)
+                                    }
+                                }
+                                else -> when (shown.mode) {
+                                    TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
+                                        state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction,
+                                        topInset = topInset) }
+                                    TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
+                                    TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
+                                    TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
+                                }
+                            }
+                        }
+                    }
+                }
+                }
+            RoutineGlassSurface(
+                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().testTag("app-top-bar")
+                    .onSizeChanged { topInset = with(density) { it.height.toDp() } },
+                shape = RoutineShapes.GlassTopBar,
+                role = GlassRole.Bar,
+            ) {
                 AnimatedContent(targetState = state.panels.showGoals, label = "topbar-switch",
                     transitionSpec = { ContentTransform(fadeIn(tween(TransitionMillis)), fadeOut(tween(TransitionMillis)), sizeTransform = SizeTransform(clip = false)) }) { goalsShown ->
                 if (goalsShown) {
-                    TopAppBar(title = { RoutineText(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge, maxLines = 1) },
+                    TopAppBar(title = { RoutineLabel(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge) },
                         navigationIcon = { IconButton(onClick = { onAction(TimelineAction.CloseGoals) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back)) } },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = RoutineColors.Background))
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent))
                 } else Column {
                     TopAppBar(title = { Column {
-                        RoutineText(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                        RoutineLabel(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
                         RoutineText(stringResource(R.string.app_tagline), style = MaterialTheme.typography.labelSmall,
-                            color = RoutineColors.TextSecondary, maxLines = 1)
-                    } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = RoutineColors.Background),
+                            color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
+                    } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                         actions = {
                             IconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open)) }
                             Box {
@@ -147,48 +213,23 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     }
                 }
                 }
-            }, snackbarHost = { SnackbarHost(snackbars) },
-            floatingActionButton = {
-                if (!state.panels.showGoals) ExtendedFloatingActionButton(onClick = { onAction(TimelineAction.OpenAdd) }, modifier = Modifier.testTag("fast-add"), shape = RoutineShapes.Pill,
-                    containerColor = RoutineColors.Amber, contentColor = RoutineColors.Background,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp, pressedElevation = 0.dp, focusedElevation = 0.dp, hoveredElevation = 0.dp),
-                    icon = { Icon(Icons.Default.Add, null) },
-                    text = { RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge) })
-            },
-        ) { padding ->
-            AnimatedContent(targetState = state.panels.showGoals, label = "goals-switch",
-                modifier = Modifier.fillMaxSize().padding(padding), transitionSpec = {
-                    (slideInVertically(tween(TransitionMillis)) { it / 6 } + fadeIn(tween(TransitionMillis))) togetherWith
-                        (slideOutVertically(tween(TransitionMillis)) { -it / 6 } + fadeOut(tween(TransitionMillis)))
-                }) { goalsShown ->
-                if (goalsShown) GoalsScreen(state.goals, state.panels.isSaving, onAction)
-                else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
-                    modifier = Modifier.fillMaxSize(), transitionSpec = {
-                        (slideInHorizontally(tween(TransitionMillis)) { it / 4 } + fadeIn(tween(TransitionMillis))) togetherWith
-                            (slideOutHorizontally(tween(TransitionMillis)) { -it / 4 } + fadeOut(tween(TransitionMillis)))
-                    }) { shown ->
-                    Box(Modifier.fillMaxSize()) {
-                        when {
-                            shown.isLoading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                            shown.error != null -> Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                RoutineText(stringResource(shown.error), style = MaterialTheme.typography.bodyLarge,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    maxLines = RoutineTextDefaults.Paragraph)
-                                TextButton(onClick = { onAction(TimelineAction.Retry) }) {
-                                    RoutineLabel(stringResource(R.string.retry), style = MaterialTheme.typography.labelLarge)
-                                }
-                            }
-                            else -> when (shown.mode) {
-                                TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
-                                    state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction) }
-                                TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }) { onAction(TimelineAction.SelectDate(it, true)) }
-                                TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }) { onAction(TimelineAction.SelectDate(it, true)) }
-                                TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }) { onAction(TimelineAction.SelectDate(it, true)) }
-                            }
-                        }
-                    }
+                }
+            // Amber glass: hue-blended, so the refracted content keeps its shading under the accent.
+            if (!state.panels.showGoals) Box(
+                Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(RoutineSpacing.lg)
+                    .height(56.dp).testTag("fast-add")
+                    .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control, RoutineColors.Amber, hue = true)
+                    .clip(RoutineShapes.Pill)
+                    .clickable(role = Role.Button) { onAction(TimelineAction.OpenAdd) }
+                    .padding(horizontal = RoutineSpacing.lg),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+                    Icon(Icons.Default.Add, null, tint = RoutineColors.Background)
+                    RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Background)
                 }
             }
+            SnackbarHost(snackbars, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
         RoutineSheet(state.panels.showAdd) { sheetState -> key(state.panels.addSession) {
@@ -250,15 +291,17 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             dismissButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.DismissDemo) }) {
                 RoutineLabel(stringResource(R.string.cancel), style = MaterialTheme.typography.labelLarge)
             } })
+      }
     }
 }
 
+/** Header text for the period being shown. Dates come from [RoutineDate] and never from an inline
+ *  formatter, so the same period reads the same everywhere in the app. */
 @Composable
 private fun periodTitle(data: TimelineContent): String = when (data.mode) {
-    TimelineMode.DAY -> data.date.format(DateTimeFormatter.ofPattern("EEE, d. MMM", Slovenian))
-    TimelineMode.WEEK -> PeriodRanges.range(data.date, data.mode).let { (first, last) -> stringResource(R.string.date_range,
-        first.format(DateTimeFormatter.ofPattern("d. MMM", Slovenian)), last.format(DateTimeFormatter.ofPattern("d. MMM", Slovenian))) }
-    TimelineMode.MONTH -> data.date.format(DateTimeFormatter.ofPattern("LLLL yyyy", Slovenian))
+    TimelineMode.DAY -> RoutineDate.withWeekday(data.date)
+    TimelineMode.WEEK -> PeriodRanges.range(data.date, data.mode).let { (first, last) -> RoutineDate.range(first, last) }
+    TimelineMode.MONTH -> RoutineDate.monthAndYear(data.date)
     TimelineMode.YEAR -> PeriodRanges.range(data.date, data.mode).first.year.let { stringResource(R.string.academic_year, it, it + 1) }
 }
 

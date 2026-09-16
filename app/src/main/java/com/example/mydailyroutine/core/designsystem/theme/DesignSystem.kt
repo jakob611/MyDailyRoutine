@@ -95,10 +95,17 @@ object RoutineShapes {
     val Chip = RoundedCornerShape(8.dp)
     val Pill = RoundedCornerShape(50)
     val Sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-    /** All four corners rounded: the glass lens effect needs a non-zero minimum corner radius. */
+    /**
+     * Glass shapes. The lens effect refracts by the corner radius, so every glass shape keeps a
+     * minimum radius of at least 12 dp on the corners the reader can actually see; corners that sit
+     * at the screen edge may be square because their refraction is off-screen anyway.
+     */
+    val GlassTopBar = RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)
     val GlassBar = RoundedCornerShape(22.dp)
     val GlassPanel = RoundedCornerShape(28.dp)
     val GlassChip = RoundedCornerShape(14.dp)
+    val GlassSheetHeader = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
+    val GlassSheetFooter = RoundedCornerShape(18.dp)
 }
 
 /**

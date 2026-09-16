@@ -116,7 +116,7 @@ fun SettingsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1,
+        containerColor = RoutineColors.SheetSurface,
         tonalElevation = 0.dp,
     ) {
         RoutineSheetListScaffold(
@@ -368,14 +368,14 @@ private fun LazyListScope.planTab(
                     onClick = { onAction(TimelineAction.SetTeachingEnd(SlovenianAcademicCalendar.teachingEnd)) },
                     enabled = !busy,
                     shape = RoutineShapes.Chip,
-                    label = { RoutineText(stringResource(R.string.regular_year_preset), maxLines = 1, softWrap = false) },
+                    label = { RoutineLabel(stringResource(R.string.regular_year_preset)) },
                 )
                 FilterChip(
                     selected = preferences.teachingEndDate == SlovenianAcademicCalendar.finalYearTeachingEnd,
                     onClick = { onAction(TimelineAction.SetTeachingEnd(SlovenianAcademicCalendar.finalYearTeachingEnd)) },
                     enabled = !busy,
                     shape = RoutineShapes.Chip,
-                    label = { RoutineText(stringResource(R.string.final_year_preset), maxLines = 1, softWrap = false) },
+                    label = { RoutineLabel(stringResource(R.string.final_year_preset)) },
                 )
             }
             OutlinedTextField(

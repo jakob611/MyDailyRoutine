@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
@@ -49,6 +50,7 @@ import com.example.mydailyroutine.core.presentation.DayUi
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.clockLabel
 import com.example.mydailyroutine.core.presentation.durationLabel
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.execution.ActiveExecution
 import com.example.mydailyroutine.domain.health.HealthConfig
@@ -86,6 +88,7 @@ fun DailyTimeline(
     execution: ActiveExecution?,
     dueTasks: List<Task>,
     onAction: (TimelineAction) -> Unit,
+    topInset: Dp = 0.dp,
 ) {
     val today = day.date == now.toLocalDate()
     val nowMinute = now.hour * 60 + now.minute
@@ -97,7 +100,7 @@ fun DailyTimeline(
     }
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(RoutineSpacing.lg, RoutineSpacing.md, RoutineSpacing.lg, 112.dp),
+        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 112.dp),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) {
         item(key = "summary") {
@@ -194,10 +197,9 @@ fun DailyTimeline(
                                 text = stringResource(if (active.stoppedAt == null) R.string.execution_running else R.string.execution_stopped),
                                 style = MaterialTheme.typography.titleSmall,
                             )
-                            RoutineText(
+                            RoutineLabel(
                                 text = stringResource(R.string.execution_elapsed_minutes, active.elapsedMinutes(now.toInstant())),
                                 style = MaterialTheme.typography.displaySmall,
-                                maxLines = 1,
                             )
                             RoutineLabel(
                                 text = stringResource(R.string.execution_elapsed_label),
@@ -345,7 +347,7 @@ fun DailyTimeline(
                                         RoutineLabel(
                                             text = stringResource(
                                                 R.string.begins_on,
-                                                cancelled.date.format(java.time.format.DateTimeFormatter.ofPattern("d. M.", com.example.mydailyroutine.core.platform.Slovenian)),
+                                                RoutineDate.tight(cancelled.date),
                                             ),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = RoutineColors.TextSecondary,

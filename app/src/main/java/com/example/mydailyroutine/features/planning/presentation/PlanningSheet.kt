@@ -46,10 +46,10 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
-import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.TimelineUiState
 import com.example.mydailyroutine.core.presentation.durationLabel
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.learning.StudyTopic
 import com.example.mydailyroutine.domain.model.Milestone
 import com.example.mydailyroutine.domain.model.RoutineCategory
@@ -57,9 +57,7 @@ import com.example.mydailyroutine.domain.planning.BacklogEntry
 import com.example.mydailyroutine.domain.planning.PreparationStage
 import com.example.mydailyroutine.features.entry.presentation.AppDatePicker
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
-private val planDateFormat = DateTimeFormatter.ofPattern("EEE, d. MMM yyyy", Slovenian)
 
 /** The planning sheet is split into three short lists instead of one endless scroll. */
 internal enum class PlanningTab { BACKLOG, TOPICS, MARKERS }
@@ -77,7 +75,7 @@ fun PlanningSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit, sh
     ModalBottomSheet(
         onDismissRequest = { onAction(TimelineAction.ClosePlanning) },
         shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1,
+        containerColor = RoutineColors.SheetSurface,
         tonalElevation = 0.dp,
         sheetState = sheetState,
     ) {
@@ -241,7 +239,7 @@ private fun LazyListScope.topicsTab(
             Column(Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                 RoutineText(topic.title, style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
-                RoutineLabel(stringResource(R.string.planning_topic_due, topic.finalDate.format(planDateFormat)),
+                RoutineLabel(stringResource(R.string.planning_topic_due, RoutineDate.withWeekdayYear(topic.finalDate)),
                     style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary)
                 ActionRow {
                     TextButton(enabled = !busy, onClick = { onRequestDelete(topic.id) }) {
@@ -273,7 +271,7 @@ private fun LazyListScope.markersTab(
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                 var synthesis by rememberSaveable(milestone.id) { mutableStateOf(false) }
                 RoutineText(milestone.title, style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
-                RoutineLabel(milestone.dueDate.format(planDateFormat), style = MaterialTheme.typography.labelMedium,
+                RoutineLabel(RoutineDate.withWeekdayYear(milestone.dueDate), style = MaterialTheme.typography.labelMedium,
                     color = if (milestone.dueDate.isBefore(LocalDate.now())) RoutineColors.Crimson else RoutineColors.Violet)
                 SettingRow(
                     title = stringResource(R.string.planning_synthesis_toggle),

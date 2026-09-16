@@ -14,13 +14,13 @@ import androidx.core.content.ContextCompat
 import com.example.mydailyroutine.MainActivity
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.model.SchedulePreferences
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.scheduling.AlarmKind
 import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
 import com.example.mydailyroutine.domain.scheduling.PlannedAlarm
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 class ScheduleNotifier(private val context: Context) {
     private val manager = NotificationManagerCompat.from(context)
@@ -57,7 +57,7 @@ class ScheduleNotifier(private val context: Context) {
         if (!canNotify()) return
         val quiet = preferences.isQuietAt(now.atZone(zone).toLocalTime())
         val window = OccurrenceTimes.window(alarm.block, zone)
-        val startLabel = window.start.atZone(zone).format(DateTimeFormatter.ofPattern("HH:mm"))
+        val startLabel = RoutineDate.clock(window.start.atZone(zone))
         val text = if (alarm.kind == AlarmKind.RECOVERY_START) {
             if (now >= window.start.plusSeconds(60)) context.getString(R.string.notification_recovery_late, startLabel)
             else context.getString(R.string.notification_recovery_now)

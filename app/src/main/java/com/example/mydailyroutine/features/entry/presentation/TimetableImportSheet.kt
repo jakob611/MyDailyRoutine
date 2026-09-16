@@ -129,7 +129,7 @@ fun TimetableImportSheet(
     var preview by remember { mutableStateOf<List<TimetableRow>?>(null) }
     val rows = preview
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1, tonalElevation = 0.dp) {
+        containerColor = RoutineColors.SheetSurface, tonalElevation = 0.dp) {
         RoutineSheetScaffold(
             title = stringResource(R.string.timetable_import_title),
             subtitle = stringResource(R.string.timetable_import_hint),
@@ -199,7 +199,7 @@ fun TimetableImportSheet(
                                     fontWeight = FontWeight.Bold,
                                     color = RoutineColors.School.content,
                                 )
-                                RoutineText(row.title, style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                                RoutineText(row.title, style = MaterialTheme.typography.bodySmall, maxLines = RoutineTextDefaults.Title,
                                     modifier = Modifier.weight(1f))
                             }
                         }

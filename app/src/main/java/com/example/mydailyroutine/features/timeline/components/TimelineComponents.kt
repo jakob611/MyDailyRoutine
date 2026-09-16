@@ -94,6 +94,7 @@ import com.example.mydailyroutine.core.presentation.clockLabel
 import com.example.mydailyroutine.core.presentation.durationLabel
 import com.example.mydailyroutine.core.presentation.label
 import com.example.mydailyroutine.core.presentation.minuteLabel
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.health.HealthConfig
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.RoutineCategory
@@ -101,7 +102,6 @@ import com.example.mydailyroutine.domain.planning.CircadianPenalty
 import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
 import java.time.Duration
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import kotlin.math.roundToInt
 
@@ -296,7 +296,7 @@ fun TimelineBlockCard(
                             RoutineText(
                                 text = stringResource(
                                     R.string.carry_in,
-                                    block.occurrenceDate.format(DateTimeFormatter.ofPattern("d. M.", Slovenian)),
+                                    RoutineDate.tight(block.occurrenceDate),
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = RoutineTextDefaults.Body,
@@ -357,7 +357,7 @@ fun TimelineBlockCard(
                                     text = if (block.isOneOff) stringResource(R.string.one_off_block)
                                     else stringResource(
                                         R.string.weekly_blueprint,
-                                        block.occurrenceDate.format(DateTimeFormatter.ofPattern("EEEE", Slovenian)),
+                                        RoutineDate.weekdayName(block.occurrenceDate),
                                     ),
                                     style = MaterialTheme.typography.bodySmall,
                                     maxLines = RoutineTextDefaults.Body,

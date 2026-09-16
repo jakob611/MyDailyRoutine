@@ -41,10 +41,10 @@ import com.example.mydailyroutine.core.designsystem.theme.CategoryStyle
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.presentation.labelRes
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 
@@ -56,7 +56,6 @@ private data class WidgetSnapshot(val date: LocalDate, val items: List<ResolvedT
 
 // A render token, not a second agenda. Room remains the only source of scheduled items.
 private val renderRevision = longPreferencesKey("render_revision")
-private val timeFormat = DateTimeFormatter.ofPattern("HH:mm", Slovenian)
 private val widgetColors = ColorProviders(light = OledColorScheme, dark = OledColorScheme)
 
 class AgendaWidget : GlanceAppWidget() {
@@ -95,14 +94,14 @@ private fun resolveAgenda(context: Context, snapshot: WidgetSnapshot, now: Insta
     val rows = (listOfNotNull(projection.active) + projection.upcoming).map { item ->
         val window = OccurrenceTimes.window(item, zone)
         val active = item.key == projection.active?.key
-        WidgetRow(item.title, context.getString(R.string.time_range, window.start.atZone(zone).format(timeFormat), window.end.atZone(zone).format(timeFormat)),
+        WidgetRow(item.title, context.getString(R.string.time_range, RoutineDate.clock(window.start.atZone(zone)), RoutineDate.clock(window.end.atZone(zone))),
             context.getString(if (active) R.string.now else R.string.up_next), active, !active,
             categoryStyle(item.category, item.subject?.colorHex), if (active) projection.progress else null)
     }
     val days = SlovenianAcademicCalendar.daysRemaining(snapshot.date, snapshot.preferences.teachingEndDate)
     val countdown = if (snapshot.loading) context.getString(R.string.widget_updating) else if (days > 0)
         context.resources.getQuantityString(R.plurals.days_to_teaching_end, days.toInt(), days) else context.getString(R.string.widget_complete)
-    return WidgetAgenda(snapshot.date, days, countdown, rows, now.atZone(zone).format(timeFormat), snapshot.error, snapshot.loading, projection.reserveRemainingMinutes)
+    return WidgetAgenda(snapshot.date, days, countdown, rows, RoutineDate.clock(now.atZone(zone)), snapshot.error, snapshot.loading, projection.reserveRemainingMinutes)
 }
 
 /** Updates both active Glance sessions and cold widgets; updates never depend on a periodic timer. */
@@ -122,7 +121,7 @@ private fun AgendaContent(context: Context, agenda: WidgetAgenda) {
     val openDay = actionStartActivity(MainActivity.openDayIntent(context, agenda.date))
     val roomy = LocalSize.current.height >= 260.dp
     Column(GlanceModifier.fillMaxSize().appWidgetBackground().background(RoutineColors.Background).cornerRadius(16.dp).padding(16.dp)) {
-        WidgetText(context, agenda.date.format(DateTimeFormatter.ofPattern("EEE, d. MMM", Slovenian)), 18f, bold = true,
+        WidgetText(context, RoutineDate.withWeekday(agenda.date), 18f, bold = true,
             modifier = GlanceModifier.fillMaxWidth().clickable(openDay), singleLine = true)
         // The countdown appears once: either as a number with its unit, or as the sentence form.
         val showNumber = roomy && agenda.days > 0 && !agenda.loading && !agenda.error

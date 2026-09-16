@@ -29,15 +29,13 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
-import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.core.presentation.TimelineAction
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.ScheduleValidation
 import com.example.mydailyroutine.domain.model.nominalMinutes
 import com.example.mydailyroutine.domain.routines.TimeEntryState
-import java.time.format.DateTimeFormatter
 
-private val blockDateFormat = DateTimeFormatter.ofPattern("EEEE, d. MMMM yyyy", Slovenian)
 
 /**
  * Edit one occurrence (or the whole weekly template) of a routine block.
@@ -73,12 +71,12 @@ fun BlockEditorSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1,
+        containerColor = RoutineColors.SheetSurface,
         tonalElevation = 0.dp,
     ) {
         RoutineSheetScaffold(
             title = stringResource(R.string.edit_block_title),
-            subtitle = stringResource(R.string.edit_occurrence, block.occurrenceDate.format(blockDateFormat)),
+            subtitle = stringResource(R.string.edit_occurrence, RoutineDate.spoken(block.occurrenceDate)),
             closeLabel = stringResource(R.string.close),
             onClose = onDismiss,
             modifier = Modifier.testTag("block-editor"),

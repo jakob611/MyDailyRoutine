@@ -657,6 +657,14 @@
     <string name="goals_reflection_hint">Kaj se je zgodilo in kaj sem se naučil? (150–300 besed je za portfolio dovolj)</string>
     <string name="goals_reflections_empty">Ni še refleksij za to aktivnost.</string>
     <string name="goals_milestones">Mejniki</string>
+    <string name="section_expand">Razširi</string>
+    <string name="section_collapse">Zloži</string>
+    <string name="goals_tab_overview">Pregled</string>
+    <string name="goals_tab_progress">Napredek</string>
+    <string name="goals_progress_log">Dnevnik napredka</string>
+    <string name="goals_progress_empty">Ni še zabeleženega napredka. Ure, besede in refleksije dodajaš v zavihku Aktivnosti.</string>
+    <string name="goals_progress_words">%1$d besed</string>
+    <string name="goals_progress_kind_reflection">refleksija</string>
     <string name="goals_add_milestone">Dodaj mejnik</string>
     <string name="goals_edit_milestone">Uredi mejnik</string>
     <string name="goals_milestone_title">Naziv mejnika</string>

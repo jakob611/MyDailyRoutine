@@ -152,7 +152,7 @@ fun EntryEditorSheet(
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState,
-        shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1, tonalElevation = 0.dp) {
+        shape = RoutineShapes.Sheet, containerColor = RoutineColors.SheetSurface, tonalElevation = 0.dp) {
         RoutineSheetScaffold(
             title = stringResource(if (editing == null) R.string.fast_add_title else R.string.entry_edit_milestone),
             closeLabel = stringResource(R.string.close),
@@ -185,7 +185,7 @@ fun EntryEditorSheet(
                 if (editing == null) LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(standardPresets, key = { it.key }) { preset ->
                         SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
-                            label = { RoutineText(preset.label(context), maxLines = 1, softWrap = false) })
+                            label = { RoutineLabel(preset.label(context)) })
                     }
                 }
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -203,7 +203,7 @@ fun EntryEditorSheet(
                     maxLines = RoutineTextDefaults.Body)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(subjectId == null, onClick = { subjectId = null; haptics.tap() }, enabled = !busy,
-                        label = { RoutineText(stringResource(R.string.subject_all), maxLines = 1, softWrap = false) }, shape = RoutineShapes.Chip)
+                        label = { RoutineLabel(stringResource(R.string.subject_all)) }, shape = RoutineShapes.Chip)
                     subjects.forEach { subject ->
                         FilterChip(selected = subjectId == subject.id, enabled = !busy, shape = RoutineShapes.Chip,
                             modifier = Modifier.pointerInput(subject.id) { detectTapGestures(onLongPress = { haptics.tap(); onEditSubject(subject) }) },
@@ -218,10 +218,10 @@ fun EntryEditorSheet(
                                     val desired = if (kind == EntryKind.BLOCK) PresetKind.SUBJECT_LESSON else PresetKind.SUBJECT_TEST
                                     subjectPresets.firstOrNull { it.subjectId == subject.id && it.kind == desired }?.let(::applyPreset)
                                 }
-                            }, label = { RoutineText(subject.name, maxLines = 1, modifier = Modifier.widthIn(max = 180.dp)) })
+                            }, label = { RoutineLabel(subject.name, modifier = Modifier.widthIn(max = 180.dp)) })
                     }
                     SuggestionChip(onClick = onNewSubject, enabled = !busy, shape = RoutineShapes.Chip,
-                        label = { RoutineText(stringResource(R.string.new_subject), maxLines = 1, softWrap = false) })
+                        label = { RoutineLabel(stringResource(R.string.new_subject)) })
                 }
                 if (subjects.isEmpty()) {
                     RoutineText(stringResource(R.string.no_subjects_hint), style = MaterialTheme.typography.bodySmall,
@@ -235,7 +235,7 @@ fun EntryEditorSheet(
                             val color = preset.colorHex?.let { Color(it.toInt()) } ?: RoutineColors.Cobalt
                             SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
                                 border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f)),
-                                label = { RoutineText(preset.label(context), color = color, maxLines = 1, softWrap = false) })
+                                label = { RoutineLabel(preset.label(context), color = color) })
                         }
                     }
                 }
@@ -269,7 +269,7 @@ fun EntryEditorSheet(
                         listOf(30,45,60,90,times.durationMinutes).distinct().sorted().forEach { minutes ->
                             FilterChip(selected=times.durationMinutes==minutes, onClick={ times=times.withDuration(minutes); haptics.tap(); error=null },
                                 enabled=!busy, shape=RoutineShapes.Chip,
-                                label={ RoutineText(stringResource(R.string.duration_minutes,minutes), maxLines = 1, softWrap = false) })
+                                label={ RoutineLabel(stringResource(R.string.duration_minutes,minutes)) })
                         }
                     }
                     RoutineText(stringResource(R.string.entry_overnight_hint), style = MaterialTheme.typography.bodySmall,
@@ -279,7 +279,7 @@ fun EntryEditorSheet(
                             category = option; haptics.tap()
                             if (option == RoutineCategory.SCHOOL) { times = times.withDuration(subjects.firstOrNull { it.id == subjectId }?.defaultDurationMinutes ?: defaults.lessonDurationMinutes); notifications = false }
                         }, enabled = !busy,
-                            label = { RoutineText(option.label(), maxLines = 1, softWrap = false) },
+                            label = { RoutineLabel(option.label()) },
                             leadingIcon = { Icon(categoryIcon(option), null, Modifier.size(16.dp)) }, shape = RoutineShapes.Chip) }
                     }
                     if (category == RoutineCategory.SCHOOL) {

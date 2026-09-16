@@ -1,6 +1,15 @@
 package com.example.mydailyroutine.core.designsystem.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -8,6 +17,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
@@ -15,13 +25,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
@@ -30,9 +41,19 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -42,20 +63,32 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.unit.sp
+import com.example.mydailyroutine.core.designsystem.glass.GlassRole
+import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
+import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 /**
  * Layout contract for every visible string in the app.
  *
- * 1. Text is always bounded: [RoutineText] defaults to two lines with an ellipsis, [RoutineLabel]
- *    to a single unbreakable line. A label can therefore never turn into a vertical strip of
- *    characters because a sibling took the width.
+ * 1. Text is always bounded, and it **shrinks before it truncates**: [RoutineText] defaults to two
+ *    lines, [RoutineLabel] to a single line with auto-size down to
+ *    [RoutineTextDefaults.MinLabelSize]. An ellipsis is the last resort, never the first, so a date,
+ *    a duration or a subject name does not quietly lose the part that identifies it.
  * 2. Groups of buttons live in [ActionRow]: when the row runs out of space the whole button moves
  *    to the next line at full size instead of shrinking and ellipsising its own label.
  * 3. Rows that mix a label with a control give the label `Modifier.weight(1f)` and keep the control
  *    at its intrinsic width ([SettingRow], [SectionHeader]).
+ * 4. Dates and times come from `core/presentation/DisplayFormat.kt` (`RoutineDate`), never from an
+ *    inline formatter, so one place decides how long a date may be in a tight slot.
  */
 object RoutineTextDefaults {
     /** Titles and body copy: two lines, then an ellipsis. Long form text opts into more. */
@@ -64,6 +97,13 @@ object RoutineTextDefaults {
     const val Title = 3
     /** Paragraphs (hints, warnings, explanations) may run; they are never inside a fixed box. */
     const val Paragraph = 8
+    /**
+     * Smallest size an auto-sizing label may shrink to. Below this the label is no longer legible on
+     * a phone held at reading distance, so the ellipsis takes over as the last resort.
+     */
+    val MinLabelSize = 11.sp
+    /** Shrinking step: small enough to fit tight Slovenian labels, coarse enough to stay cheap. */
+    val LabelStep = 0.5.sp
 }
 
 @Composable
@@ -80,6 +120,7 @@ fun RoutineText(
     maxLines: Int = RoutineTextDefaults.Body,
     overflow: TextOverflow = TextOverflow.Ellipsis,
     softWrap: Boolean = true,
+    autoSize: TextAutoSize? = null,
 ) {
     Text(
         text = text,
@@ -94,13 +135,21 @@ fun RoutineText(
         maxLines = maxLines,
         overflow = overflow,
         softWrap = softWrap,
+        autoSize = autoSize,
     )
 }
 
 /**
- * Single-line label: chips, timestamps, counters and button labels. `softWrap = false` means the
- * text can never break mid-word, so a squeezed label degrades to `Danes…` instead of a column of
- * letters.
+ * Single-line label: chips, timestamps, counters, dates and button labels.
+ *
+ * A label **shrinks before it truncates**. `autoSize` searches for the largest font size between
+ * [RoutineTextDefaults.MinLabelSize] and the size the style asked for that still fits the line, so
+ * `sreda, 16. sep 2026` in a narrow row becomes slightly smaller type instead of `sreda, 16. …`.
+ * Only when even the minimum does not fit does the ellipsis apply, which is what keeps a date or a
+ * subject name from silently losing its meaning.
+ *
+ * `softWrap` stays true on purpose: with wrapping disabled the layout is measured against infinite
+ * width, and auto-size then has nothing to shrink towards.
  */
 @Composable
 fun RoutineLabel(
@@ -111,7 +160,9 @@ fun RoutineLabel(
     fontWeight: FontWeight? = null,
     textAlign: TextAlign? = null,
     maxLines: Int = 1,
+    autoSize: TextAutoSize? = null,
 ) {
+    val designed = if (style.fontSize.isSpecified) style.fontSize else MaterialTheme.typography.labelMedium.fontSize
     RoutineText(
         text = text,
         modifier = modifier,
@@ -121,7 +172,12 @@ fun RoutineLabel(
         textAlign = textAlign,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
-        softWrap = false,
+        softWrap = true,
+        autoSize = autoSize ?: TextAutoSize.StepBased(
+            minFontSize = RoutineTextDefaults.MinLabelSize,
+            maxFontSize = designed,
+            stepSize = RoutineTextDefaults.LabelStep,
+        ),
     )
 }
 
@@ -199,6 +255,62 @@ fun SettingSwitch(
 }
 
 /**
+ * A section of an overview screen that folds itself away.
+ *
+ * The yearly and weekly overviews used to stack every panel into one scroll thousands of dp long, so
+ * the reader had to travel past three screens of numbers to reach the one they wanted. Each panel now
+ * keeps a permanent header — title plus one line of context — and opens on demand. The chevron is the
+ * only affordance, it rotates instead of swapping glyphs, and the whole header row is the hit target.
+ */
+@Composable
+fun CollapsibleSection(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    tag: String? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val chevron by animateFloatAsState(if (expanded) 180f else 0f, tween(TransitionMillis), label = "section-chevron")
+    Column(modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoutineShapes.Chip)
+                .clickable(role = Role.Button, onClick = onToggle)
+                .padding(vertical = RoutineSpacing.sm, horizontal = RoutineSpacing.xs)
+                .then(if (tag != null) Modifier.testTag(tag) else Modifier),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                RoutineLabel(title, style = MaterialTheme.typography.titleLarge)
+                if (subtitle != null) {
+                    RoutineText(subtitle, style = MaterialTheme.typography.bodySmall,
+                        color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
+                }
+            }
+            Icon(
+                Icons.Outlined.ExpandMore,
+                contentDescription = stringResource(if (expanded) R.string.section_collapse else R.string.section_expand),
+                tint = RoutineColors.TextSecondary,
+                modifier = Modifier.rotate(chevron),
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(tween(TransitionMillis)) + fadeIn(tween(TransitionMillis)),
+            exit = shrinkVertically(tween(TransitionMillis)) + fadeOut(tween(120)),
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(top = RoutineSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+                content = content,
+            )
+        }
+    }
+}
+
+/**
  * Category selector for sheets that used to be one endless vertical scroll. Chips reflow, keep
  * their full label on one line, and carry a stable test tag.
  */
@@ -225,49 +337,98 @@ fun <T : Enum<T>> CategoryTabs(
                 enabled = enabled,
                 shape = RoutineShapes.Chip,
                 modifier = Modifier.testTag("$tagPrefix-${entry.name.lowercase()}"),
-                label = { RoutineText(label(entry), maxLines = 1, softWrap = false) },
+                label = { RoutineLabel(label(entry), style = MaterialTheme.typography.labelLarge) },
             )
         }
     }
 }
 
 @Composable
-private fun SheetHeader(title: String, subtitle: String?, closeLabel: String?, onClose: (() -> Unit)?) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = RoutineSpacing.xl, end = RoutineSpacing.md, top = RoutineSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
-            RoutineText(title, style = MaterialTheme.typography.headlineSmall, maxLines = RoutineTextDefaults.Body)
-            if (subtitle != null) {
-                RoutineText(subtitle, style = MaterialTheme.typography.bodySmall,
-                    color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+private fun SheetHeader(
+    title: String,
+    subtitle: String?,
+    closeLabel: String?,
+    onClose: (() -> Unit)?,
+    backdrop: LayerBackdrop,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet)) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = RoutineSpacing.xl, end = RoutineSpacing.md,
+                top = RoutineSpacing.md, bottom = RoutineSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+                RoutineText(title, style = MaterialTheme.typography.headlineSmall, maxLines = RoutineTextDefaults.Body)
+                if (subtitle != null) {
+                    RoutineText(subtitle, style = MaterialTheme.typography.bodySmall,
+                        color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+                }
             }
-        }
-        if (onClose != null) {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Outlined.Close, closeLabel)
+            if (onClose != null) {
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Outlined.Close, closeLabel)
+                }
             }
         }
     }
-    HorizontalDivider(Modifier.padding(top = RoutineSpacing.sm), color = RoutineColors.Border)
 }
 
 @Composable
-private fun ColumnScope.SheetFooter(footer: (@Composable ColumnScope.() -> Unit)?) {
+private fun ColumnScope.SheetFooter(footer: (@Composable ColumnScope.() -> Unit)?, backdrop: LayerBackdrop) {
     if (footer == null) return
-    HorizontalDivider(color = RoutineColors.Border)
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.xl, vertical = RoutineSpacing.md),
+        Modifier.fillMaxWidth().padding(RoutineSpacing.md)
+            .routineGlass(backdrop, RoutineShapes.GlassSheetFooter, GlassRole.Sheet)
+            .padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.md),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) { footer() }
 }
 
 /**
- * The one sheet skeleton: header with title and close, scrollable body, sticky footer. Every bottom
- * sheet in the app renders through it, so padding, dividers, typography and button geometry are
- * identical everywhere instead of being re-invented per screen.
+ * The chrome every bottom sheet shares: a glass header that stays put while the body scrolls under
+ * it, and a glass footer for the actions.
+ *
+ * A sheet lives in its own window, so it cannot sample the app window's backdrop — it gets one of its
+ * own, filled with the sheet surface colour. The header and footer are *siblings* of the node that
+ * carries `layerBackdrop`: nesting them inside it would make the panel draw itself into itself, which
+ * is the render-thread crash the library documents.
+ *
+ * [body] receives the backdrop and the measured header height, so the scrolling content can pad
+ * itself clear of the header on the first line and still slide underneath it while scrolling.
+ */
+@Composable
+private fun SheetShell(
+    title: String,
+    modifier: Modifier = Modifier,
+    closeLabel: String?,
+    onClose: (() -> Unit)?,
+    subtitle: String?,
+    footer: (@Composable ColumnScope.() -> Unit)?,
+    body: @Composable (backdrop: LayerBackdrop, headerHeight: Dp) -> Unit,
+) {
+    val sheetBackdrop = rememberLayerBackdrop {
+        drawRect(RoutineColors.SheetSurface)
+        drawContent()
+    }
+    val density = LocalDensity.current
+    var headerHeight by remember { mutableStateOf(0.dp) }
+    Column(modifier.fillMaxWidth().imePadding()) {
+        Box(Modifier.weight(1f, fill = false).fillMaxWidth()) {
+            body(sheetBackdrop, headerHeight)
+            SheetHeader(title, subtitle, closeLabel, onClose, sheetBackdrop,
+                Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                    .onSizeChanged { headerHeight = with(density) { it.height.toDp() } })
+        }
+        SheetFooter(footer, sheetBackdrop)
+    }
+}
+
+/**
+ * The one sheet skeleton: glass header with title and close, scrollable body, glass footer with the
+ * actions. Every bottom sheet in the app renders through it, so padding, dividers, typography, glass
+ * and button geometry are identical everywhere instead of being re-invented per screen.
  */
 @Composable
 fun RoutineSheetScaffold(
@@ -279,14 +440,13 @@ fun RoutineSheetScaffold(
     footer: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(modifier.fillMaxWidth().imePadding()) {
-        SheetHeader(title, subtitle, closeLabel, onClose)
+    SheetShell(title, modifier, closeLabel, onClose, subtitle, footer) { backdrop, header ->
         Column(
-            Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
-                .padding(horizontal = RoutineSpacing.xl).padding(top = RoutineSpacing.lg, bottom = RoutineSpacing.lg),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).layerBackdrop(backdrop)
+                .padding(horizontal = RoutineSpacing.xl)
+                .padding(top = header + RoutineSpacing.lg, bottom = RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
         ) { content() }
-        SheetFooter(footer)
     }
 }
 
@@ -304,15 +464,14 @@ fun RoutineSheetListScaffold(
     footer: (@Composable ColumnScope.() -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
-    Column(modifier.fillMaxWidth().imePadding()) {
-        SheetHeader(title, subtitle, closeLabel, onClose)
+    SheetShell(title, modifier, closeLabel, onClose, subtitle, footer) { backdrop, header ->
         LazyColumn(
-            Modifier.weight(1f, fill = false).fillMaxWidth(),
-            contentPadding = PaddingValues(RoutineSpacing.xl, RoutineSpacing.lg, RoutineSpacing.xl, RoutineSpacing.lg),
+            Modifier.fillMaxSize().layerBackdrop(backdrop),
+            contentPadding = PaddingValues(RoutineSpacing.xl, header + RoutineSpacing.lg,
+                RoutineSpacing.xl, RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
             content = content,
         )
-        SheetFooter(footer)
     }
 }
 

@@ -11,8 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
@@ -108,8 +110,23 @@ fun Modifier.routineGlass(
     shape: CornerBasedShape,
     role: GlassRole = GlassRole.Bar,
     tint: Color = RoutineColors.GlassTint,
+    hue: Boolean = false,
 ): Modifier {
-    if (backdrop == null || !glassSupported) return this.clip(shape).background(role.fallback)
+    if (backdrop == null || !glassSupported) {
+        val fallback = if (hue) tint else role.fallback
+        return this.clip(shape).background(fallback)
+    }
+    // A coloured control is tinted the way the library documents: hue-blend first so the refracted
+    // backdrop keeps its own shading, then a translucent wash of the accent on top. Neutral chrome
+    // only gets the wash, because its job is to make text readable, not to carry meaning.
+    val surface: (DrawScope.() -> Unit)? = when {
+        hue -> {
+            drawRect(tint, blendMode = BlendMode.Hue)
+            drawRect(tint.copy(alpha = RoutineColors.GlassTintStrongAlpha))
+        }
+        role.tintAlpha > 0f -> { drawRect(tint.copy(alpha = role.tintAlpha)) }
+        else -> null
+    }
     return this.drawBackdrop(
         backdrop = backdrop,
         shape = { shape },
@@ -118,11 +135,7 @@ fun Modifier.routineGlass(
             blur(role.blur.toPx())
             lens(role.lensHeight.toPx(), role.lensAmount.toPx(), role.depth)
         },
-        onDrawSurface = if (role.tintAlpha > 0f) {
-            { drawRect(tint.copy(alpha = role.tintAlpha)) }
-        } else {
-            null
-        },
+        onDrawSurface = surface,
     )
 }
 
@@ -136,10 +149,11 @@ fun RoutineGlassSurface(
     shape: CornerBasedShape,
     role: GlassRole = GlassRole.Bar,
     tint: Color = RoutineColors.GlassTint,
+    hue: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val backdrop = LocalRoutineBackdrop.current
-    Box(modifier.clip(shape).routineGlass(backdrop, shape, role, tint)) { content() }
+    Box(modifier.routineGlass(backdrop, shape, role, tint, hue).clip(shape)) { content() }
 }
 
 /**

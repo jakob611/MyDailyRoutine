@@ -75,10 +75,7 @@ fun ActualCompletionDialog(block: ResolvedTimelineItem.Block, busy: Boolean, onA
                             onClick = { haptics.tap(); minutes = option.toString(); invalid = false },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
-                            label = {
-                                RoutineText(stringResource(R.string.duration_minutes, option),
-                                    maxLines = 1, softWrap = false)
-                            },
+                            label = { RoutineLabel(stringResource(R.string.duration_minutes, option)) },
                         )
                     }
                 }

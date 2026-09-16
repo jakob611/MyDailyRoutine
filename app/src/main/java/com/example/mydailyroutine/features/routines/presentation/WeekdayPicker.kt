@@ -44,10 +44,7 @@ fun WeekdayPicker(mask: Int, enabled: Boolean, onChange: (Int) -> Unit) {
                     shape = RoutineShapes.Chip,
                     modifier = Modifier.testTag("weekday-${day.value}"),
                     onClick = { haptics.tap(); onChange(mask xor bit) },
-                    label = {
-                        RoutineText(day.getDisplayName(TextStyle.SHORT_STANDALONE, Slovenian),
-                            maxLines = 1, softWrap = false)
-                    },
+                    label = { RoutineLabel(day.getDisplayName(TextStyle.SHORT_STANDALONE, Slovenian)) },
                 )
             }
         }

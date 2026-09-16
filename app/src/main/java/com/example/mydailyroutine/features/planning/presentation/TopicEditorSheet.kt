@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheetScaffold
+import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.SheetPrimaryButton
@@ -83,7 +84,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
     ModalBottomSheet(
         onDismissRequest = { onAction(TimelineAction.CloseTopic) },
         shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1,
+        containerColor = RoutineColors.SheetSurface,
         tonalElevation = 0.dp,
         sheetState = sheetState,
     ) {
@@ -152,7 +153,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
                             onClick = { subject = item.id; haptics.tap() },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
-                            label = { RoutineText(item.name, maxLines = 1, softWrap = false) },
+                            label = { RoutineLabel(item.name) },
                         )
                     }
                 }
@@ -175,7 +176,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
                             },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
-                            label = { RoutineText(item.title, maxLines = 1, softWrap = false) },
+                            label = { RoutineLabel(item.title) },
                         )
                     }
                 }

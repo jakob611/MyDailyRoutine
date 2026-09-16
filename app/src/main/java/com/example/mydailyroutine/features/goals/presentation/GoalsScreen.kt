@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -26,6 +27,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -74,7 +78,9 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
+import androidx.annotation.StringRes
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
+import com.example.mydailyroutine.core.designsystem.components.CategoryTabs
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheet
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheetScaffold
@@ -92,8 +98,8 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.designsystem.theme.SnappySpring
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
-import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.core.presentation.TimelineAction
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.model.GoalActivity
 import com.example.mydailyroutine.domain.model.GoalMilestone
 import com.example.mydailyroutine.domain.model.GoalProgress
@@ -102,13 +108,9 @@ import com.example.mydailyroutine.core.presentation.GoalsUiState
 import com.example.mydailyroutine.features.entry.presentation.AppDatePicker
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.roundToInt
 
-private val GoalDateFormat = DateTimeFormatter.ofPattern("d. MMM yyyy", Slovenian)
-private val GoalMonthFormat = DateTimeFormatter.ofPattern("LLL yy", Slovenian)
-private val GoalShortFormat = DateTimeFormatter.ofPattern("d. MMM", Slovenian)
 
 /** Width of the project-name column in the Gantt; the timeline itself scrolls when it needs more. */
 private val GanttLaneLabel = 84.dp
@@ -121,7 +123,7 @@ private val GanttLaneLabel = 84.dp
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -> Unit) {
+fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -> Unit, topInset: Dp = 0.dp) {
     val haptics = LocalRoutineHaptics.current
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editingActivity by remember { mutableStateOf<GoalActivity?>(null) }
@@ -131,6 +133,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
     var editingProject by remember { mutableStateOf<GoalsProject?>(null) }
     var addingProject by remember { mutableStateOf(false) }
     val project = goals.projects.firstOrNull { it.id == selectedId } ?: goals.projects.lastOrNull()
+    var tab by rememberSaveable { mutableStateOf(GoalTab.OVERVIEW) }
     AnimatedContent(
         targetState = project == null,
         label = "goals-swap",
@@ -140,69 +143,100 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
         },
     ) { isEmpty ->
         if (isEmpty) {
-            GoalEmptyState(busy, onAction) { haptics.tap(); addingProject = true }
+            Box(Modifier.fillMaxSize().padding(top = topInset)) {
+                GoalEmptyState(busy, onAction) { haptics.tap(); addingProject = true }
+            }
         } else {
             Column(Modifier.fillMaxSize()) {
-                FlowRow(
-                    Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.sm),
+                // Projects scroll sideways: a wrapping chip row grew to four lines with three projects.
+                LazyRow(
+                    Modifier.fillMaxWidth().padding(top = topInset + RoutineSpacing.sm),
+                    contentPadding = PaddingValues(horizontal = RoutineSpacing.lg),
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
-                    verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
                 ) {
-                    goals.projects.forEach { candidate ->
+                    items(goals.projects, key = { it.id }) { candidate ->
                         FilterChip(
                             selected = project?.id == candidate.id,
-                            onClick = { haptics.tap(); selectedId = candidate.id },
+                            onClick = { haptics.tap(); selectedId = candidate.id; tab = GoalTab.OVERVIEW },
+                            enabled = !busy,
                             shape = RoutineShapes.Chip,
                             modifier = Modifier.testTag("goal-project-${candidate.id}"),
-                            label = { RoutineText(candidate.name) },
+                            label = { RoutineLabel(candidate.name, style = MaterialTheme.typography.labelLarge) },
                         )
                     }
-                    SuggestionChip(
-                        onClick = { haptics.tap(); addingProject = true },
-                        enabled = !busy,
-                        shape = RoutineShapes.Chip,
-                        modifier = Modifier.testTag("goal-project-new"),
-                        label = { RoutineText(stringResource(R.string.goals_new_project)) },
-                    )
+                    item {
+                        SuggestionChip(
+                            onClick = { haptics.tap(); addingProject = true },
+                            enabled = !busy,
+                            shape = RoutineShapes.Chip,
+                            modifier = Modifier.testTag("goal-project-new"),
+                            label = { RoutineLabel(stringResource(R.string.goals_new_project), style = MaterialTheme.typography.labelLarge) },
+                        )
+                    }
                 }
                 if (project != null) {
                     val activities = goals.activities.filter { it.projectId == project.id }
                     val milestones = goals.milestones.filter { it.projectId == project.id }.sortedBy { it.dueDate }
                     val progress = goals.progress.filter { it.projectId == project.id }
-                    Column(
-                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(RoutineSpacing.lg),
+                    CategoryTabs(
+                        entries = GoalTab.entries.toList(),
+                        selected = tab,
+                        label = { stringResource(it.labelRes) },
+                        onSelect = { haptics.tap(); tab = it },
+                        modifier = Modifier.padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.sm),
+                        tagPrefix = "goal-tab",
+                        enabled = !busy,
+                    )
+                    LazyColumn(
+                        Modifier.fillMaxSize().testTag("goal-tab-body"),
+                        contentPadding = PaddingValues(RoutineSpacing.lg, RoutineSpacing.xs, RoutineSpacing.lg, RoutineSpacing.xl),
                         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
                     ) {
-                        StatusCard(project, activities, milestones, progress, busy,
-                            onEdit = { haptics.tap(); editingProject = project }, onAction = onAction)
-                        Card(
-                            Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1),
-                            shape = RoutineShapes.Card,
-                        ) {
-                            Column(
-                                Modifier.fillMaxWidth().padding(vertical = RoutineSpacing.md),
-                                verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
-                            ) {
-                                RoutineText(
-                                    text = stringResource(R.string.goals_gantt),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(horizontal = RoutineSpacing.md),
-                                    maxLines = RoutineTextDefaults.Body,
-                                )
-                                GoalGantt(goals.projects, goals.activities, goals.milestones, project.id) { activity ->
-                                    haptics.tap()
-                                    goals.projects.firstOrNull { it.id == activity.projectId }?.let { selectedId = it.id }
-                                    editingActivity = activity
+                        when (tab) {
+                            GoalTab.OVERVIEW -> {
+                                item(key = "status") {
+                                    StatusCard(project, activities, milestones, progress, busy,
+                                        onEdit = { haptics.tap(); editingProject = project }, onAction = onAction)
+                                }
+                                item(key = "gantt") {
+                                    Card(
+                                        Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1),
+                                        shape = RoutineShapes.Card,
+                                    ) {
+                                        Column(
+                                            Modifier.fillMaxWidth().padding(vertical = RoutineSpacing.md),
+                                            verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+                                        ) {
+                                            RoutineText(
+                                                text = stringResource(R.string.goals_gantt),
+                                                style = MaterialTheme.typography.titleMedium,
+                                                modifier = Modifier.padding(horizontal = RoutineSpacing.md),
+                                                maxLines = RoutineTextDefaults.Body,
+                                            )
+                                            GoalGantt(goals.projects, goals.activities, goals.milestones, project.id) { activity ->
+                                                haptics.tap()
+                                                goals.projects.firstOrNull { it.id == activity.projectId }?.let { selectedId = it.id }
+                                                editingActivity = activity
+                                            }
+                                        }
+                                    }
                                 }
                             }
+                            GoalTab.ACTIVITIES -> item(key = "activities") {
+                                ActivityList(activities, progress, busy, onAction,
+                                    onAdd = { haptics.tap(); addingActivity = true },
+                                    onEdit = { haptics.tap(); editingActivity = it })
+                            }
+                            GoalTab.MILESTONES -> item(key = "milestones") {
+                                MilestoneList(milestones, busy, onAction,
+                                    onAdd = { haptics.tap(); addingMilestone = true },
+                                    onEdit = { haptics.tap(); editingMilestone = it })
+                            }
+                            GoalTab.PROGRESS -> item(key = "progress") {
+                                ProgressLog(progress, activities, busy, onAction)
+                            }
                         }
-                        ActivityList(activities, progress, busy, onAction,
-                            onAdd = { haptics.tap(); addingActivity = true },
-                            onEdit = { haptics.tap(); editingActivity = it })
-                        MilestoneList(milestones, busy, onAction,
-                            onAdd = { haptics.tap(); addingMilestone = true },
-                            onEdit = { haptics.tap(); editingMilestone = it })
                     }
                 }
             }
@@ -269,6 +303,77 @@ private fun ProjectEditorHost(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+/**
+ * The goals screen used to be one ~1000 dp scroll: status card, Gantt, every activity and every
+ * milestone stacked on top of each other. Splitting it into tabs keeps each view short enough to
+ * survey at a glance; the project selector above the tabs stays put.
+ */
+private enum class GoalTab(@StringRes val labelRes: Int) {
+    OVERVIEW(R.string.goals_tab_overview),
+    ACTIVITIES(R.string.goals_activities),
+    MILESTONES(R.string.goals_milestones),
+    PROGRESS(R.string.goals_tab_progress),
+}
+
+/**
+ * Everything ever logged for the project, newest first. The status card shows the totals; this is
+ * the trail behind them, and the only place reflections are readable without opening an activity.
+ */
+@Composable
+private fun ProgressLog(progress: List<GoalProgress>, activities: List<GoalActivity>, busy: Boolean, onAction: (TimelineAction) -> Unit) {
+    val entries = progress.sortedWith(compareByDescending<GoalProgress> { it.date }.thenByDescending { it.id })
+    Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+        SectionHeader(title = stringResource(R.string.goals_progress_log), style = MaterialTheme.typography.titleLarge)
+        if (entries.isEmpty()) {
+            RoutineText(stringResource(R.string.goals_progress_empty), style = MaterialTheme.typography.bodyMedium,
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+        }
+        entries.forEach { entry ->
+            OutlinedCard(
+                shape = RoutineShapes.Card,
+                border = BorderStroke(1.dp, RoutineColors.Border),
+                modifier = Modifier.fillMaxWidth().testTag("goal-progress-${entry.id}"),
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(RoutineSpacing.md),
+                    verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+                    ) {
+                        RoutineLabel(RoutineDate.normal(entry.date), style = MaterialTheme.typography.labelSmall,
+                            color = RoutineColors.TextSecondary)
+                        RoutineLabel(
+                            when (entry.kind) {
+                                "word" -> stringResource(R.string.goals_progress_words, entry.amount.toInt())
+                                "reflection" -> stringResource(R.string.goals_progress_kind_reflection)
+                                else -> stringResource(R.string.goals_hours_item, entry.amount.toInt())
+                            },
+                            Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        if (entry.kind != "reflection") {
+                            TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteGoalProgress(entry.id)) }) {
+                                RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge,
+                                    color = RoutineColors.Crimson)
+                            }
+                        }
+                    }
+                    activities.firstOrNull { it.id == entry.activityId }?.let { activity ->
+                        RoutineLabel(activity.title, style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextMuted)
+                    }
+                    if (entry.kind == "reflection") {
+                        RoutineText(entry.note.orEmpty(), style = MaterialTheme.typography.bodySmall,
+                            maxLines = RoutineTextDefaults.Paragraph)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun GoalEmptyState(busy: Boolean, onAction: (TimelineAction) -> Unit, onNewCustom: () -> Unit) {
     val context = LocalContext.current
     Column(
@@ -345,7 +450,7 @@ private fun StatusCard(
                 },
             )
             RoutineLabel(
-                stringResource(R.string.date_range, project.start.format(GoalDateFormat), project.end.format(GoalDateFormat)),
+                stringResource(R.string.date_range, RoutineDate.normalYear(project.start), RoutineDate.normalYear(project.end)),
                 style = MaterialTheme.typography.bodySmall,
                 color = RoutineColors.TextSecondary,
             )
@@ -517,7 +622,7 @@ private fun GoalGantt(
                     if (!showEveryMonth && index % 2 == 1) continue
                     Box(Modifier.width(if (showEveryMonth) cellWidth else cellWidth * 2)) {
                         RoutineLabel(
-                            YearMonth.from(start).plusMonths(index.toLong()).format(GoalMonthFormat),
+                            RoutineDate.axisLabel(YearMonth.from(start).plusMonths(index.toLong())),
                             modifier = Modifier.padding(start = RoutineSpacing.xs),
                             style = MaterialTheme.typography.labelSmall,
                             color = RoutineColors.TextSecondary,
@@ -594,7 +699,7 @@ private fun GanttMilestoneStrip(milestones: List<GoalMilestone>, modifier: Modif
                             if (milestone.isDone) RoutineColors.TextMuted.copy(alpha = 0.5f) else RoutineColors.Crimson,
                             RoundedCornerShape(2.dp),
                         )
-                        .semantics { contentDescription = milestone.dueDate.format(GoalShortFormat) },
+                        .semantics { contentDescription = RoutineDate.normal(milestone.dueDate) },
                 )
             }
         },
@@ -657,8 +762,8 @@ private fun GanttBar(activity: GoalActivity, onActivity: (GoalActivity) -> Unit)
     val description = stringResource(
         R.string.goals_gantt_bar_description,
         activity.title,
-        activity.start.format(GoalShortFormat),
-        activity.end.format(GoalShortFormat),
+        RoutineDate.normal(activity.start),
+        RoutineDate.normal(activity.end),
     )
     val border = if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.Violet, RoundedCornerShape(5.dp)) else Modifier
     val dim = if (activity.isDone) Modifier.alpha(0.55f) else Modifier
@@ -718,7 +823,7 @@ private fun ActivityList(
         activities.forEach { activity ->
             val hours = progress.filter { it.kind == "hour" && it.activityId == activity.id }.sumOf { it.amount }
             val details = listOfNotNull(
-                stringResource(R.string.date_range, activity.start.format(GoalShortFormat), activity.end.format(GoalShortFormat)),
+                stringResource(R.string.date_range, RoutineDate.normal(activity.start), RoutineDate.normal(activity.end)),
                 categoryLabel(activity.category),
                 if (hours > 0.0) stringResource(R.string.goals_hours_item, hours.roundToInt()) else null,
                 if (activity.isScheduled) stringResource(R.string.goals_scheduled) else null,
@@ -794,7 +899,7 @@ private fun MilestoneList(
                         RoutineText(milestone.title, style = MaterialTheme.typography.titleSmall,
                             maxLines = RoutineTextDefaults.Body)
                         RoutineLabel(
-                            "${milestone.dueDate.format(GoalShortFormat)} · ${goalRelative(milestone.dueDate)}",
+                            "${RoutineDate.normal(milestone.dueDate)} · ${goalRelative(milestone.dueDate)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = RoutineColors.TextSecondary,
                         )
@@ -837,7 +942,7 @@ private fun ActivityEditorSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1,
+        containerColor = RoutineColors.SheetSurface,
         tonalElevation = 0.dp,
         sheetState = sheetState,
     ) {
@@ -914,7 +1019,7 @@ private fun ActivityEditorSheet(
                     shape = RoutineShapes.Pill,
                     onClick = { pickingStart = true },
                 ) {
-                    RoutineLabel("${stringResource(R.string.goals_start_date)} · ${start.format(GoalShortFormat)}",
+                    RoutineLabel("${stringResource(R.string.goals_start_date)} · ${RoutineDate.normal(start)}",
                         style = MaterialTheme.typography.labelLarge)
                 }
                 OutlinedButton(
@@ -922,7 +1027,7 @@ private fun ActivityEditorSheet(
                     shape = RoutineShapes.Pill,
                     onClick = { pickingEnd = true },
                 ) {
-                    RoutineLabel("${stringResource(R.string.goals_end_date)} · ${end.format(GoalShortFormat)}",
+                    RoutineLabel("${stringResource(R.string.goals_end_date)} · ${RoutineDate.normal(end)}",
                         style = MaterialTheme.typography.labelLarge)
                 }
             }
@@ -973,7 +1078,7 @@ private fun ActivityEditorSheet(
                             Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
                         ) {
-                            RoutineLabel(entry.date.format(GoalShortFormat), style = MaterialTheme.typography.labelSmall,
+                            RoutineLabel(RoutineDate.normal(entry.date), style = MaterialTheme.typography.labelSmall,
                                 color = RoutineColors.TextSecondary)
                             RoutineText(entry.note.orEmpty(), style = MaterialTheme.typography.bodySmall,
                                 maxLines = RoutineTextDefaults.Paragraph)
@@ -1051,7 +1156,7 @@ private fun MilestoneEditorSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1,
+        containerColor = RoutineColors.SheetSurface,
         tonalElevation = 0.dp,
         sheetState = sheetState,
     ) {
@@ -1093,7 +1198,7 @@ private fun MilestoneEditorSheet(
                 label = { RoutineText(stringResource(R.string.goals_milestone_title)) },
             )
             OutlinedButton(enabled = !busy, shape = RoutineShapes.Pill, onClick = { picking = true }) {
-                RoutineLabel(LocalDate.ofEpochDay(epoch).format(GoalDateFormat), style = MaterialTheme.typography.labelLarge)
+                RoutineLabel(RoutineDate.normalYear(LocalDate.ofEpochDay(epoch)), style = MaterialTheme.typography.labelLarge)
             }
         }
     }
@@ -1133,7 +1238,7 @@ private fun ProjectEditorSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = RoutineShapes.Sheet,
-        containerColor = RoutineColors.Surface1,
+        containerColor = RoutineColors.SheetSurface,
         tonalElevation = 0.dp,
         sheetState = sheetState,
     ) {
@@ -1181,7 +1286,7 @@ private fun ProjectEditorSheet(
                     shape = RoutineShapes.Pill,
                     onClick = { pickingStart = true },
                 ) {
-                    RoutineLabel("${stringResource(R.string.goals_start_date)} · ${start.format(GoalShortFormat)}",
+                    RoutineLabel("${stringResource(R.string.goals_start_date)} · ${RoutineDate.normal(start)}",
                         style = MaterialTheme.typography.labelLarge)
                 }
                 OutlinedButton(
@@ -1189,7 +1294,7 @@ private fun ProjectEditorSheet(
                     shape = RoutineShapes.Pill,
                     onClick = { pickingEnd = true },
                 ) {
-                    RoutineLabel("${stringResource(R.string.goals_end_date)} · ${end.format(GoalShortFormat)}",
+                    RoutineLabel("${stringResource(R.string.goals_end_date)} · ${RoutineDate.normal(end)}",
                         style = MaterialTheme.typography.labelLarge)
                 }
             }
