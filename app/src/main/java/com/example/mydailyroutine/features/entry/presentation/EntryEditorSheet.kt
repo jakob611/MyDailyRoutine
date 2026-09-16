@@ -1,6 +1,11 @@
 package com.example.mydailyroutine.features.entry.presentation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyRow
@@ -46,6 +51,9 @@ import com.example.mydailyroutine.domain.learning.HistoricalVelocity
 import com.example.mydailyroutine.domain.learning.VelocityCalibrator
 import com.example.mydailyroutine.domain.model.nominalMinutes
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
+import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.*
 import androidx.compose.ui.draw.rotate
 import com.example.mydailyroutine.core.presentation.*
@@ -88,6 +96,9 @@ fun EntryEditorSheet(
     var error by rememberSaveable { mutableStateOf<Int?>(null) }
     var pickingDate by rememberSaveable { mutableStateOf(false) }
     var advanced by rememberSaveable { mutableStateOf(false) }
+    // One reduce-motion read for the whole sheet: every reveal below uses the same two specs.
+    val reduceMotion = LocalReduceMotion.current
+    val advancedChevron by animateFloatAsState(if (advanced) 180f else 0f, spatialSpec<Float>(reduceMotion), label = "advanced-chevron")
     var minimum by rememberSaveable { mutableStateOf("") }
     var elasticity by rememberSaveable { mutableStateOf("1.0") }
     var priority by rememberSaveable { mutableStateOf("3.0") }
@@ -255,7 +266,13 @@ fun EntryEditorSheet(
                         },
                     )
                 }
-                AnimatedVisibility(kind == EntryKind.BLOCK || !allDay) {
+                // Revealing the time fields is spatial, so it springs open and obeys the system's
+                // remove-animations setting instead of always sliding.
+                AnimatedVisibility(
+                    visible = kind == EntryKind.BLOCK || !allDay,
+                    enter = expandVertically(spatialSpec(reduceMotion)) + fadeIn(effectSpec(reduceMotion)),
+                    exit = shrinkVertically(spatialSpec(reduceMotion)) + fadeOut(effectSpec(reduceMotion)),
+                ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedTextField(startText, { times = times.withStart(it); error = null }, label = { RoutineText(stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due)) },
                             singleLine = true, modifier = Modifier.weight(1f).testTag("entry-start"), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
@@ -303,12 +320,16 @@ fun EntryEditorSheet(
                     }
                     ActionRow {
                         TextButton(onClick = { advanced = !advanced; haptics.tap() }) {
-                            Icon(Icons.Outlined.ExpandMore, null, Modifier.size(18.dp).rotate(if (advanced) 180f else 0f))
+                            Icon(Icons.Outlined.ExpandMore, null, Modifier.size(18.dp).rotate(advancedChevron))
                             Spacer(Modifier.width(RoutineSpacing.sm))
                             RoutineLabel(stringResource(R.string.entry_more_options), style = MaterialTheme.typography.labelLarge)
                         }
                     }
-                    AnimatedVisibility(advanced) {
+                    AnimatedVisibility(
+                        visible = advanced,
+                        enter = expandVertically(spatialSpec(reduceMotion)) + fadeIn(effectSpec(reduceMotion)),
+                        exit = shrinkVertically(spatialSpec(reduceMotion)) + fadeOut(effectSpec(reduceMotion)),
+                    ) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             RoutineText(stringResource(R.string.elastic_settings), style = MaterialTheme.typography.titleSmall,
                                 maxLines = RoutineTextDefaults.Body)

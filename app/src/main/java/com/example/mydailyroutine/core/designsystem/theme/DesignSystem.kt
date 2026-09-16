@@ -17,12 +17,18 @@ import com.example.mydailyroutine.domain.model.RoutineCategory
  * * **Surfaces** are one neutral ramp (`Background` → `Surface4`) tinted towards indigo instead of
  *   pure grey, so stacked cards read as depth and not as unrelated boxes. The base is near-black
  *   (#07080B) rather than #000000: a hair of blue keeps elevation visible on an OLED panel and gives
- *   the liquid-glass layers something to refract.
+ *   the liquid-glass layers something to refract. Each step is 1.07-1.12 times the luminance of the
+ *   one below it, which is the range Material 3's own dark ramp uses (1.05-1.17); flatter than that
+ *   and cards stop reading as elevation, steeper and text loses contrast headroom.
  * * **Accents** all sit at the same perceived lightness (HCT tone ≈ 80, chroma ≈ 45-60). Equal tone
  *   across hues is what makes six category colours look like one family instead of a box of crayons,
  *   and it keeps every accent legible on the dark ramp.
  * * **Containers** are the matching tone ≈ 22 of the same hue with content at tone ≈ 90, which is the
  *   pair that passes WCAG AA (4.5:1) for small text without reaching for white-on-saturated.
+ *
+ * Measured ratios (worst case over the whole ramp, `tools/check_contrast.py`): primary text 13.0:1,
+ * secondary 6.3:1, muted 4.7:1, weakest accent (indigo) 5.6:1, category content on its container
+ * 12.9:1, background text on the amber control 10.0:1.
  *
  * Contrast is verified in CI by `tools/check_contrast.py`; do not edit a value without running it.
  */
@@ -30,18 +36,18 @@ object RoutineColors {
     /** Ambient base of the whole app; also the colour the glass backdrop is filled with. */
     val Background = Color(0xFF07080B)
     /** Neutral surface ramp: cards, rows, sheets, popovers — each step is one elevation level. */
-    val Surface1 = Color(0xFF0C0E13)
-    val Surface2 = Color(0xFF12151B)
-    val Surface3 = Color(0xFF191D25)
-    val Surface4 = Color(0xFF20242E)
+    val Surface1 = Color(0xFF0E1218)
+    val Surface2 = Color(0xFF151A22)
+    val Surface3 = Color(0xFF1D222B)
+    val Surface4 = Color(0xFF252B36)
     /** Bottom sheets sit above the dim scrim; slightly darker than Surface1 so glass reads on them. */
-    val SheetSurface = Color(0xFF0E1116)
-    val Border = Color.White.copy(alpha = 0.08f)
-    val BorderStrong = Color.White.copy(alpha = 0.14f)
-    val CardBorder = Color.White.copy(alpha = 0.06f)
+    val SheetSurface = Color(0xFF0B0E13)
+    val Border = Color.White.copy(alpha = 0.10f)
+    val BorderStrong = Color.White.copy(alpha = 0.18f)
+    val CardBorder = Color.White.copy(alpha = 0.08f)
     val TextPrimary = Color(0xFFF2F5FA)
     val TextSecondary = Color(0xFFA3ADBE)
-    val TextMuted = Color(0xFF6C7789)
+    val TextMuted = Color(0xFF8A95A8)
     val Spine = Color(0xFF242933)
 
     /** Accents at equal tone. Names kept stable so every call site keeps its meaning. */
@@ -61,13 +67,22 @@ object RoutineColors {
     val AmbientTopAlpha = 0.055f
     val AmbientBottomAlpha = 0.035f
 
-    /** Translucent wash painted on top of refracted glass to keep text at ≥ 4.5:1. */
+    /**
+     * Translucent wash painted on top of refracted glass to keep text readable.
+     *
+     * Dark-mode glass needs more opacity than light-mode glass: the panel has to survive the
+     * brightest thing that can scroll under it, and in this palette that is a saturated accent
+     * (amber #F0A93B). At 0.82 the worst case is still 12.5:1 for primary text and 5.8:1 for
+     * secondary, both above WCAG AA, while the blurred content and the rim highlight keep reading as
+     * glass. Muted text is not allowed on glass at any alpha — see `tools/check_contrast.py`.
+     */
     val GlassTint = Color(0xFF0B0D12)
-    val GlassTintAlpha = 0.58f
-    val GlassTintStrongAlpha = 0.72f
-    /** Solid stand-in used when the platform cannot render the effect (below Android 12). */
-    val GlassFallback = Color(0xF2151922)
-    val GlassFallbackStrong = Color(0xF7191D26)
+    val GlassTintAlpha = 0.82f
+    val GlassTintStrongAlpha = 0.86f
+    /** Solid stand-in used when the platform cannot render the effect (below Android 12): the same
+     *  tint at the same alpha over the surface it would have been floating on, so nothing shifts. */
+    val GlassFallback = Color(0xF20D1015)
+    val GlassFallbackStrong = Color(0xF70B0E13)
 
     val School = CategoryStyle(Cobalt, Color(0xFF131C31), Color(0xFFD9E5FF))
     val Focus = CategoryStyle(Amber, Color(0xFF2B2010), Color(0xFFFFE3B8))

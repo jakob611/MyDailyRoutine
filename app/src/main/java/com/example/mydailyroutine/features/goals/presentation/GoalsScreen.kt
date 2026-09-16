@@ -2,7 +2,7 @@ package com.example.mydailyroutine.features.goals.presentation
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -96,8 +96,10 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
+import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.SnappySpring
-import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.model.GoalActivity
@@ -134,12 +136,14 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
     var addingProject by remember { mutableStateOf(false) }
     val project = goals.projects.firstOrNull { it.id == selectedId } ?: goals.projects.lastOrNull()
     var tab by rememberSaveable { mutableStateOf(GoalTab.OVERVIEW) }
+    val reduceMotion = LocalReduceMotion.current
     AnimatedContent(
         targetState = project == null,
         label = "goals-swap",
         modifier = Modifier.fillMaxSize(),
         transitionSpec = {
-            (fadeIn(tween(TransitionMillis)) + slideInVertically(tween(TransitionMillis)) { it / 10 }) togetherWith fadeOut(tween(120))
+            (fadeIn(effectSpec<Float>(reduceMotion)) + slideInVertically(spatialSpec(reduceMotion)) { it / 10 }) togetherWith
+                fadeOut(effectSpec<Float>(reduceMotion, 120))
         },
     ) { isEmpty ->
         if (isEmpty) {
@@ -555,7 +559,8 @@ private fun StatusCard(
 private fun GoalBar(fraction: Float, color: Color) {
     var shown by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(fraction) { shown = fraction }
-    val width by animateFloatAsState(shown.coerceIn(0f, 1f), SnappySpring, label = "goal-progress")
+    val width by animateFloatAsState(shown.coerceIn(0f, 1f),
+        if (LocalReduceMotion.current) snap() else SnappySpring, label = "goal-progress")
     Box(Modifier.fillMaxWidth().height(RoutineSpacing.sm).clip(RoundedCornerShape(4.dp)).background(RoutineColors.Surface2)) {
         Box(Modifier.fillMaxWidth(width).height(RoutineSpacing.sm).clip(RoundedCornerShape(4.dp)).background(color))
     }

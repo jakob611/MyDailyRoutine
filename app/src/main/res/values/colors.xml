@@ -1,10 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Mirror of the Compose palette in
+  app/src/main/java/com/example/mydailyroutine/core/designsystem/theme/DesignSystem.kt.
+
+  Only the views that cannot read Compose need it: the home-screen widget (RemoteViews inflate XML
+  layouts) and the window background behind the first frame. Everything else takes its colour from
+  RoutineColors, so this file is deliberately small — a second palette that grows is a palette that
+  drifts.
+
+  It is not left to discipline: tools/check_contrast.py parses both files and fails the build when a
+  value here stops matching DesignSystem.kt, when a stray hex colour appears in res/layout or
+  res/drawable, and when any of these colours fails its WCAG pair.
+-->
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="routine_background">#FF07080B</color>
+    <color name="routine_surface_1">#FF0E1218</color>
+    <color name="routine_surface_2">#FF151A22</color>
+    <color name="routine_surface_3">#FF1D222B</color>
+    <color name="routine_surface_4">#FF252B36</color>
+    <color name="routine_sheet_surface">#FF0B0E13</color>
+    <color name="routine_text_primary">#FFF2F5FA</color>
+    <color name="routine_text_secondary">#FFA3ADBE</color>
+    <color name="routine_text_muted">#FF8A95A8</color>
+    <color name="routine_spine">#FF242933</color>
+    <color name="routine_border">#1AFFFFFF</color>
+    <color name="routine_border_strong">#2EFFFFFF</color>
+    <color name="routine_card_border">#14FFFFFF</color>
+    <color name="routine_cobalt">#FF7FB0FF</color>
+    <color name="routine_amber">#FFF0A93B</color>
+    <color name="routine_sage">#FF5FD9A6</color>
+    <color name="routine_crimson">#FFFF8A9B</color>
+    <color name="routine_violet">#FFB79CFF</color>
+    <color name="routine_indigo">#FF8C9BFF</color>
+    <color name="routine_warning">#FFFFA861</color>
 </resources>

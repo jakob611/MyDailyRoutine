@@ -84,7 +84,8 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
-import com.example.mydailyroutine.core.designsystem.theme.SnappySpring
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
 import com.example.mydailyroutine.core.platform.Slovenian
@@ -140,7 +141,7 @@ fun TimelineBlockCard(
     val active = !block.isSuppressed && !block.isCompleted &&
         now.toInstant() >= window.start && now.toInstant() < window.end
     val past = now.toInstant() >= window.end || block.isCompleted
-    val activeAmount by animateFloatAsState(if (active) 1f else 0f, SnappySpring, label = "active-border")
+    val activeAmount by animateFloatAsState(if (active) 1f else 0f, spatialSpec<Float>(LocalReduceMotion.current), label = "active-border")
     val barColor = block.subject?.let { Color(it.colorHex.toInt()) } ?: style.accent
     val toggleDescription = stringResource(if (block.isCompleted) R.string.mark_not_done else R.string.mark_done)
     val expandLabel = stringResource(if (expanded) R.string.collapse_block else R.string.expand_block)
@@ -497,6 +498,9 @@ fun NowMarker(time: String, modifier: Modifier = Modifier, pulse: Float = pulseA
 
 @Composable
 fun pulseAlpha(): Float {
+    // A breathing indicator is the one animation here the reader never asked for, so it is the first
+    // to go: under remove-animations it holds its brightest value and the loop never starts.
+    if (LocalReduceMotion.current) return 1f
     val transition = rememberInfiniteTransition(label = "gentle-indicator")
     val alpha by transition.animateFloat(0.68f, 1f, infiniteRepeatable(tween(200), RepeatMode.Reverse), label = "indicator-alpha")
     return alpha

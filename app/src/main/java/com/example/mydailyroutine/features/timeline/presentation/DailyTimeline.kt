@@ -268,6 +268,14 @@ fun DailyTimeline(
                         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
                     ) {
                         Icon(Icons.Outlined.Spa, null, tint = RoutineColors.Sage)
+                        // The tagline used to occupy the top bar of every screen, where it cost
+                        // height forever and said nothing the reader needed. Here it is an eyebrow
+                        // on the one screen with room for it, and it reads as an invitation.
+                        RoutineLabel(
+                            text = stringResource(R.string.app_tagline),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = RoutineColors.TextSecondary,
+                        )
                         RoutineText(
                             text = stringResource(R.string.empty_day_title),
                             style = MaterialTheme.typography.headlineSmall,

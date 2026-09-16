@@ -2,7 +2,9 @@ package com.example.mydailyroutine.core.designsystem.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
+import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -71,7 +73,6 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
-import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -272,7 +273,11 @@ fun CollapsibleSection(
     tag: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val chevron by animateFloatAsState(if (expanded) 180f else 0f, tween(TransitionMillis), label = "section-chevron")
+    // Rotation is spatial, so it springs; the reveal is spatial plus a fade. Both collapse to
+    // snap() when the system's remove-animations setting is on — the state still changes, it just
+    // stops moving, which is the whole point of the setting.
+    val reduceMotion = LocalReduceMotion.current
+    val chevron by animateFloatAsState(if (expanded) 180f else 0f, spatialSpec<Float>(reduceMotion), label = "section-chevron")
     Column(modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().clip(RoutineShapes.Chip)
@@ -298,8 +303,8 @@ fun CollapsibleSection(
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(tween(TransitionMillis)) + fadeIn(tween(TransitionMillis)),
-            exit = shrinkVertically(tween(TransitionMillis)) + fadeOut(tween(120)),
+            enter = expandVertically(spatialSpec(reduceMotion)) + fadeIn(effectSpec(reduceMotion)),
+            exit = shrinkVertically(spatialSpec(reduceMotion)) + fadeOut(effectSpec(reduceMotion, 120)),
         ) {
             Column(
                 Modifier.fillMaxWidth().padding(top = RoutineSpacing.sm),

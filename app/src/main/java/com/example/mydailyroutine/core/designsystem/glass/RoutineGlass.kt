@@ -75,7 +75,7 @@ enum class GlassRole(
     Bar(8.dp, 10.dp, 20.dp, depth = false, tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallbackStrong),
     /** Sticky header and footer inside a bottom sheet. */
     Sheet(10.dp, 12.dp, 24.dp, depth = true, tintAlpha = RoutineColors.GlassTintStrongAlpha, fallback = RoutineColors.GlassFallbackStrong),
-    /** Filter chips, tabs, small pill buttons. */
+    /** Filter chips, tabs, small pill buttons. Slightly thinner: small surfaces need less scrim. */
     Chip(3.dp, 8.dp, 16.dp, depth = false, tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallback),
     /** Floating action button and other floating primary controls. */
     Control(4.dp, 12.dp, 24.dp, depth = true, tintAlpha = 0f, fallback = RoutineColors.GlassFallback),

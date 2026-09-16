@@ -1,9 +1,7 @@
 package com.example.mydailyroutine.features.tasks.presentation
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -75,7 +73,8 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
-import com.example.mydailyroutine.core.designsystem.theme.SnappySpring
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.RoutineDate
@@ -195,9 +194,9 @@ fun TasksSheet(
                 onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
             if (done.isNotEmpty()) {
                 item(key = "tasks-done-header") {
-                    val doneChevron by animateFloatAsState(if (showDone) 180f else 0f, SnappySpring, label = "done-chevron")
+                    val doneChevron by animateFloatAsState(if (showDone) 180f else 0f, spatialSpec<Float>(LocalReduceMotion.current), label = "done-chevron")
                     Row(
-                    Modifier.fillMaxWidth().animateItem(placementSpec = TaskListSpring)
+                    Modifier.fillMaxWidth().animateItem(placementSpec = taskListSpec())
                         .clickable(enabled = !busy) { haptics.tap(); showDone = !showDone },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
@@ -219,7 +218,7 @@ fun TasksSheet(
             if (showDone) {
                 items(done, key = { "done:${it.id}" }) { task ->
                     OutlinedCard(
-                        modifier = Modifier.animateItem(placementSpec = TaskListSpring).fillMaxWidth(),
+                        modifier = Modifier.animateItem(placementSpec = taskListSpec()).fillMaxWidth(),
                         shape = RoutineShapes.Card,
                         border = BorderStroke(1.dp, RoutineColors.Border),
                     ) {
@@ -352,12 +351,12 @@ private fun LazyListScope.taskSection(
 ) {
     if (tasks.isEmpty()) return
     item(key = "tasks-h-$key") {
-        Box(Modifier.animateItem(placementSpec = TaskListSpring).padding(top = RoutineSpacing.sm)) {
+        Box(Modifier.animateItem(placementSpec = taskListSpec()).padding(top = RoutineSpacing.sm)) {
             TaskSectionHeader(titleRes, color)
         }
     }
     items(tasks, key = { "task:${it.id}" }) { task ->
-        Box(Modifier.animateItem(placementSpec = TaskListSpring)) {
+        Box(Modifier.animateItem(placementSpec = taskListSpec())) {
             TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
                 onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
                 onExpand = { onExpand(task.id) },
@@ -394,7 +393,7 @@ private fun TaskRow(
     var editNote by rememberSaveable(task.id) { mutableStateOf(task.note.orEmpty()) }
     var pickingEditDate by rememberSaveable { mutableStateOf(false) }
     val haptics = LocalRoutineHaptics.current
-    val chevron by animateFloatAsState(if (expanded) 180f else 0f, SnappySpring, label = "task-chevron")
+    val chevron by animateFloatAsState(if (expanded) 180f else 0f, spatialSpec<Float>(LocalReduceMotion.current), label = "task-chevron")
     OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border), modifier = Modifier.fillMaxWidth()) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.xs),
@@ -502,7 +501,13 @@ private fun TaskRow(
     }
 }
 
-private val TaskListSpring = spring<androidx.compose.ui.unit.IntOffset>(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
+/**
+ * Re-ordering a task list is the one animation the reader causes by tapping, so it is a spring that
+ * can be retargeted mid-flight — and it disappears entirely under remove-animations, where the row
+ * simply lands in its new place.
+ */
+@Composable
+private fun taskListSpec() = spatialSpec<androidx.compose.ui.unit.IntOffset>(LocalReduceMotion.current)
 
 @Composable
 private fun taskDueButtonLabel(date: LocalDate?, today: LocalDate): String = when {

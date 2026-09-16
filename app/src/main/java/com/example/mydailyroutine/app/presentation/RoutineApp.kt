@@ -3,10 +3,13 @@ package com.example.mydailyroutine.app.presentation
 import com.example.mydailyroutine.core.presentation.*
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -59,9 +62,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.semantics.Role
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
+import com.example.mydailyroutine.core.designsystem.motion.rememberReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.glass.LocalRoutineBackdrop
 import com.example.mydailyroutine.core.designsystem.glass.RoutineAmbientBackground
 import com.example.mydailyroutine.core.designsystem.glass.RoutineBackdropProvider
@@ -118,7 +130,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         }
     }
     val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(now.toLocalDate()) }
-    CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalHapticFeedback provides gatedHaptics) {
+    val reduceMotion = rememberReduceMotion()
+    CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalHapticFeedback provides gatedHaptics,
+        LocalReduceMotion provides reduceMotion) {
       // One backdrop for the window: the content layer records into it and the floating chrome —
       // the top bar, the fast-add control — refracts it. They have to stay siblings of the layer,
       // never inside it, or a panel draws itself into itself.
@@ -127,23 +141,48 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         val density = LocalDensity.current
         // Measured, never assumed: the bar is three rows on the day view and one on goals.
         var topInset by remember { mutableStateOf(0.dp) }
+        // The bar folds while the reader scrolls and unfolds the moment they scroll back up, which
+        // is what gives a content screen its room: ~48 dp of date chrome only when it is being used.
+        var collapsed by remember { mutableStateOf(false) }
+        val headerScroll = remember {
+            object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    if (available.y < -1f) collapsed = true
+                    else if (available.y > 1f) collapsed = false
+                    return Offset.Zero
+                }
+            }
+        }
+        // Coming back from goals, or changing scale, always lands on an open bar: the reader just
+        // chose something, and the controls they chose it with should still be on screen.
+        LaunchedEffect(data.mode, state.panels.showGoals) { collapsed = false }
         // Full-bleed stack instead of a Scaffold: a Scaffold body starts below its top bar, which
         // would leave nothing for the glass to refract. Here the content fills the window and the
         // floating chrome sits on top of it — as siblings of the layer, never inside it, or a panel
         // would draw itself into itself.
         Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().routineBackdropLayer(backdrop)) {
+            Box(Modifier.fillMaxSize().nestedScroll(headerScroll).routineBackdropLayer(backdrop)) {
                 RoutineAmbientBackground(Modifier.fillMaxSize())
                 AnimatedContent(targetState = state.panels.showGoals, label = "goals-switch",
                     modifier = Modifier.fillMaxSize(), transitionSpec = {
-                        (slideInVertically(tween(TransitionMillis)) { it / 6 } + fadeIn(tween(TransitionMillis))) togetherWith
-                            (slideOutVertically(tween(TransitionMillis)) { -it / 6 } + fadeOut(tween(TransitionMillis)))
+                        (slideInVertically(spatialSpec(reduceMotion)) { it / 6 } + fadeIn(effectSpec(reduceMotion))) togetherWith
+                            (slideOutVertically(spatialSpec(reduceMotion)) { -it / 6 } + fadeOut(effectSpec(reduceMotion)))
                     }) { goalsShown ->
                     if (goalsShown) GoalsScreen(state.goals, state.panels.isSaving, onAction, topInset = topInset)
                     else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
                         modifier = Modifier.fillMaxSize(), transitionSpec = {
-                            (slideInHorizontally(tween(TransitionMillis)) { it / 4 } + fadeIn(tween(TransitionMillis))) togetherWith
-                                (slideOutHorizontally(tween(TransitionMillis)) { -it / 4 } + fadeOut(tween(TransitionMillis)))
+                            // Moving through time slides along a shared horizontal axis in the
+                            // direction of travel; changing scale (day -> week) shares no geometry
+                            // with what it replaces, so it cross-fades instead of pretending to slide.
+                            val spatial = spatialSpec<IntOffset>(reduceMotion)
+                            val effect = effectSpec<Float>(reduceMotion)
+                            if (targetState.mode == initialState.mode) {
+                                val forward = if (targetState.date >= initialState.date) 1 else -1
+                                (slideInHorizontally(spatial) { it / 4 * forward } + fadeIn(effect)) togetherWith
+                                    (slideOutHorizontally(spatial) { -it / 4 * forward } + fadeOut(effect))
+                            } else {
+                                fadeIn(effect) togetherWith fadeOut(effect)
+                            }
                         }) { shown ->
                         Box(Modifier.fillMaxSize()) {
                             when {
@@ -171,48 +210,82 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                 }
             RoutineGlassSurface(
                 modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().testTag("app-top-bar")
-                    .onSizeChanged { topInset = with(density) { it.height.toDp() } },
+                    // Only the expanded bar sets the inset. Content clears the *tall* bar, so when it
+                    // folds mid-scroll the lists keep their padding and nothing jumps; scrolled items
+                    // simply travel up through the space the folded bar no longer covers, under glass.
+                    .onSizeChanged { height -> if (!collapsed) topInset = with(density) { height.toDp() } },
                 shape = RoutineShapes.GlassTopBar,
                 role = GlassRole.Bar,
             ) {
-                AnimatedContent(targetState = state.panels.showGoals, label = "topbar-switch",
-                    transitionSpec = { ContentTransform(fadeIn(tween(TransitionMillis)), fadeOut(tween(TransitionMillis)), sizeTransform = SizeTransform(clip = false)) }) { goalsShown ->
-                if (goalsShown) {
-                    TopAppBar(title = { RoutineLabel(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge) },
-                        navigationIcon = { IconButton(onClick = { onAction(TimelineAction.CloseGoals) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back)) } },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent))
-                } else Column {
-                    TopAppBar(title = { Column {
-                        RoutineLabel(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
-                        RoutineText(stringResource(R.string.app_tagline), style = MaterialTheme.typography.labelSmall,
-                            color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
-                    } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                        actions = {
-                            IconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open)) }
-                            Box {
-                                IconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open)) }
-                                androidx.compose.animation.AnimatedVisibility(visible = overdueTasks > 0, modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
-                                    enter = scaleIn(PopSpring, initialScale = 0.4f) + fadeIn(tween(120)), exit = fadeOut(tween(120))) {
-                                    Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Crimson))
+                Column {
+                    TopAppBar(
+                        title = {
+                            if (state.panels.showGoals) {
+                                RoutineLabel(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge)
+                            } else {
+                                // Expanded: the app. Folded: the period being read, because that is
+                                // the only thing in the bar still worth the space.
+                                AnimatedContent(targetState = collapsed, label = "header-title",
+                                    transitionSpec = { ContentTransform(fadeIn(effectSpec(reduceMotion)), fadeOut(effectSpec(reduceMotion)), sizeTransform = SizeTransform(clip = false)) }) { isCollapsed ->
+                                    RoutineLabel(
+                                        text = if (isCollapsed) periodTitle(data) else stringResource(R.string.app_name),
+                                        style = MaterialTheme.typography.titleLarge,
+                                    )
                                 }
                             }
-                            IconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open)) }
-                            IconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings)) } })
-                    DateNavigator(periodTitle(data), onPrevious = { onAction(TimelineAction.Shift(-1)) }, onNext = { onAction(TimelineAction.Shift(1)) },
-                        onToday = { onAction(TimelineAction.Today) }, onPick = { haptics.tap(); choosingDate = true })
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
-                        TimelineMode.entries.forEachIndexed { index, mode ->
-                            SegmentedButton(selected = data.mode == mode, onClick = { onAction(TimelineAction.SelectMode(mode)) }, shape = SegmentedButtonDefaults.itemShape(index, TimelineMode.entries.size)) {
-                                RoutineLabel(
-                                    text = stringResource(when (mode) { TimelineMode.DAY -> R.string.nav_day; TimelineMode.WEEK -> R.string.nav_week; TimelineMode.MONTH -> R.string.nav_month; TimelineMode.YEAR -> R.string.nav_year }),
-                                    style = MaterialTheme.typography.labelLarge,
-                                )
+                        },
+                        navigationIcon = {
+                            if (state.panels.showGoals) {
+                                IconButton(onClick = { onAction(TimelineAction.CloseGoals) }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back))
+                                }
+                            }
+                        },
+                        actions = {
+                            if (!state.panels.showGoals) {
+                                IconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open)) }
+                                Box {
+                                    IconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open)) }
+                                    AnimatedVisibility(visible = overdueTasks > 0, modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
+                                        enter = scaleIn(if (reduceMotion) snap() else PopSpring, initialScale = if (reduceMotion) 1f else 0.4f) + fadeIn(effectSpec(reduceMotion, 120)),
+                                        exit = fadeOut(effectSpec(reduceMotion, 120))) {
+                                        Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Crimson))
+                                    }
+                                }
+                                IconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open)) }
+                                IconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings)) }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    )
+                    // The marketing line does not earn 18 dp of every screen forever: it moved to the
+                    // empty-day state, where there is room and it reads as an invitation.
+                    AnimatedVisibility(
+                        visible = !state.panels.showGoals && !collapsed,
+                        enter = expandVertically(spatialSpec(reduceMotion)) + fadeIn(effectSpec(reduceMotion)),
+                        exit = shrinkVertically(spatialSpec(reduceMotion)) + fadeOut(effectSpec(reduceMotion)),
+                    ) {
+                        DateNavigator(periodTitle(data), onPrevious = { onAction(TimelineAction.Shift(-1)) }, onNext = { onAction(TimelineAction.Shift(1)) },
+                            onToday = { onAction(TimelineAction.Today) }, onPick = { haptics.tap(); choosingDate = true })
+                    }
+                    AnimatedVisibility(
+                        visible = !state.panels.showGoals,
+                        enter = expandVertically(spatialSpec(reduceMotion)) + fadeIn(effectSpec(reduceMotion)),
+                        exit = shrinkVertically(spatialSpec(reduceMotion)) + fadeOut(effectSpec(reduceMotion)),
+                    ) {
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
+                            TimelineMode.entries.forEachIndexed { index, mode ->
+                                SegmentedButton(selected = data.mode == mode, onClick = { onAction(TimelineAction.SelectMode(mode)) }, shape = SegmentedButtonDefaults.itemShape(index, TimelineMode.entries.size)) {
+                                    RoutineLabel(
+                                        text = stringResource(when (mode) { TimelineMode.DAY -> R.string.nav_day; TimelineMode.WEEK -> R.string.nav_week; TimelineMode.MONTH -> R.string.nav_month; TimelineMode.YEAR -> R.string.nav_year }),
+                                        style = MaterialTheme.typography.labelLarge,
+                                    )
+                                }
                             }
                         }
                     }
                 }
-                }
-                }
+            }
             // Amber glass: hue-blended, so the refracted content keeps its shading under the accent.
             if (!state.panels.showGoals) Box(
                 Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(RoutineSpacing.lg)
