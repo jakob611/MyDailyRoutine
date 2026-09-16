@@ -94,16 +94,31 @@ jobs:
           java-version: '17'
       # The runner image already ships the SDK; setup-android@v3 started failing on the
       # action side (both jobs, ~15s, before any Gradle step), so pin to the local SDK.
-      - name: Use the runner's Android SDK
+      - name: Locate the Android SDK
         run: |
-          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          sdk=""
+          for candidate in "$ANDROID_HOME" "$ANDROID_SDK_ROOT" /usr/local/lib/android/sdk /usr/lib/android-sdk /opt/android-sdk "$HOME/Android/Sdk"; do
+            if [ -n "$candidate" ] && [ -d "$candidate" ]; then sdk="$candidate"; break; fi
+          done
+          sm="$(command -v sdkmanager || true)"
+          if [ -z "$sm" ] && [ -n "$sdk" ]; then
+            sm="$(find "$sdk" -maxdepth 5 -type f -name sdkmanager 2>/dev/null | head -1)"
+          fi
+          if [ -z "$sm" ]; then
+            sm="$(find /usr /opt "$HOME" -maxdepth 6 -type f -name sdkmanager 2>/dev/null | head -1)"
+          fi
+          if [ -z "$sm" ]; then
+            echo "::error::No sdkmanager on this runner. ANDROID_HOME=$ANDROID_HOME ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT sdk=$sdk"
+            exit 1
+          fi
+          sdk="${sdk:-$(dirname "$(dirname "$(dirname "$sm")")")}"
+          echo "::notice::Using ANDROID_HOME=$sdk with sdkmanager=$sm"
           echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
-          echo "$sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$(dirname "$sm")" >> "$GITHUB_PATH"
           echo "$sdk/platform-tools" >> "$GITHUB_PATH"
           echo "$sdk/emulator" >> "$GITHUB_PATH"
-          test -x "$sdk/cmdline-tools/latest/bin/sdkmanager" || { echo "sdkmanager missing under $sdk"; find "$sdk" -maxdepth 3 | head -40; exit 1; }
-          sdkmanager --version
+          "$sm" --version || { echo "::error::sdkmanager present but not runnable: $sm"; exit 1; }
       - uses: gradle/actions/setup-gradle@v4
       - run: yes | sdkmanager --licenses > /dev/null || true
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
