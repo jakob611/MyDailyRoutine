@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -26,7 +27,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -345,8 +345,8 @@ fun SheetSecondaryButton(
         onClick = onClick,
         enabled = enabled,
         shape = RoutineShapes.Pill,
-        colors = if (contentColor == Color.Unspecified) OutlinedButtonDefaults.colors()
-        else OutlinedButtonDefaults.colors(contentColor = contentColor),
+        colors = if (contentColor == Color.Unspecified) ButtonDefaults.outlinedButtonColors()
+        else ButtonDefaults.outlinedButtonColors(contentColor = contentColor),
         modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),
     ) { RoutineLabel(label, style = MaterialTheme.typography.labelLarge) }
 }

@@ -196,9 +196,9 @@ fun TasksSheet(
             taskSection("nodue", R.string.tasks_section_no_due, RoutineColors.TextMuted, noDue, subjects, subjectsById, today, busy, expandedId,
                 onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
             if (done.isNotEmpty()) {
-                val doneChevron by animateFloatAsState(if (showDone) 180f else 0f, SnappySpring, label = "done-chevron")
                 item(key = "tasks-done-header") {
-                Row(
+                    val doneChevron by animateFloatAsState(if (showDone) 180f else 0f, SnappySpring, label = "done-chevron")
+                    Row(
                     Modifier.fillMaxWidth().animateItem(placementSpec = TaskListSpring)
                         .clickable(enabled = !busy) { haptics.tap(); showDone = !showDone },
                     verticalAlignment = Alignment.CenterVertically,

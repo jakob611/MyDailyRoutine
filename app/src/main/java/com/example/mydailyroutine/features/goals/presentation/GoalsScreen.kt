@@ -483,7 +483,7 @@ private fun GoalGantt(
         val timelineWidth = cellWidth * monthCount
         fun xOf(date: LocalDate): Dp {
             val days = ChronoUnit.DAYS.between(start, date).toFloat().coerceIn(0f, spanDays.toFloat())
-            return days / spanDays.toFloat() * timelineWidth
+            return timelineWidth * (days / spanDays.toFloat())
         }
         // Days where two or more projects both plan open work get a soft crimson band.
         val busyWindows = projects.mapNotNull { project ->
@@ -578,7 +578,7 @@ private fun GoalGantt(
 
 private val GanttStripHeight = 18.dp
 
-private fun laneHeight(rows: List<GoalActivity>): Dp =
+private fun laneHeight(rows: List<List<GoalActivity>>): Dp =
     GanttStripHeight + (if (rows.size <= 1) 28.dp else (rows.size * 22 + 6).dp)
 
 /** Milestone diamonds: measured placement inside their own strip, above the bars. */

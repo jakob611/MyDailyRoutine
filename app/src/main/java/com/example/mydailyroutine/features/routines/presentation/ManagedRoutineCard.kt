@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.CardDefaults
@@ -25,9 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.onClickLabel
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
@@ -77,7 +77,7 @@ fun ManagedRoutineCard(
             TimeGutter(start = minuteLabel(block.startMinute), end = minuteLabel(block.endMinute), topPadding = RoutineSpacing.md)
             OutlinedCard(
                 onClick = { expanded = !expanded; haptics.tap() },
-                modifier = Modifier.weight(1f).semantics { onClickLabel = expandLabel },
+                modifier = Modifier.weight(1f),
                 shape = RoutineShapes.Card,
                 border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 colors = CardDefaults.outlinedCardColors(containerColor = RoutineColors.Surface1),
@@ -111,6 +111,13 @@ fun ManagedRoutineCard(
                                     color = tint,
                                 )
                             }
+                            // The tap target says what a tap does; the chevron also shows the state.
+                            Icon(
+                                Icons.Outlined.ExpandMore,
+                                contentDescription = expandLabel,
+                                modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f),
+                                tint = tint,
+                            )
                         }
                         RoutineText(
                             text = when {
