@@ -49,6 +49,7 @@ import os
 shots = sorted(p for p in Path('app/build/ui-audit').rglob('*') if p.is_file() and p.suffix.lower() in ('.png', '.jpg', '.webp'))
 for shot in shots:
     print(f'UI screenshot: {shot} ({shot.stat().st_size} B)')
+    print(f'::notice title=UI screenshot::{escape(shot.name)} ({shot.stat().st_size} B)')
 if not shots:
     print('::warning title=UI audit::No screenshots were pulled from the emulator (app/build/ui-audit is empty).')
 summary_path = os.environ.get('GITHUB_STEP_SUMMARY')

@@ -3,6 +3,7 @@ package com.example.mydailyroutine
 import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import java.io.File
 import androidx.lifecycle.Lifecycle
@@ -123,15 +124,29 @@ class TimelineUiTest {
     }
     /** Screenshots a tagged node; used for sheets, which live in their own window. */
     private fun captureTag(name: String, tag: String) {
-        val directory = File(compose.activity.getExternalFilesDir(null), "ui-audit").apply { mkdirs() }
-        val image = compose.onNodeWithTag(tag, useUnmergedTree = true).captureToImage()
-        File(directory, "$name.png").outputStream().use { image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        save(name, compose.onNodeWithTag(tag, useUnmergedTree = true).captureToImage())
     }
     private fun capture(name: String, editor: Boolean = false) {
-        val directory = File(compose.activity.getExternalFilesDir(null), "ui-audit").apply { mkdirs() }
         val image = if (editor) compose.onNodeWithTag("entry-editor",useUnmergedTree=true).captureToImage()
             else compose.onRoot(useUnmergedTree=true).captureToImage()
-        File(directory,"$name.png").outputStream().use { image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it) }
+        save(name, image)
+    }
+    /**
+     * Writes the shot into both the external and the internal files dir: `adb pull` of another
+     * app's `Android/data` is blocked on newer platform levels, while the internal copy can still
+     * be read with `run-as` (debug builds) or as root, so CI always gets the audit images.
+     */
+    private fun save(name: String, image: ImageBitmap) {
+        val activity = compose.activity
+        val targets = listOfNotNull(activity.getExternalFilesDir(null), activity.filesDir)
+        for (root in targets) {
+            val directory = File(root, "ui-audit").apply { mkdirs() }
+            runCatching {
+                File(directory, "$name.png").outputStream().use {
+                    image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+                }
+            }
+        }
     }
     private fun awaitText(@StringRes id: Int) {
         compose.waitUntil(10000) { compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty() }
