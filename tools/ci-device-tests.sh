@@ -3,54 +3,64 @@ set -uo pipefail
 status=0
 ./gradlew :app:connectedDebugAndroidTest --stacktrace 2>&1 | tee ci-device.log || status=$?
 
-# Collect the ui-audit screenshots the instrumented tests wrote. They land in both the app's
-# external and internal files dir; `adb pull` of Android/data is blocked on newer platform
-# levels, so escalate to root and finally fall back to `run-as` (works on debuggable builds).
+# Collect the ui-audit screenshots. The Gradle plugin pulls `additionalTestOutputDir` back to the
+# host on its own, so harvest those first; then try the app dirs over adb (escalating to root and
+# finally `run-as`, since `adb pull` of Android/data is blocked on newer platform levels).
+# Every attempt is echoed as a workflow notice: log ZIP downloads are blocked in some sandboxes,
+# while check-run annotations stay readable through the API.
 pkg=com.example.mydailyroutine
 external="/sdcard/Android/data/$pkg/files/ui-audit"
 internal="/data/data/$pkg/files/ui-audit"
 out=app/build/ui-audit
 mkdir -p "$out"
 
+notice() { echo "::notice title=ui-audit::$1"; }
 found() { [ -n "$(find "$out" -type f -name '*.png' 2>/dev/null)" ]; }
+count() { find "$out" -type f -name '*.png' 2>/dev/null | wc -l | tr -d ' '; }
 
-echo "== ui-audit: devices"
-adb devices -l || true
+notice "devices: $(adb devices | tr '\n' ' ')"
+
+harvest() {
+  # AGP writes pulled test outputs under app/build/outputs/androidTest-results/<device>/.
+  local png
+  while IFS= read -r png; do
+    [ -n "$png" ] || continue
+    cp -f "$png" "$out/$(basename "$png")" 2>/dev/null || true
+  done < <(find app/build/outputs/androidTest-results app/build/reports/androidTests -type f -name '*.png' 2>/dev/null)
+}
+harvest
+notice "after harvesting Gradle test outputs: $(count) png"
 
 if ! found; then
-  echo "== ui-audit: pull external ($external)"
-  adb pull "$external" "$out/" || true
+  adb pull "$external" "$out/" > /tmp/pull1.txt 2>&1 || true
+  notice "pull external: $(count) png | $(tr '\n' ' ' < /tmp/pull1.txt | cut -c1-160)"
 fi
 if ! found; then
-  echo "== ui-audit: adb root, then pull external"
-  adb root || true
-  adb wait-for-device || true
+  adb root > /tmp/root.txt 2>&1 || true
+  adb wait-for-device > /dev/null 2>&1 || true
   sleep 3
-  adb pull "$external" "$out/" || true
+  adb pull "$external" "$out/" > /tmp/pull2.txt 2>&1 || true
+  notice "pull external as root ($(tr '\n' ' ' < /tmp/root.txt | cut -c1-80)): $(count) png | $(tr '\n' ' ' < /tmp/pull2.txt | cut -c1-160)"
 fi
 if ! found; then
-  echo "== ui-audit: pull internal ($internal)"
-  adb pull "$internal" "$out/" || true
+  adb pull "$internal" "$out/" > /tmp/pull3.txt 2>&1 || true
+  notice "pull internal: $(count) png | $(tr '\n' ' ' < /tmp/pull3.txt | cut -c1-160)"
 fi
 if ! found; then
-  echo "== ui-audit: copy internal files out via run-as"
   names="$(adb exec-out run-as "$pkg" ls files/ui-audit 2>/dev/null | tr -d '\r' | grep '\.png$' || true)"
-  if [ -z "$names" ]; then
-    echo "ui-audit: run-as listed nothing" >&2
-  else
-    mkdir -p "$out/ui-audit"
-    for name in $names; do
-      adb exec-out run-as "$pkg" cat "files/ui-audit/$name" > "$out/ui-audit/$name" 2>/dev/null || true
-    done
-  fi
+  notice "run-as listing: ${names:-<empty>} ($(printf '%s' "$names" | grep -c . || true) files)"
+  mkdir -p "$out"
+  for name in $names; do
+    adb exec-out run-as "$pkg" cat "files/ui-audit/$name" > "$out/$name" 2>/dev/null || true
+  done
+  notice "after run-as copy: $(count) png"
 fi
 if ! found; then
-  echo "== ui-audit: last resort, list remote dirs for diagnosis"
-  adb shell "ls -la /sdcard/Android/data/$pkg/files/ 2>&1 | head -20" || true
-  adb shell "run-as $pkg ls -la files/ 2>&1 | head -20" || true
+  notice "remote external dir: $(adb shell "ls /sdcard/Android/data/$pkg/files/ui-audit 2>&1 | tr '\n' ' '" | cut -c1-200)"
+  notice "remote internal dir: $(adb shell "run-as $pkg ls files/ui-audit 2>&1 | tr '\n' ' '" | cut -c1-200)"
 fi
 
-echo "== ui-audit screenshots collected:"
+notice "collected: $(count) png"
 find "$out" -type f -printf '  %p (%s B)\n' 2>/dev/null || true
 
 exit "$status"

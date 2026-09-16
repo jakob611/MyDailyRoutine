@@ -132,19 +132,27 @@ class TimelineUiTest {
         save(name, image)
     }
     /**
-     * Writes the shot into both the external and the internal files dir: `adb pull` of another
-     * app's `Android/data` is blocked on newer platform levels, while the internal copy can still
-     * be read with `run-as` (debug builds) or as root, so CI always gets the audit images.
+     * Writes the shot wherever CI can reach it. The Gradle plugin pulls `additionalTestOutputDir`
+     * back to the host by itself, which is the reliable route; the two app dirs are kept as a
+     * fallback for local runs (`adb pull` of `Android/data` is blocked on newer platform levels).
      */
     private fun save(name: String, image: ImageBitmap) {
         val activity = compose.activity
-        val targets = listOfNotNull(activity.getExternalFilesDir(null), activity.filesDir)
-        for (root in targets) {
-            val directory = File(root, "ui-audit").apply { mkdirs() }
+        val testOutput = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+        val targets = listOfNotNull(
+            testOutput?.let { File(it) },
+            activity.getExternalFilesDir(null)?.let { File(it, "ui-audit") },
+            File(activity.filesDir, "ui-audit")
+        )
+        for (directory in targets) {
+            directory.mkdirs()
             runCatching {
                 File(directory, "$name.png").outputStream().use {
                     image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
                 }
+            }.onFailure { error ->
+                // Gradle mirrors instrumentation stdout into the connected-test log.
+                println("ui-audit: failed to write $name into $directory: $error")
             }
         }
     }
