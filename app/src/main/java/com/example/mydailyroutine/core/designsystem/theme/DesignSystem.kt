@@ -125,6 +125,8 @@ object RoutineSpacing {
  * keeps hours, cards and the vertical spine aligned across the day, week and milestone rows.
  */
 object RoutineMetrics {
+    /** Bottom clearance the snackbar needs so it never sits under the floating fast-add control. */
+    val FabClearance = 72.dp
     /** Width of the printed hour inside the gutter; also the hour column of the weekly grid. */
     val GutterTextWidth = 48.dp
     /** Gap between the hour text and the card it belongs to. */

@@ -36,7 +36,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
-import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.features.timeline.components.DateNavigator
 import com.example.mydailyroutine.features.entry.presentation.*
 import com.example.mydailyroutine.features.subjects.presentation.SubjectEditorDialog
@@ -229,7 +228,13 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Background)
                 }
             }
-            SnackbarHost(snackbars, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+            // The Scaffold used to keep the snackbar clear of the button; in a plain stack that has to
+            // be done by hand, or the two overlap at the bottom of the screen.
+            SnackbarHost(
+                snackbars,
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                    .padding(bottom = if (state.panels.showGoals) RoutineSpacing.md else RoutineMetrics.FabClearance),
+            )
         }
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
         RoutineSheet(state.panels.showAdd) { sheetState -> key(state.panels.addSession) {
