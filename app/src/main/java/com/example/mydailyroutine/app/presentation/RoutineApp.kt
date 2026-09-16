@@ -259,7 +259,11 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                         else scaleIn(PopSpring, initialScale = 0.4f) + fadeIn(tween<Float>(120))
                                     val badgeExit: ExitTransition =
                                         fadeOut(if (reduceMotion) snap<Float>() else tween<Float>(120))
-                                    AnimatedVisibility(visible = overdueTasks > 0, modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
+                                    // Fully qualified on purpose: inside Box{} the RowScope receiver of
+                                    // actions is DslMarker-restricted, so the scope extension is not a
+                                    // candidate and the compiler wants the top-level one named explicitly.
+                                    androidx.compose.animation.AnimatedVisibility(visible = overdueTasks > 0,
+                                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
                                         enter = badgeEnter, exit = badgeExit) {
                                         Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Crimson))
                                     }
