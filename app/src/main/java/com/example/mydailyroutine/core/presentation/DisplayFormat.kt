@@ -72,6 +72,8 @@ object RoutineDate {
     fun monthAndYear(date: LocalDate): String = date.format(monthAndYearFormat)
     /** `sep` — year mode cells and any axis with room for three letters. */
     fun monthTight(date: LocalDate): String = date.format(monthTightFormat)
+    /** `sep` — same label when only the month is known, as in the year grid. */
+    fun monthTight(month: YearMonth): String = month.format(monthTightFormat)
     /** `sep 26` — the Gantt axis. */
     fun axisLabel(month: YearMonth): String = month.format(monthYearTightFormat)
     /** `16. sep 2026` — anything crossing an academic-year boundary, where the year matters. */

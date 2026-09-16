@@ -126,6 +126,44 @@ class TimelineUiTest {
         compose.onNodeWithTag("weekday-6").assertIsNotSelected()
         compose.onNodeWithTag("save-next-lesson").assertIsDisplayed()
     }
+    /**
+     * The floating chrome has to overlap what it refracts. A Scaffold body starts below its top bar,
+     * so this fails the moment the window goes back to being inset instead of full-bleed.
+     */
+    @Test fun glassChromeOverlaysTheContentInsteadOfPushingItDown() {
+        awaitText(R.string.day_heading)
+        compose.onNodeWithTag("app-top-bar").assertIsDisplayed()
+        val bar = compose.onNodeWithTag("app-top-bar").fetchSemanticsNode().boundsInRoot
+        val list = compose.onNodeWithTag("day-list").fetchSemanticsNode().boundsInRoot
+        assertTrue("top bar collapsed to ${'$'}{bar.height}px", bar.height > 0f)
+        assertTrue("day list starts at ${'$'}{list.top}px, below the bar at ${'$'}{bar.bottom}px", list.top < bar.bottom)
+        capture("05-glass-day")
+    }
+    /** One project selector plus four short tabs, instead of a single thousand-dp scroll. */
+    @Test fun goalsAreSplitIntoTabsInsteadOfOneLongScroll() {
+        compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()
+        awaitText(R.string.goals_empty_body)
+        compose.onNodeWithText(text(R.string.goals_seed_cas)).performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("goal-tab-activities").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("goal-tab-activities").performClick()
+        compose.onNodeWithText(text(R.string.goals_add_activity)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.goals_gantt)).assertDoesNotExist()
+        compose.onNodeWithTag("goal-tab-progress").performClick()
+        compose.onNodeWithText(text(R.string.goals_progress_log)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.goals_add_activity)).assertDoesNotExist()
+        captureTag("09-goals-tabs", "goal-tab-body")
+    }
+    /** The year view keeps its countdown and folds the three long panels away. */
+    @Test fun yearOverviewFoldsItsLongSections() {
+        click(R.string.nav_year); awaitText(R.string.year_big_picture)
+        compose.onNodeWithTag("year-month-grid").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("milestone-radar-chart").assertDoesNotExist()
+        compose.onNodeWithTag("year-balance-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("year-month-grid").assertDoesNotExist()
+        compose.onNodeWithTag("milestone-radar-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("milestone-radar-chart").assertIsDisplayed()
+        capture("10-year-folds")
+    }
     /** Screenshots a tagged node; used for sheets, which live in their own window. */
     private fun captureTag(name: String, tag: String) {
         save(name, compose.onNodeWithTag(tag, useUnmergedTree = true).captureToImage())

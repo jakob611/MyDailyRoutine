@@ -301,8 +301,6 @@ private fun ProjectEditorHost(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
 /**
  * The goals screen used to be one ~1000 dp scroll: status card, Gantt, every activity and every
  * milestone stacked on top of each other. Splitting it into tabs keeps each view short enough to
@@ -374,6 +372,8 @@ private fun ProgressLog(progress: List<GoalProgress>, activities: List<GoalActiv
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun GoalEmptyState(busy: Boolean, onAction: (TimelineAction) -> Unit, onNewCustom: () -> Unit) {
     val context = LocalContext.current
     Column(

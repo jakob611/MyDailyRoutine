@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.CollapsibleSection
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
@@ -464,7 +465,8 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                     RoutineText(stringResource(R.string.coverage_warning), color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall, maxLines = RoutineTextDefaults.Paragraph)
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+                Column(Modifier.fillMaxWidth().testTag("year-month-grid"),
+                    verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                     months.chunked(3).forEach { row ->
                         Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                             row.forEach { month ->
@@ -561,7 +563,7 @@ private fun MilestoneRadar(milestones: List<Milestone>, today: LocalDate, expand
         tag = "milestone-radar-toggle",
     ) {
         Row(
-            Modifier.fillMaxWidth().height(140.dp),
+            Modifier.fillMaxWidth().height(140.dp).testTag("milestone-radar-chart"),
             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
         ) {
             buckets.forEach { (start, count) ->

@@ -119,13 +119,17 @@ fun Modifier.routineGlass(
     // A coloured control is tinted the way the library documents: hue-blend first so the refracted
     // backdrop keeps its own shading, then a translucent wash of the accent on top. Neutral chrome
     // only gets the wash, because its job is to make text readable, not to carry meaning.
-    val surface: (DrawScope.() -> Unit)? = when {
-        hue -> {
+    // Braces after a `when` arrow are the branch body, not a lambda, so the drawing is written as an
+    // `if` whose branches are lambdas typed by the declaration above them.
+    val surface: (DrawScope.() -> Unit)? = if (hue) {
+        {
             drawRect(tint, blendMode = BlendMode.Hue)
             drawRect(tint.copy(alpha = RoutineColors.GlassTintStrongAlpha))
         }
-        role.tintAlpha > 0f -> { drawRect(tint.copy(alpha = role.tintAlpha)) }
-        else -> null
+    } else if (role.tintAlpha > 0f) {
+        { drawRect(tint.copy(alpha = role.tintAlpha)) }
+    } else {
+        null
     }
     return this.drawBackdrop(
         backdrop = backdrop,

@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
@@ -99,7 +100,9 @@ fun DailyTimeline(
         }?.key
     }
     LazyColumn(
-        Modifier.fillMaxSize(),
+        // Tagged so a test can prove the list starts at the very top of the window and slides
+        // under the glass bar instead of stopping below it.
+        Modifier.fillMaxSize().testTag("day-list"),
         contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 112.dp),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) {

@@ -52,6 +52,10 @@ for file in ui_files:
     if '.layerBackdrop(' in code:
         assert 'rememberLayerBackdrop' in code, f'Glass layer without its own backdrop: {file}'
 callers = [f for f in main_files if 'designsystem/glass' not in str(f)]
+# One palette: no screen invents its own colour, everything resolves through RoutineColors.
+raw = [f for f in main_files if 'designsystem/theme' not in str(f)
+       and re.search(r'Color\(0x|Color\.(?:White|Black|Red|Green|Blue|Yellow|Gray|Cyan|Magenta)\b', f.read_text())]
+assert not raw, f'Colour outside the palette: {[str(f) for f in raw]}'
 glass = [f for f in callers if 'RoutineBackdropProvider' in f.read_text()]
 assert len(glass) == 1, f'The window backdrop must be provided exactly once: {[str(f) for f in glass]}'
 layers = [f for f in callers if '.routineBackdropLayer(' in f.read_text()]
