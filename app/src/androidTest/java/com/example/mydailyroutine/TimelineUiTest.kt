@@ -39,7 +39,7 @@ class TimelineUiTest {
         compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
         awaitText(R.string.settings_title)
         // The landing tab is rhythm: sleep and lesson defaults, not a 40-item scroll.
-        compose.onNodeWithText(text(R.string.sleep_heading)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.sleep_heading)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(text(R.string.demo_heading)).assertDoesNotExist()
         compose.onNodeWithTag("settings-tab-rules").performClick()
         // Health thresholds are no longer hidden behind an "advanced" expander.
