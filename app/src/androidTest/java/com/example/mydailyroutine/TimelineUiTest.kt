@@ -1,8 +1,12 @@
 package com.example.mydailyroutine
 
+import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import java.io.File
@@ -132,12 +136,33 @@ class TimelineUiTest {
         save(name, image)
     }
     /**
-     * Writes the shot wherever CI can reach it. The Gradle plugin pulls `additionalTestOutputDir`
-     * back to the host by itself, which is the reliable route; the two app dirs are kept as a
-     * fallback for local runs (`adb pull` of `Android/data` is blocked on newer platform levels).
+     * Persists a screenshot where CI can still find it after the run.
+     *
+     * Gradle uninstalls both APKs once `connectedDebugAndroidTest` finishes, which deletes the
+     * app's `Android/data` and `files` dirs, so the primary copy goes to `Pictures/ui-audit`
+     * through MediaStore: that is public storage, survives the uninstall and needs no permission.
+     * The app-private dirs are kept as a fallback for local `adb pull` runs.
      */
     private fun save(name: String, image: ImageBitmap) {
         val activity = compose.activity
+        val bitmap = image.asAndroidBitmap()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            runCatching {
+                val values = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, "$name.png")
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/ui-audit")
+                }
+                val resolver = activity.contentResolver
+                val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)) {
+                    "MediaStore refused $name.png"
+                }
+                resolver.openOutputStream(uri).use { output ->
+                    requireNotNull(output) { "no output stream for $name.png" }
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+                }
+            }.onFailure { error -> println("ui-audit: MediaStore save failed for $name: $error") }
+        }
         val testOutput = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
         val targets = listOfNotNull(
             testOutput?.let { File(it) },
@@ -147,13 +172,8 @@ class TimelineUiTest {
         for (directory in targets) {
             directory.mkdirs()
             runCatching {
-                File(directory, "$name.png").outputStream().use {
-                    image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
-                }
-            }.onFailure { error ->
-                // Gradle mirrors instrumentation stdout into the connected-test log.
-                println("ui-audit: failed to write $name into $directory: $error")
-            }
+                File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            }.onFailure { error -> println("ui-audit: failed to write $name into $directory: $error") }
         }
     }
     private fun awaitText(@StringRes id: Int) {

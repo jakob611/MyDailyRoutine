@@ -3,12 +3,13 @@ set -uo pipefail
 status=0
 ./gradlew :app:connectedDebugAndroidTest --stacktrace 2>&1 | tee ci-device.log || status=$?
 
-# Collect the ui-audit screenshots. The Gradle plugin pulls `additionalTestOutputDir` back to the
-# host on its own, so harvest those first; then try the app dirs over adb (escalating to root and
-# finally `run-as`, since `adb pull` of Android/data is blocked on newer platform levels).
-# Every attempt is echoed as a workflow notice: log ZIP downloads are blocked in some sandboxes,
-# while check-run annotations stay readable through the API.
+# Collect the ui-audit screenshots. Gradle uninstalls both APKs when the connected-test task ends,
+# which wipes the app's own dirs, so the tests also write a copy into Pictures/ui-audit via
+# MediaStore; that public folder survives the uninstall and is the first thing pulled here. The
+# app-dir routes stay as fallbacks. Every attempt is echoed as a workflow notice because log ZIP
+# downloads are blocked in some sandboxes while check-run annotations stay readable through the API.
 pkg=com.example.mydailyroutine
+public_dir="/sdcard/Pictures/ui-audit"
 external="/sdcard/Android/data/$pkg/files/ui-audit"
 internal="/data/data/$pkg/files/ui-audit"
 out=app/build/ui-audit
@@ -31,6 +32,10 @@ harvest() {
 harvest
 notice "after harvesting Gradle test outputs: $(count) png"
 
+if ! found; then
+  adb pull "$public_dir" "$out/" > /tmp/pull0.txt 2>&1 || true
+  notice "pull public Pictures/ui-audit: $(count) png | $(tr '\n' ' ' < /tmp/pull0.txt | cut -c1-160)"
+fi
 if ! found; then
   adb pull "$external" "$out/" > /tmp/pull1.txt 2>&1 || true
   notice "pull external: $(count) png | $(tr '\n' ' ' < /tmp/pull1.txt | cut -c1-160)"
@@ -56,6 +61,7 @@ if ! found; then
   notice "after run-as copy: $(count) png"
 fi
 if ! found; then
+  notice "remote public dir: $(adb shell "ls $public_dir 2>&1 | tr '\n' ' '" | cut -c1-200)"
   notice "remote external dir: $(adb shell "ls /sdcard/Android/data/$pkg/files/ui-audit 2>&1 | tr '\n' ' '" | cut -c1-200)"
   notice "remote internal dir: $(adb shell "run-as $pkg ls files/ui-audit 2>&1 | tr '\n' ' '" | cut -c1-200)"
 fi
