@@ -691,4 +691,32 @@
     <string name="ee_milestone_3">Viva voce s supervizorjem</string>
     <string name="ee_milestone_4">RPF — refleksija do 500 besed</string>
     <string name="ee_milestone_5">Končna oddaja eseja (šolski rok)</string>
+
+    <!-- 2026 prenova vmesnika: razčlenjeni napisi za dostopnost, zavihki in zgoščene postavitve. -->
+    <string name="collapse_block">Strni blok</string>
+    <string name="expand_block">Razširi blok</string>
+    <string name="more_items_suffix">%1$s · še %2$d</string>
+    <string name="execution_elapsed_minutes">%1$d</string>
+    <string name="execution_elapsed_label">minut zbranega dela</string>
+    <string name="week_block_description">%1$s, %2$s, %3$s, %4$s</string>
+    <string name="goals_gantt_bar_description">%1$s od %2$s do %3$s</string>
+    <string name="planning_tab_backlog">Čakalna vrsta</string>
+    <string name="planning_tab_topics">Teme</string>
+    <string name="planning_tab_markers">Roki</string>
+    <string name="planning_topics_empty">Ni tem za ponavljanje. Dodaj temo in razporedim ponovitve.</string>
+    <string name="planning_milestones_empty">Ni prihajajočih rokov.</string>
+    <string name="planning_topic_due">Rok: %1$s</string>
+    <string name="planning_synthesis_toggle">Sintetična naloga (esej, projekt)</string>
+    <string name="settings_tab_rhythm">Ritem</string>
+    <string name="settings_tab_reminders">Opomniki</string>
+    <string name="settings_tab_plan">Načrt</string>
+    <string name="settings_tab_rules">Pravila</string>
+    <string name="settings_tab_data">Podatki</string>
+    <string name="widget_days_unit">do konca pouka</string>
+    <plurals name="timetable_import_create">
+        <item quantity="one">Uvozi %d blok</item>
+        <item quantity="two">Uvozi %d bloka</item>
+        <item quantity="few">Uvozi %d bloke</item>
+        <item quantity="other">Uvozi %d blokov</item>
+    </plurals>
 </resources>

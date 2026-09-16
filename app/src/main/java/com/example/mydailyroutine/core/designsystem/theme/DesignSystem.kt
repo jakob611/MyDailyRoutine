@@ -55,6 +55,53 @@ object RoutineShapes {
     val Sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 }
 
+/**
+ * The only spacing ladder in the app: 4/8/12/16/24. Screens that need "a bit more" pick the next
+ * step instead of inventing a value, so cards, sheets and grids share the same rhythm.
+ */
+object RoutineSpacing {
+    val xs = 4.dp
+    val sm = 8.dp
+    val md = 12.dp
+    val lg = 16.dp
+    val xl = 24.dp
+}
+
+/**
+ * Shared geometry. Every time column, spine and day-view gap uses these three numbers, which is what
+ * keeps hours, cards and the vertical spine aligned across the day, week and milestone rows.
+ */
+object RoutineMetrics {
+    /** Width of the printed hour inside the gutter; also the hour column of the weekly grid. */
+    val GutterTextWidth = 48.dp
+    /** Gap between the hour text and the card it belongs to. */
+    val GutterGap = 8.dp
+    /** Total width of the day-view time column. */
+    val GutterWidth = GutterTextWidth + GutterGap
+    val SpineWidth = 1.5.dp
+    /** x of the vertical rail: centred inside the gutter gap. Declared after its inputs on purpose. */
+    val RailX = GutterTextWidth + (GutterGap - SpineWidth) / 2
+    val CategoryBarWidth = 4.dp
+    /** Left inset of card content, clearing the category bar. */
+    val CardContentStart = 12.dp
+    /** Minimum height of a day-view card so short blocks stay readable and tappable. */
+    val CardMinHeight = 96.dp
+    /** A block narrower or shorter than this shows colour only; its title would be clipped. */
+    val MinLabelWidth = 56.dp
+    val MinLabelHeight = 20.dp
+    /** Minimum touch width for anything that reads as a button. */
+    val ActionMinWidth = 48.dp
+    /** Categorical chips are capped so one long label cannot own a whole card line. */
+    val ChipMaxWidth = 190.dp
+    /** Geometry of the NOW band drawn over the running block. */
+    val NowBandHeight = 18.dp
+    val NowDotSize = 8.dp
+    /** Week grid scale: vertical dp per scheduled minute. */
+    val WeekMinuteHeight = 0.9.dp
+    /** Month cell aspect ratio; wide enough for a day number and one status dot. */
+    val MonthCellRatio = 0.85f
+}
+
 val SnappySpring = spring<Float>(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
 val PopSpring = spring<Float>(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium)
 const val TransitionMillis = 180

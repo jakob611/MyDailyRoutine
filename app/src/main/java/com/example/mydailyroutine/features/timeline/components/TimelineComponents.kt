@@ -2,271 +2,574 @@ package com.example.mydailyroutine.features.timeline.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.PlayArrow
-import com.example.mydailyroutine.core.designsystem.components.categoryIcon
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClickLabel
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.core.designsystem.components.ActionRow
+import com.example.mydailyroutine.core.designsystem.components.MetaChip
+import com.example.mydailyroutine.core.designsystem.components.NowBand
+import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
+import com.example.mydailyroutine.core.designsystem.components.RoutineText
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
+import com.example.mydailyroutine.core.designsystem.components.TimeGutter
+import com.example.mydailyroutine.core.designsystem.components.categoryBar
+import com.example.mydailyroutine.core.designsystem.components.categoryIcon
+import com.example.mydailyroutine.core.designsystem.components.timelineRail
+import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
+import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
+import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
+import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.example.mydailyroutine.core.designsystem.theme.SnappySpring
+import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
+import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
+import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.presentation.TimelineAction
+import com.example.mydailyroutine.core.presentation.WarningUi
+import com.example.mydailyroutine.core.presentation.clockLabel
+import com.example.mydailyroutine.core.presentation.durationLabel
+import com.example.mydailyroutine.core.presentation.label
+import com.example.mydailyroutine.core.presentation.minuteLabel
 import com.example.mydailyroutine.domain.health.HealthConfig
-import com.example.mydailyroutine.domain.planning.CircadianPenalty
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.RoutineCategory
+import com.example.mydailyroutine.domain.planning.CircadianPenalty
 import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
-import com.example.mydailyroutine.core.platform.Slovenian
-import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
-import com.example.mydailyroutine.core.designsystem.theme.*
-import com.example.mydailyroutine.core.presentation.*
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import kotlin.math.roundToInt
 
-/** Port of agent3's gutter/card/actions composition, adapted to agent4's occurrence identity and UDF. */
+/**
+ * Day-view block card.
+ *
+ * Layout rules enforced here: the hour column comes from the shared [TimeGutter], the rail from
+ * [timelineRail], the NOW indicator from [NowBand] (measured and placed, never offset), titles are
+ * bounded by [RoutineText] and every action lives in an [ActionRow], so a long Slovenian label moves
+ * to the next line at full size instead of shrinking into a vertical strip or an empty ellipsis.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TimelineBlockCard(
-    block: ResolvedTimelineItem.Block, warnings: List<WarningUi>, config: HealthConfig,
-    now: ZonedDateTime, busy: Boolean, showNow: Boolean, overlaps: Boolean,
-    modifier: Modifier = Modifier, canStart: Boolean = false, onAction: (TimelineAction) -> Unit,
+    block: ResolvedTimelineItem.Block,
+    warnings: List<WarningUi>,
+    config: HealthConfig,
+    now: ZonedDateTime,
+    busy: Boolean,
+    showNow: Boolean,
+    overlaps: Boolean,
+    modifier: Modifier = Modifier,
+    canStart: Boolean = false,
+    onAction: (TimelineAction) -> Unit,
 ) {
     var expanded by rememberSaveable(block.key) { mutableStateOf(false) }
     var dragY by remember(block.key) { mutableFloatStateOf(0f) }
     var dragging by remember(block.key) { mutableStateOf(false) }
-    var heightPx by remember(block.key) { mutableIntStateOf(0) }
     val currentAction by rememberUpdatedState(onAction)
     val haptics = LocalRoutineHaptics.current
     val context = LocalContext.current
     val density = LocalDensity.current
-    val dragStepPx = with(density) { 30.dp.toPx() } // 15 min × 2 dp/min, the same scale as the timeline.
+    val dragStepPx = with(density) { 30.dp.toPx() } // 15 min x 2 dp/min, the same scale as the timeline.
     val style = categoryStyle(block.category, block.subject?.colorHex)
     val window = remember(block, now.zone) { OccurrenceTimes.window(block, now.zone) }
-    val active = !block.isSuppressed && !block.isCompleted && now.toInstant() >= window.start && now.toInstant() < window.end
+    val active = !block.isSuppressed && !block.isCompleted &&
+        now.toInstant() >= window.start && now.toInstant() < window.end
     val past = now.toInstant() >= window.end || block.isCompleted
     val activeAmount by animateFloatAsState(if (active) 1f else 0f, SnappySpring, label = "active-border")
-    val scale by animateFloatAsState(if (dragging) 1.02f else 1f, PopSpring, label = "drag-lift")
-    val barColor = block.subject?.let { androidx.compose.ui.graphics.Color(it.colorHex.toInt()) } ?: style.accent
+    val barColor = block.subject?.let { Color(it.colorHex.toInt()) } ?: style.accent
     val toggleDescription = stringResource(if (block.isCompleted) R.string.mark_not_done else R.string.mark_done)
+    val expandLabel = stringResource(if (expanded) R.string.collapse_block else R.string.expand_block)
     val dragHint = stringResource(R.string.drag_hint)
+    val durationText = stringResource(R.string.duration_minutes, block.durationMinutes)
+    val rangeText = stringResource(
+        R.string.time_range,
+        window.start.atZone(now.zone).toLocalTime().clockLabel(),
+        window.end.atZone(now.zone).toLocalTime().clockLabel(),
+    )
 
-    Box(modifier.fillMaxWidth().zIndex(if (dragging) 1f else 0f).onSizeChanged { heightPx = it.height }) {
-        Row(Modifier.fillMaxWidth().drawBehind {
-            val x = if (layoutDirection == LayoutDirection.Rtl) size.width - 53.dp.toPx() else 53.dp.toPx()
-            drawLine(if (active) style.accent.copy(alpha = 0.6f) else RoutineColors.Spine,
-                Offset(x, 0f), Offset(x, size.height), 1.5.dp.toPx())
-        }) {
+    Box(modifier.fillMaxWidth().zIndex(if (dragging) 1f else 0f)) {
+        Row(Modifier.fillMaxWidth().timelineRail(if (active) style.accent.copy(alpha = 0.6f) else RoutineColors.Spine)) {
             val recordedZone = block.actualTiming?.zoneId?.let(java.time.ZoneId::of) ?: now.zone
-            TimeGutter(block.startMinute, block.endMinute, active, past,
-                block.actualTiming?.startedAt?.atZone(recordedZone)?.toLocalTime()?.clockLabel(),
-                block.actualTiming?.endedAt?.atZone(recordedZone)?.toLocalTime()?.clockLabel())
+            TimeGutter(
+                start = block.actualTiming?.startedAt?.atZone(recordedZone)?.toLocalTime()?.clockLabel()
+                    ?: minuteLabel(block.startMinute),
+                end = block.actualTiming?.endedAt?.atZone(recordedZone)?.toLocalTime()?.clockLabel()
+                    ?: minuteLabel(block.endMinute),
+                emphasized = active,
+                muted = past && !active,
+            )
             Card(
                 onClick = { haptics.tap(); expanded = !expanded },
-                modifier = Modifier.weight(1f).graphicsLayer { translationY = dragY; scaleX = scale; scaleY = scale }
+                modifier = Modifier.weight(1f)
+                    // Dragging translates the card only; it never scales, so the lifted card stays
+                    // inside its own opaque bounds and cannot mix its text with a neighbour's.
+                    .graphicsLayer { translationY = dragY }
                     .animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
-                    .semantics { contentDescription = dragHint }
+                    .semantics { onClickLabel = expandLabel }
                     .pointerInput(block.key, block.startsAt, block.endsAt, busy) {
-                        if (!busy && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) detectDragGesturesAfterLongPress(
-                            onDragStart = { dragging = true; haptics.dragStart() },
-                            onDrag = { change, amount -> change.consume(); dragY += amount.y },
-                            onDragCancel = { dragY = 0f; dragging = false },
-                            onDragEnd = {
-                                val start = block.startsAt.toLocalTime().toSecondOfDay() / 60
-                                val delta = ((dragY / dragStepPx).roundToInt() * 15).coerceIn(-start, 1439 - start)
-                                if (delta != 0) currentAction(TimelineAction.SaveBlockEdit(block, block.title,
-                                    block.startsAt.toLocalTime().plusMinutes(delta.toLong()), block.endsAt.toLocalTime().plusMinutes(delta.toLong()), false))
-                                dragY = 0f; dragging = false
-                            },
-                        )
+                        if (!busy && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { dragging = true; haptics.dragStart() },
+                                onDrag = { change, amount -> change.consume(); dragY += amount.y },
+                                onDragCancel = { dragY = 0f; dragging = false },
+                                onDragEnd = {
+                                    val start = block.startsAt.toLocalTime().toSecondOfDay() / 60
+                                    val delta = ((dragY / dragStepPx).roundToInt() * 15).coerceIn(-start, 1439 - start)
+                                    if (delta != 0) {
+                                        currentAction(
+                                            TimelineAction.SaveBlockEdit(
+                                                block, block.title,
+                                                block.startsAt.toLocalTime().plusMinutes(delta.toLong()),
+                                                block.endsAt.toLocalTime().plusMinutes(delta.toLong()), false,
+                                            ),
+                                        )
+                                    }
+                                    dragY = 0f; dragging = false
+                                },
+                            )
+                        }
                     },
                 shape = RoutineShapes.Card,
                 colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
                 border = if (activeAmount > 0.01f) BorderStroke(1.5.dp, style.accent.copy(alpha = 0.6f * activeAmount))
-                    else BorderStroke(1.dp, RoutineColors.CardBorder),
+                else BorderStroke(1.dp, RoutineColors.CardBorder),
             ) {
-                Column(Modifier.fillMaxWidth().heightIn(min = maxOf(112.dp, 2.dp * block.durationMinutes))
-                    .drawBehind {
-                        val x = if (layoutDirection == LayoutDirection.Rtl) size.width - 4.dp.toPx() else 0f
-                        drawRect(barColor.copy(alpha = if (past || block.isSuppressed) 0.35f else 1f), Offset(x, 0f), androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height))
-                    }.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(block.title, style = MaterialTheme.typography.titleMedium, maxLines = if (expanded) 6 else 2, overflow = TextOverflow.Ellipsis,
-                                color = if (past || block.isSuppressed) RoutineColors.TextMuted else RoutineColors.TextPrimary,
-                                textDecoration = if (block.isCompleted || block.isSuppressed) TextDecoration.LineThrough else null)
-                            Text(stringResource(R.string.duration_minutes, block.durationMinutes), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary)
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            if (canStart && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer)
-                                IconButton(enabled = !busy, onClick = { onAction(TimelineAction.StartExecution(block)) }) { Icon(Icons.Outlined.PlayArrow, stringResource(R.string.execution_start), tint = style.accent) }
-                            if (block.lessonAutoCompleted) Icon(Icons.Default.Check, stringResource(R.string.lesson_auto_done),
-                                Modifier.size(22.dp), tint = RoutineColors.Sage)
-                            else Checkbox(block.isCompleted, enabled = !busy && !block.isSuppressed,
-                                onCheckedChange = { onAction(TimelineAction.ToggleComplete(block)) },
-                                modifier = Modifier.size(40.dp).semantics { contentDescription = toggleDescription })
-                            warnings.firstOrNull()?.let { warning -> WarningBadge(warning, busy) {
-                                onAction(TimelineAction.InsertRecovery(warning.type, block.key,
-                                    context.getString(R.string.auto_recovery_title), context.getString(R.string.continuation_suffix)))
-                            } }
-                        }
-                    }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(categoryIcon(block.category), null, Modifier.size(16.dp), tint = style.content)
-                            MetaChip(block.category.label(), style)
-                        }
-                        if (block.reviewId != null) MetaChip(stringResource(R.string.review_badge), RoutineColors.School)
-                        if (block.category.isDeepWork && CircadianPenalty().kernel(block.startMinute + block.durationMinutes / 2.0) > 0.45)
-                            MetaChip(stringResource(R.string.circadian_hint), RoutineColors.Recovery)
-                        if (active) MetaChip(stringResource(R.string.now), style)
-                        if (block.hasOverride) MetaChip(stringResource(R.string.moved_today))
-                        if (!block.isNotificationEnabled) MetaChip(stringResource(R.string.notifications_off))
-                    }
-                    if (dragging) Text(stringResource(R.string.drag_minutes, (dragY / dragStepPx).roundToInt() * 15), style = MaterialTheme.typography.labelMedium)
-                    if (block.isCarryIn) Text(stringResource(R.string.carry_in, block.occurrenceDate.format(DateTimeFormatter.ofPattern("d. M.", Slovenian))), style = MaterialTheme.typography.bodySmall)
-                    if (block.isSuppressed) Text(stringResource(R.string.school_inactive, block.holidayTitle.orEmpty()), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
-                    if (overlaps) Text(stringResource(R.string.overlap_notice), style = MaterialTheme.typography.labelSmall, color = RoutineColors.Warning)
-                    val clockChanged = if (block.actualTiming != null)
-                        window.start.atZone(recordedZone).offset != window.end.atZone(recordedZone).offset
-                    else window.start.atZone(now.zone).toLocalDateTime() != block.startsAt || Duration.between(window.start, window.end) != Duration.between(block.startsAt, block.endsAt)
-                    if (clockChanged) {
-                        Text(stringResource(R.string.clock_change, window.start.atZone(now.zone).toLocalTime().clockLabel(), durationLabel(Duration.between(window.start, window.end).toMinutes().toInt())), style = MaterialTheme.typography.bodySmall)
-                    }
-                    AnimatedVisibility(expanded, enter = fadeIn(tween(TransitionMillis)) + slideInVertically(tween(TransitionMillis)) { -it / 4 }, exit = fadeOut(tween(TransitionMillis))) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            HorizontalDivider(color = RoutineColors.Border)
-                            if (block.seriesDays.size > 1) Text(stringResource(R.string.repeat_days_summary,
-                                block.seriesDays.sortedBy { it.value }.joinToString(", ") { it.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,Slovenian) }),style=MaterialTheme.typography.bodySmall)
-                            Text(if (block.isOneOff) stringResource(R.string.one_off_block) else stringResource(R.string.weekly_blueprint,
-                                block.occurrenceDate.format(DateTimeFormatter.ofPattern("EEEE", Slovenian))), style = MaterialTheme.typography.bodySmall)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(stringResource(if (block.category == RoutineCategory.REST_BUFFER) R.string.reminder_at_recovery else R.string.reminder_before), style = MaterialTheme.typography.bodySmall)
-                                    if (!block.isOneOff) Text(stringResource(R.string.applies_every_week), style = MaterialTheme.typography.labelSmall)
-                                }
-                                Switch(block.isNotificationEnabled, { onAction(TimelineAction.SetReminder(block.routineBlockId, it)) }, enabled = !busy)
+                Box(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .defaultMinSize(minHeight = RoutineMetrics.CardMinHeight)
+                            .categoryBar(barColor.copy(alpha = if (past || block.isSuppressed) 0.35f else 1f))
+                            .padding(
+                                start = RoutineMetrics.CardContentStart,
+                                end = RoutineSpacing.md,
+                                top = RoutineSpacing.md,
+                                bottom = RoutineSpacing.md,
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+                    ) {
+                        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+                                RoutineText(
+                                    text = block.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = if (expanded) RoutineTextDefaults.Paragraph else RoutineTextDefaults.Body,
+                                    color = if (past || block.isSuppressed) RoutineColors.TextMuted else RoutineColors.TextPrimary,
+                                    textDecoration = if (block.isCompleted || block.isSuppressed) TextDecoration.LineThrough else null,
+                                )
+                                RoutineLabel(
+                                    text = "$rangeText · $durationText",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = RoutineColors.TextSecondary,
+                                )
                             }
-                            warnings.forEach { warning ->
-                                HealthWarningCard(warning, config, busy) {
-                                    onAction(TimelineAction.InsertRecovery(warning.type, block.key, context.getString(R.string.auto_recovery_title), context.getString(R.string.continuation_suffix)))
+                            if (canStart && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
+                                IconButton(enabled = !busy, onClick = { onAction(TimelineAction.StartExecution(block)) }) {
+                                    Icon(Icons.Outlined.PlayArrow, stringResource(R.string.execution_start), tint = style.accent)
                                 }
                             }
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                TextButton(enabled = !busy, onClick = { onAction(TimelineAction.Edit(block)) }) { Text(stringResource(R.string.move_rename)) }
-                                TextButton(enabled = !busy, onClick = { onAction(TimelineAction.Skip(block)) }) { Text(stringResource(R.string.skip_date)) }
-                                if (block.hasOverride) TextButton(enabled = !busy, onClick = { onAction(TimelineAction.ResetOverride(block)) }) { Text(stringResource(R.string.reset_date)) }
-                                TextButton(enabled = !busy, onClick = { onAction(TimelineAction.RequestDelete(block)) }) { Text(stringResource(if (block.isOneOff) R.string.delete_block else R.string.delete_routine), color = RoutineColors.Crimson) }
+                            if (block.lessonAutoCompleted) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    stringResource(R.string.lesson_auto_done),
+                                    Modifier.size(RoutineMetrics.ActionMinWidth).padding(RoutineSpacing.md),
+                                    tint = RoutineColors.Sage,
+                                )
+                            } else {
+                                Checkbox(
+                                    checked = block.isCompleted,
+                                    onCheckedChange = { onAction(TimelineAction.ToggleComplete(block)) },
+                                    enabled = !busy && !block.isSuppressed,
+                                    modifier = Modifier.size(RoutineMetrics.ActionMinWidth)
+                                        .semantics { contentDescription = toggleDescription },
+                                )
                             }
                         }
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+                            verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+                            ) {
+                                Icon(categoryIcon(block.category), null, Modifier.size(16.dp), tint = style.content)
+                                MetaChip(block.category.label(), style = style)
+                            }
+                            if (block.reviewId != null) MetaChip(stringResource(R.string.review_badge), style = RoutineColors.School)
+                            if (block.category.isDeepWork && CircadianPenalty().kernel(block.startMinute + block.durationMinutes / 2.0) > 0.45) {
+                                MetaChip(stringResource(R.string.circadian_hint), style = RoutineColors.Recovery)
+                            }
+                            if (active) MetaChip(stringResource(R.string.now), style = style)
+                            if (block.hasOverride) MetaChip(stringResource(R.string.moved_today))
+                            if (!block.isNotificationEnabled) MetaChip(stringResource(R.string.notifications_off))
+                            warnings.firstOrNull()?.let { warning ->
+                                WarningBadge(warning, busy) {
+                                    onAction(
+                                        TimelineAction.InsertRecovery(
+                                            warning.type, block.key,
+                                            context.getString(R.string.auto_recovery_title),
+                                            context.getString(R.string.continuation_suffix),
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                        if (dragging) {
+                            RoutineLabel(
+                                text = stringResource(R.string.drag_minutes, (dragY / dragStepPx).roundToInt() * 15),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = RoutineColors.TextPrimary,
+                            )
+                        }
+                        if (block.isCarryIn) {
+                            RoutineText(
+                                text = stringResource(
+                                    R.string.carry_in,
+                                    block.occurrenceDate.format(DateTimeFormatter.ofPattern("d. M.", Slovenian)),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = RoutineTextDefaults.Body,
+                            )
+                        }
+                        if (block.isSuppressed) {
+                            RoutineText(
+                                text = stringResource(R.string.school_inactive, block.holidayTitle.orEmpty()),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = RoutineColors.TextMuted,
+                                maxLines = RoutineTextDefaults.Body,
+                            )
+                        }
+                        if (overlaps) {
+                            RoutineText(
+                                text = stringResource(R.string.overlap_notice),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = RoutineColors.Warning,
+                                maxLines = RoutineTextDefaults.Body,
+                            )
+                        }
+                        val clockChanged = if (block.actualTiming != null) {
+                            window.start.atZone(recordedZone).offset != window.end.atZone(recordedZone).offset
+                        } else {
+                            window.start.atZone(now.zone).toLocalDateTime() != block.startsAt ||
+                                Duration.between(window.start, window.end) != Duration.between(block.startsAt, block.endsAt)
+                        }
+                        if (clockChanged) {
+                            RoutineText(
+                                text = stringResource(
+                                    R.string.clock_change,
+                                    window.start.atZone(now.zone).toLocalTime().clockLabel(),
+                                    durationLabel(Duration.between(window.start, window.end).toMinutes().toInt()),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = RoutineTextDefaults.Body,
+                            )
+                        }
+                        AnimatedVisibility(
+                            visible = expanded,
+                            enter = fadeIn(tween(TransitionMillis)) + slideInVertically(tween(TransitionMillis)) { -it / 4 },
+                            exit = fadeOut(tween(TransitionMillis)),
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+                                HorizontalDivider(color = RoutineColors.Border)
+                                if (block.seriesDays.size > 1) {
+                                    RoutineText(
+                                        text = stringResource(
+                                            R.string.repeat_days_summary,
+                                            block.seriesDays.sortedBy { it.value }
+                                                .joinToString(", ") { it.getDisplayName(TextStyle.SHORT_STANDALONE, Slovenian) },
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = RoutineTextDefaults.Body,
+                                    )
+                                }
+                                RoutineText(
+                                    text = if (block.isOneOff) stringResource(R.string.one_off_block)
+                                    else stringResource(
+                                        R.string.weekly_blueprint,
+                                        block.occurrenceDate.format(DateTimeFormatter.ofPattern("EEEE", Slovenian)),
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = RoutineTextDefaults.Body,
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        RoutineText(
+                                            text = stringResource(
+                                                if (block.category == RoutineCategory.REST_BUFFER) R.string.reminder_at_recovery
+                                                else R.string.reminder_before,
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = RoutineTextDefaults.Body,
+                                        )
+                                        if (!block.isOneOff) {
+                                            RoutineLabel(
+                                                text = stringResource(R.string.applies_every_week),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = RoutineColors.TextSecondary,
+                                            )
+                                        }
+                                    }
+                                    Switch(
+                                        checked = block.isNotificationEnabled,
+                                        onCheckedChange = { onAction(TimelineAction.SetReminder(block.routineBlockId, it)) },
+                                        enabled = !busy,
+                                    )
+                                }
+                                warnings.forEach { warning ->
+                                    HealthWarningCard(warning, config, busy) {
+                                        onAction(
+                                            TimelineAction.InsertRecovery(
+                                                warning.type, block.key,
+                                                context.getString(R.string.auto_recovery_title),
+                                                context.getString(R.string.continuation_suffix),
+                                            ),
+                                        )
+                                    }
+                                }
+                                RoutineText(
+                                    text = dragHint,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = RoutineColors.TextMuted,
+                                    maxLines = RoutineTextDefaults.Paragraph,
+                                )
+                                ActionRow {
+                                    TextButton(enabled = !busy, onClick = { onAction(TimelineAction.Edit(block)) }) {
+                                        RoutineLabel(stringResource(R.string.move_rename), style = MaterialTheme.typography.labelLarge)
+                                    }
+                                    TextButton(enabled = !busy, onClick = { onAction(TimelineAction.Skip(block)) }) {
+                                        RoutineLabel(stringResource(R.string.skip_date), style = MaterialTheme.typography.labelLarge)
+                                    }
+                                    if (block.hasOverride) {
+                                        TextButton(enabled = !busy, onClick = { onAction(TimelineAction.ResetOverride(block)) }) {
+                                            RoutineLabel(stringResource(R.string.reset_date), style = MaterialTheme.typography.labelLarge)
+                                        }
+                                    }
+                                    TextButton(enabled = !busy, onClick = { onAction(TimelineAction.RequestDelete(block)) }) {
+                                        RoutineLabel(
+                                            stringResource(if (block.isOneOff) R.string.delete_block else R.string.delete_routine),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = RoutineColors.Crimson,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (showNow && !dragging) {
+                        val total = Duration.between(window.start, window.end).seconds.coerceAtLeast(1)
+                        val progress = (Duration.between(window.start, now.toInstant()).seconds.toFloat() / total).coerceIn(0f, 1f)
+                        NowBand(
+                            time = now.toLocalTime().clockLabel(),
+                            progress = progress,
+                            modifier = Modifier.matchParentSize(),
+                            pulse = pulseAlpha(),
+                        )
                     }
                 }
             }
         }
-        if (showNow && !dragging && heightPx > 0) {
-            val progress = (Duration.between(window.start, now.toInstant()).seconds.toFloat() / Duration.between(window.start, window.end).seconds.coerceAtLeast(1)).coerceIn(0f, 1f)
-            val offset = with(density) { (heightPx * progress).coerceIn(12.dp.toPx(), heightPx - 12.dp.toPx()).toDp() }
-            NowMarker(now.toLocalTime().clockLabel(), Modifier.offset(y = offset).fillMaxWidth())
-        }
     }
 }
 
-@Composable
-private fun TimeGutter(start: Int, end: Int, active: Boolean, past: Boolean, actualStart: String? = null, actualEnd: String? = null) {
-    Column(Modifier.width(60.dp).padding(top = 12.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(actualStart ?: minuteLabel(start), style = MaterialTheme.typography.bodySmall, color = if (active) RoutineColors.TextPrimary else if (past) RoutineColors.TextMuted else RoutineColors.TextSecondary)
-        Text(actualEnd ?: minuteLabel(end), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
-    }
-}
-
-@Composable
-fun MetaChip(text: String, style: CategoryStyle = RoutineColors.Personal) {
-    Surface(shape = RoutineShapes.Chip, color = style.container, contentColor = style.content) {
-        Text(text, Modifier.padding(horizontal = 7.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall)
-    }
-}
-
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WarningBadge(warning: WarningUi, busy: Boolean, onInsert: () -> Unit) {
     val pulse = pulseAlpha()
     val description = stringResource(R.string.insert_break_description, warning.recoveryMinutes)
-    Surface(onClick = onInsert, enabled = !busy, shape = RoutineShapes.Chip, color = RoutineColors.WarningContainer,
-        modifier = Modifier.semantics { contentDescription = description }) {
-        Row(Modifier.padding(6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Surface(
+        onClick = onInsert,
+        enabled = !busy,
+        shape = RoutineShapes.Chip,
+        color = RoutineColors.WarningContainer,
+        modifier = Modifier.defaultMinSize(minHeight = 36.dp).semantics { contentDescription = description },
+    ) {
+        Row(
+            Modifier.padding(horizontal = RoutineSpacing.sm, vertical = RoutineSpacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Icon(Icons.Outlined.Psychology, null, Modifier.size(16.dp).alpha(pulse), tint = RoutineColors.Warning)
-            Text(stringResource(R.string.insert_break, warning.recoveryMinutes), style = MaterialTheme.typography.labelSmall, color = RoutineColors.Warning)
+            RoutineLabel(
+                text = stringResource(R.string.insert_break, warning.recoveryMinutes),
+                style = MaterialTheme.typography.labelSmall,
+                color = RoutineColors.Warning,
+            )
+        }
+    }
+}
+
+/**
+ * Standalone NOW row used between two list items, where nothing is underneath it. Over a card the
+ * measured [NowBand] is used instead.
+ */
+@Composable
+fun NowMarker(time: String, modifier: Modifier = Modifier, pulse: Float = pulseAlpha()) {
+    Surface(color = RoutineColors.Background, modifier = modifier) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = RoutineMetrics.NowBandHeight),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.size(RoutineMetrics.NowDotSize).alpha(pulse)
+                    .background(RoutineColors.Crimson, CircleShape),
+            )
+            Box(Modifier.weight(1f).height(RoutineMetrics.SpineWidth).background(RoutineColors.Crimson))
+            RoutineLabel(
+                text = time,
+                modifier = Modifier.alpha(pulse).padding(horizontal = RoutineSpacing.xs),
+                style = MaterialTheme.typography.labelSmall,
+                color = RoutineColors.Crimson,
+            )
         }
     }
 }
 
 @Composable
-fun NowMarker(time: String, modifier: Modifier = Modifier) {
-    val pulse = pulseAlpha()
-    Row(modifier.height(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).alpha(pulse).background(RoutineColors.Crimson, androidx.compose.foundation.shape.CircleShape))
-        Box(Modifier.weight(1f).height(1.dp).background(RoutineColors.Crimson))
-        Text(time, Modifier.background(RoutineColors.Background).padding(horizontal = 4.dp), style = MaterialTheme.typography.labelSmall, color = RoutineColors.Crimson)
-    }
-}
-
-@Composable
-private fun pulseAlpha(): Float {
+fun pulseAlpha(): Float {
     val transition = rememberInfiniteTransition(label = "gentle-indicator")
     val alpha by transition.animateFloat(0.68f, 1f, infiniteRepeatable(tween(200), RepeatMode.Reverse), label = "indicator-alpha")
     return alpha
 }
 
 @Composable
-fun MilestoneCard(item: ResolvedTimelineItem.Milestone, busy: Boolean, onAction: (TimelineAction) -> Unit, modifier: Modifier = Modifier) {
+fun MilestoneCard(
+    item: ResolvedTimelineItem.Milestone,
+    busy: Boolean,
+    onAction: (TimelineAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var expanded by rememberSaveable(item.key) { mutableStateOf(false) }
     val haptics = LocalRoutineHaptics.current
-    Row(modifier.fillMaxWidth()) {
-        Text(item.dueTime?.clockLabel() ?: stringResource(R.string.all_day), Modifier.width(60.dp).padding(top = 14.dp), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary)
-        Card(onClick = { haptics.tap(); expanded = !expanded }, modifier = Modifier.weight(1f).animateContentSize(), shape = RoutineShapes.Card,
-            border = BorderStroke(1.dp, RoutineColors.CardBorder), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
-            colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1)) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Outlined.Flag, null, tint = RoutineColors.Crimson)
-                    Text(item.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null)
-                    Checkbox(item.isCompleted, { onAction(TimelineAction.ToggleComplete(item)) }, enabled = !busy)
-                }
-                MetaChip(stringResource(if (item.isExam) R.string.category_exam else R.string.category_milestone), RoutineColors.Exam)
-                Text(item.dueTime?.let { stringResource(R.string.milestone_due, it.clockLabel()) } ?: stringResource(R.string.marker_all_day), style = MaterialTheme.typography.bodySmall)
-                item.subject?.let { Text(it.name, style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary) }
-                AnimatedVisibility(expanded, enter = fadeIn(tween(TransitionMillis)), exit = fadeOut(tween(TransitionMillis))) {
-                    Row {
-                        TextButton(enabled = !busy, onClick = { onAction(TimelineAction.Edit(item)) }) { Text(stringResource(R.string.edit)) }
-                        TextButton(enabled = !busy, onClick = { onAction(TimelineAction.RequestDelete(item)) }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) }
+    val expandLabel = stringResource(if (expanded) R.string.collapse_block else R.string.expand_block)
+    Box(modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().timelineRail(RoutineColors.Spine)) {
+            TimeGutter(
+                start = item.dueTime?.clockLabel() ?: stringResource(R.string.all_day),
+                topPadding = RoutineSpacing.md,
+                muted = true,
+            )
+            Card(
+                onClick = { haptics.tap(); expanded = !expanded },
+                modifier = Modifier.weight(1f).animateContentSize().semantics { onClickLabel = expandLabel },
+                shape = RoutineShapes.Card,
+                border = BorderStroke(1.dp, RoutineColors.CardBorder),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
+                colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1),
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(RoutineSpacing.md),
+                    verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+                        Icon(Icons.Outlined.Flag, null, tint = RoutineColors.Crimson)
+                        RoutineText(
+                            text = item.title,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = if (expanded) RoutineTextDefaults.Paragraph else RoutineTextDefaults.Title,
+                            textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
+                        )
+                        Checkbox(
+                            checked = item.isCompleted,
+                            onCheckedChange = { onAction(TimelineAction.ToggleComplete(item)) },
+                            enabled = !busy,
+                            modifier = Modifier.size(RoutineMetrics.ActionMinWidth),
+                        )
+                    }
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+                        verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+                    ) {
+                        MetaChip(
+                            stringResource(if (item.isExam) R.string.category_exam else R.string.category_milestone),
+                            style = RoutineColors.Exam,
+                        )
+                        item.subject?.let { MetaChip(it.name, style = RoutineColors.Personal) }
+                    }
+                    RoutineText(
+                        text = item.dueTime?.let { stringResource(R.string.milestone_due, it.clockLabel()) }
+                            ?: stringResource(R.string.marker_all_day),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = RoutineTextDefaults.Body,
+                    )
+                    AnimatedVisibility(
+                        visible = expanded,
+                        enter = fadeIn(tween(TransitionMillis)),
+                        exit = fadeOut(tween(TransitionMillis)),
+                    ) {
+                        ActionRow {
+                            TextButton(enabled = !busy, onClick = { onAction(TimelineAction.Edit(item)) }) {
+                                RoutineLabel(stringResource(R.string.edit), style = MaterialTheme.typography.labelLarge)
+                            }
+                            TextButton(enabled = !busy, onClick = { onAction(TimelineAction.RequestDelete(item)) }) {
+                                RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+                            }
+                        }
                     }
                 }
             }

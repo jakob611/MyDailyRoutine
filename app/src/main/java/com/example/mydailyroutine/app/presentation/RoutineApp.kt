@@ -40,7 +40,11 @@ import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.features.timeline.components.DateNavigator
 import com.example.mydailyroutine.features.entry.presentation.*
 import com.example.mydailyroutine.features.subjects.presentation.SubjectEditorDialog
+import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheet
+import com.example.mydailyroutine.core.designsystem.components.RoutineText
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
+import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.haptics.*
 import com.example.mydailyroutine.features.timeline.presentation.overview.*
 import com.example.mydailyroutine.features.timeline.presentation.DailyTimeline
@@ -109,13 +113,14 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                 AnimatedContent(targetState = state.panels.showGoals, label = "topbar-switch",
                     transitionSpec = { ContentTransform(fadeIn(tween(TransitionMillis)), fadeOut(tween(TransitionMillis)), sizeTransform = SizeTransform(clip = false)) }) { goalsShown ->
                 if (goalsShown) {
-                    TopAppBar(title = { Text(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge) },
+                    TopAppBar(title = { RoutineText(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge, maxLines = 1) },
                         navigationIcon = { IconButton(onClick = { onAction(TimelineAction.CloseGoals) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back)) } },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = RoutineColors.Background))
                 } else Column {
                     TopAppBar(title = { Column {
-                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
-                        Text(stringResource(R.string.app_tagline), style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary)
+                        RoutineText(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                        RoutineText(stringResource(R.string.app_tagline), style = MaterialTheme.typography.labelSmall,
+                            color = RoutineColors.TextSecondary, maxLines = 1)
                     } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = RoutineColors.Background),
                         actions = {
                             IconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open)) }
@@ -133,7 +138,10 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
                         TimelineMode.entries.forEachIndexed { index, mode ->
                             SegmentedButton(selected = data.mode == mode, onClick = { onAction(TimelineAction.SelectMode(mode)) }, shape = SegmentedButtonDefaults.itemShape(index, TimelineMode.entries.size)) {
-                                Text(stringResource(when (mode) { TimelineMode.DAY -> R.string.nav_day; TimelineMode.WEEK -> R.string.nav_week; TimelineMode.MONTH -> R.string.nav_month; TimelineMode.YEAR -> R.string.nav_year }))
+                                RoutineLabel(
+                                    text = stringResource(when (mode) { TimelineMode.DAY -> R.string.nav_day; TimelineMode.WEEK -> R.string.nav_week; TimelineMode.MONTH -> R.string.nav_month; TimelineMode.YEAR -> R.string.nav_year }),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
                             }
                         }
                     }
@@ -144,7 +152,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                 if (!state.panels.showGoals) ExtendedFloatingActionButton(onClick = { onAction(TimelineAction.OpenAdd) }, modifier = Modifier.testTag("fast-add"), shape = RoutineShapes.Pill,
                     containerColor = RoutineColors.Amber, contentColor = RoutineColors.Background,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp, pressedElevation = 0.dp, focusedElevation = 0.dp, hoveredElevation = 0.dp),
-                    icon = { Icon(Icons.Default.Add, null) }, text = { Text(stringResource(R.string.add_block)) })
+                    icon = { Icon(Icons.Default.Add, null) },
+                    text = { RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge) })
             },
         ) { padding ->
             AnimatedContent(targetState = state.panels.showGoals, label = "goals-switch",
@@ -162,8 +171,12 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         when {
                             shown.isLoading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                             shown.error != null -> Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(stringResource(shown.error))
-                                TextButton(onClick = { onAction(TimelineAction.Retry) }) { Text(stringResource(R.string.retry)) }
+                                RoutineText(stringResource(shown.error), style = MaterialTheme.typography.bodyLarge,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    maxLines = RoutineTextDefaults.Paragraph)
+                                TextButton(onClick = { onAction(TimelineAction.Retry) }) {
+                                    RoutineLabel(stringResource(R.string.retry), style = MaterialTheme.typography.labelLarge)
+                                }
                             }
                             else -> when (shown.mode) {
                                 TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
@@ -190,7 +203,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         RoutineSheet(state.panels.showTimetableImport) { sheetState -> TimetableImportSheet(data.subjects, state.panels.isSaving, sheetState, onDismiss = { onAction(TimelineAction.CloseTimetableImport) }, onImport = { rows -> onAction(TimelineAction.ImportTimetable(rows)) }) }
         RoutineSheet(state.panels.showTopicEditor) { sheetState -> TopicEditorSheet(state, onAction, sheetState = sheetState) }
         state.panels.completionTarget?.let { ActualCompletionDialog(it, state.panels.isSaving, onAction) }
-        state.panels.editingBlock?.let { BlockEditorDialog(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseEditor) }, onSave = onAction) }
+        state.panels.editingBlock?.let { BlockEditorSheet(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseEditor) }, onSave = onAction) }
         state.panels.editingSubject?.let { editing -> SubjectEditorDialog(editing, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) },
             onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) },
             onDelete = if (editing.id == 0L) null else { { onAction(TimelineAction.DeleteSubject(editing.id)); onAction(TimelineAction.CloseSubjectEditor) } }) }
@@ -199,25 +212,44 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             val group = (item as? ResolvedTimelineItem.Block)?.takeIf { it.parentRoutineId == null && it.origin == com.example.mydailyroutine.domain.routines.RoutineOrigin.USER }?.seriesKey
             val groupDays = (item as? ResolvedTimelineItem.Block)?.seriesDays.orEmpty()
             var entireSeries by remember(item.key) { mutableStateOf(true) }
-            AlertDialog(onDismissRequest = { onAction(TimelineAction.DismissDelete) }, title = { Text(stringResource(if (recurring) R.string.delete_routine_title else R.string.delete_entry_title)) },
-                text = { Column {
-                    Text(stringResource(if (recurring) R.string.delete_routine_body else R.string.delete_entry_body, item.title))
-                    if (group != null && groupDays.size > 1) Row(verticalAlignment=Alignment.CenterVertically) {
-                        Checkbox(entireSeries,{ entireSeries=it })
-                        Text(stringResource(R.string.delete_all_repeat_days))
-                    }
+            AlertDialog(onDismissRequest = { onAction(TimelineAction.DismissDelete) },
+                title = { RoutineText(stringResource(if (recurring) R.string.delete_routine_title else R.string.delete_entry_title),
+                    style = MaterialTheme.typography.headlineSmall, maxLines = RoutineTextDefaults.Body) },
+                text = { Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+                    RoutineText(stringResource(if (recurring) R.string.delete_routine_body else R.string.delete_entry_body, item.title),
+                        maxLines = RoutineTextDefaults.Paragraph)
+                    if (group != null && groupDays.size > 1) SettingRow(
+                        title = stringResource(R.string.delete_all_repeat_days),
+                        control = { Checkbox(entireSeries, { entireSeries = it }, modifier = Modifier.size(RoutineMetrics.ActionMinWidth)) },
+                    )
                 } },
-                confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(if (group != null && entireSeries) TimelineAction.DeleteSeries(group) else TimelineAction.ConfirmDelete) }) { Text(stringResource(R.string.delete), color = RoutineColors.Crimson) } },
-                dismissButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.DismissDelete) }) { Text(stringResource(R.string.keep)) } })
+                confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(if (group != null && entireSeries) TimelineAction.DeleteSeries(group) else TimelineAction.ConfirmDelete) }) {
+                    RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+                } },
+                dismissButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.DismissDelete) }) {
+                    RoutineLabel(stringResource(R.string.keep), style = MaterialTheme.typography.labelLarge)
+                } })
         }
         if (state.panels.confirmCancelExecution) AlertDialog(onDismissRequest = { onAction(TimelineAction.DismissCancelExecution) },
-            title = { Text(stringResource(R.string.execution_cancel_title)) }, text = { Text(stringResource(R.string.execution_cancel_body)) },
-            confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.CancelExecution) }) { Text(stringResource(R.string.execution_cancel_confirm)) } },
-            dismissButton = { TextButton(onClick = { onAction(TimelineAction.DismissCancelExecution) }) { Text(stringResource(R.string.keep)) } })
+            title = { RoutineText(stringResource(R.string.execution_cancel_title), style = MaterialTheme.typography.headlineSmall,
+                maxLines = RoutineTextDefaults.Body) },
+            text = { RoutineText(stringResource(R.string.execution_cancel_body), maxLines = RoutineTextDefaults.Paragraph) },
+            confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.CancelExecution) }) {
+                RoutineLabel(stringResource(R.string.execution_cancel_confirm), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+            } },
+            dismissButton = { TextButton(onClick = { onAction(TimelineAction.DismissCancelExecution) }) {
+                RoutineLabel(stringResource(R.string.keep), style = MaterialTheme.typography.labelLarge)
+            } })
         if (state.panels.confirmDemo) AlertDialog(onDismissRequest = { onAction(TimelineAction.DismissDemo) },
-            title = { Text(stringResource(R.string.demo_confirm_title)) }, text = { Text(stringResource(R.string.demo_confirm_body)) },
-            confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.LoadDemo) }) { Text(stringResource(R.string.demo_confirm)) } },
-            dismissButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.DismissDemo) }) { Text(stringResource(R.string.cancel)) } })
+            title = { RoutineText(stringResource(R.string.demo_confirm_title), style = MaterialTheme.typography.headlineSmall,
+                maxLines = RoutineTextDefaults.Body) },
+            text = { RoutineText(stringResource(R.string.demo_confirm_body), maxLines = RoutineTextDefaults.Paragraph) },
+            confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.LoadDemo) }) {
+                RoutineLabel(stringResource(R.string.demo_confirm), style = MaterialTheme.typography.labelLarge)
+            } },
+            dismissButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.DismissDemo) }) {
+                RoutineLabel(stringResource(R.string.cancel), style = MaterialTheme.typography.labelLarge)
+            } })
     }
 }
 

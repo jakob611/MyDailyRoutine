@@ -4,6 +4,7 @@ import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.unit.dp
 import java.io.File
 import androidx.lifecycle.Lifecycle
 import androidx.test.platform.app.InstrumentationRegistry
@@ -35,12 +36,44 @@ class TimelineUiTest {
         compose.onNodeWithText(text(R.string.elasticity)).assertDoesNotExist()
         capture("05-quick-add",true)
     }
-    @Test fun settingsExposeAdvancedRulesAndOptInDemo() {
+    @Test fun settingsTabsExposeRulesAndOptInDemo() {
         compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
         awaitText(R.string.settings_title)
-        compose.onNodeWithText(text(R.string.advanced_settings)).performScrollTo().performClick()
+        // The landing tab is rhythm: sleep and lesson defaults, not a 40-item scroll.
+        compose.onNodeWithText(text(R.string.sleep_heading)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.demo_heading)).assertDoesNotExist()
+        compose.onNodeWithTag("settings-tab-rules").performClick()
+        // Health thresholds are no longer hidden behind an "advanced" expander.
         compose.onNodeWithText(text(R.string.threshold_focus)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("settings-tab-data").performClick()
         compose.onNodeWithText(text(R.string.demo_heading)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.threshold_focus)).assertDoesNotExist()
+        capture("06-settings-data")
+    }
+    @Test fun menusAreSplitIntoTabsInsteadOfOneLongScroll() {
+        compose.onNodeWithContentDescription(text(R.string.planning_open)).performClick()
+        awaitText(R.string.planning_title)
+        compose.onNodeWithText(text(R.string.add_reserve)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.new_topic)).assertDoesNotExist()
+        compose.onNodeWithTag("planning-tab-topics").performClick()
+        compose.onNodeWithText(text(R.string.new_topic)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.add_reserve)).assertDoesNotExist()
+        compose.onNodeWithTag("planning-tab-markers").performClick()
+        compose.onNodeWithText(text(R.string.new_topic)).assertDoesNotExist()
+        capture("07-planning-tabs")
+    }
+    @Test fun longSlovenianButtonLabelsStayOnOneLine() {
+        compose.onNodeWithTag("fast-add").performClick()
+        awaitText(R.string.fast_add_title)
+        compose.onNodeWithText(text(R.string.category_school)).performScrollTo().performClick()
+        compose.onNodeWithTag("repeat-weekly").performScrollTo().performClick()
+        compose.onNodeWithTag("save-next-lesson").assertIsDisplayed()
+        // A 52dp pill whose label wrapped would grow past one text line; catch that regression here.
+        val sticky = compose.onNodeWithTag("save-next-lesson").fetchSemanticsNode().boundsInRoot
+        assertTrue("sticky footer button grew to ${'$'}{sticky.height}", sticky.height <= 56.dp)
+        val label = compose.onNodeWithText(text(R.string.save_next_lesson), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("button label wrapped onto ${'$'}{label.height}", label.height <= 32.dp)
     }
     @Test fun warmWidgetQuickAddDismissesSettingsAndOpensOneFreshSheet() {
         val activity = compose.activity
