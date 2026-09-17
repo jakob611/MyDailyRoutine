@@ -3,7 +3,9 @@ package com.example.mydailyroutine.features.timeline.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -48,6 +50,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -130,6 +134,15 @@ fun TimelineBlockCard(
 ) {
     var expanded by rememberSaveable(block.key) { mutableStateOf(false) }
     var dragY by remember(block.key) { mutableFloatStateOf(0f) }
+    val dragScope = rememberCoroutineScope()
+    // Release springs the card home. A bare `dragY = 0f` teleports it in one frame, and the eye
+    // reads that teleport as the card jumping, even when the commit itself reflows correctly.
+    val settleDrag: () -> Unit = {
+        dragging = false
+        dragScope.launch {
+            animate(dragY, 0f, spring(dampingRatio = 0.55f, stiffness = 320f)) { value, _ -> dragY = value }
+        }
+    }
     var dragging by remember(block.key) { mutableStateOf(false) }
     val currentAction by rememberUpdatedState(onAction)
     val haptics = LocalRoutineHaptics.current
@@ -189,7 +202,7 @@ fun TimelineBlockCard(
                                 },
                                 // Cancelling commits nothing, so the release haptic belongs here; a
                                 // completed drop is answered by the wrapper's success haptic instead.
-                                onDragCancel = { dragY = 0f; dragging = false; haptics.dragEnd() },
+                                onDragCancel = { settleDrag(); haptics.dragEnd() },
                                 onDragEnd = {
                                     val start = block.startsAt.toLocalTime().toSecondOfDay() / 60
                                     val delta = ((dragY / dragStepPx).roundToInt() * 15).coerceIn(-start, 1439 - start)
@@ -202,13 +215,13 @@ fun TimelineBlockCard(
                                             ),
                                         )
                                     }
-                                    dragY = 0f; dragging = false
+                                    settleDrag()
                                 },
                             )
                         }
                     },
                 shape = RoutineShapes.Card,
-                colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1),
+                colors = CardDefaults.cardColors(containerColor = RoutineColors.cardSurface(style.accent)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
                 border = if (activeAmount > 0.01f) BorderStroke(1.5.dp, style.accent.copy(alpha = 0.6f * activeAmount))
                 else BorderStroke(1.dp, RoutineColors.CardBorder),
@@ -515,7 +528,14 @@ fun pulseAlpha(): Float {
     // to go: under remove-animations it holds its brightest value and the loop never starts.
     if (LocalReduceMotion.current) return 1f
     val transition = rememberInfiniteTransition(label = "gentle-indicator")
-    val alpha by transition.animateFloat(0.68f, 1f, infiniteRepeatable(tween(200), RepeatMode.Reverse), label = "indicator-alpha")
+    // A 200 ms reverse loop is a 2.5 Hz strobe, which reads as an alarm, not as "now". iOS Calendar's
+    // indicator does not blink at all; the closest honest analogue is one slow sine breath per ~3 s,
+    // shallow enough to notice only when you look for it.
+    val alpha by transition.animateFloat(
+        0.78f, 1f,
+        infiniteRepeatable(tween(2800, easing = CubicBezierEasing(0.37f, 0f, 0.63f, 1f)), RepeatMode.Reverse),
+        label = "indicator-alpha",
+    )
     return alpha
 }
 

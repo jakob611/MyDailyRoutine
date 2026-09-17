@@ -9,6 +9,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.scaleIn
+import androidx.compose.animation.core.scaleOut
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -252,7 +254,10 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 (slideInHorizontally(spatial) { it / 4 * forward } + fadeIn(effect)) togetherWith
                                     (slideOutHorizontally(spatial) { -it / 4 * forward } + fadeOut(effect))
                             } else {
-                                fadeIn(effect) togetherWith fadeOut(effect)
+                                // Fade-through with a whisper of scale: a pure crossfade of two full
+                                // trees reads as "it blinked and swapped"; the scale anchors the eye.
+                                (fadeIn(effect) + scaleIn(effect, initialScale = 0.96f)) togetherWith
+                                    (fadeOut(effect) + scaleOut(effect, targetScale = 0.96f))
                             }
                         }) { shown ->
                         Box(Modifier.fillMaxSize()) {

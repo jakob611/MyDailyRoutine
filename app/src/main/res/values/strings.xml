@@ -297,6 +297,8 @@
         <item quantity="other">%1$d blokov danes</item>
     </plurals>
     <string name="notification_group_summary">Dotakni se za razpored dneva</string>
+    <string name="time_pick_title">Izberi uro</string>
+    <string name="time_apply">Uporabi</string>
     <string name="recovery_alerts_title">Obvestilo ob začetku počitka</string>
     <string name="recovery_alerts_description">Odmori so vidni v razporedu; posebna pasica zanje je ponavadi odveč, zato je privzeto izklopljena.</string>
     <string name="notification_subject_fallback">Tvoj dnevni ritem</string>

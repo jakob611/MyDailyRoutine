@@ -23,6 +23,11 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // The rolling release APK is signed with the debug key so it installs straight from
+            // GitHub; a store build would be signed with the upload key instead. R8 and resource
+            // shrinking are what make the on-device feel representative — the debug variant carries
+            // Compose's debug instrumentation and reads as a slower app on the phone.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {

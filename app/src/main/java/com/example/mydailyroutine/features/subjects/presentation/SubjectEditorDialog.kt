@@ -115,7 +115,7 @@ fun SubjectEditorDialog(
                             Modifier.size(48.dp)
                                 .border(
                                     BorderStroke(if (color == value) 3.dp else 1.dp,
-                                        if (color == value) MaterialTheme.colorScheme.onSurface else RoutineColors.Border),
+                                        if (color == value) RoutineColors.TextPrimary else RoutineColors.Border),
                                     CircleShape,
                                 )
                                 .padding(5.dp)

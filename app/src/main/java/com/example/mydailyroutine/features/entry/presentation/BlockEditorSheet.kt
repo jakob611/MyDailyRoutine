@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheetScaffold
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
+import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.components.SheetPrimaryButton
@@ -119,19 +120,17 @@ fun BlockEditorSheet(
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            RoutineTimeField(
                 value = start,
-                onValueChange = { times = times.withStart(it); error = null },
-                label = { RoutineText(stringResource(R.string.entry_start)) },
-                singleLine = true,
+                onPick = { times = times.withStart(it); error = null },
+                label = stringResource(R.string.entry_start),
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            RoutineTimeField(
                 value = end,
-                onValueChange = { times = times.withEnd(it); error = null },
-                label = { RoutineText(stringResource(R.string.entry_end)) },
-                singleLine = true,
+                onPick = { times = times.withEnd(it); error = null },
+                label = stringResource(R.string.entry_end),
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
             )

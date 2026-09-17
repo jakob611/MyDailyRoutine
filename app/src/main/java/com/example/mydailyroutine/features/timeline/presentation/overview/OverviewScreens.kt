@@ -50,7 +50,6 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -104,7 +103,7 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
     val endHour = maxOf(21, ((blocks.maxOfOrNull { it.endMinute } ?: 1260) + 59) / 60).coerceAtMost(24)
     val minuteHeight = RoutineMetrics.WeekMinuteHeight
     val gridHeight = minuteHeight * ((endHour - startHour) * 60)
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val gridColor = RoutineColors.CardBorder
     LazyColumn(
         contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
@@ -117,14 +116,14 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
                     stringResource(R.string.week_totals, durationLabel(days.sumOf { it.metrics.focusMinutes }),
                         durationLabel(days.sumOf { it.metrics.recoveryMinutes })),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = RoutineColors.TextSecondary,
                     maxLines = RoutineTextDefaults.Body,
                 )
                 RoutineText(stringResource(R.string.week_hint), style = MaterialTheme.typography.bodySmall,
                     maxLines = RoutineTextDefaults.Paragraph)
                 if (!SlovenianAcademicCalendar.covers(content.date)) {
                     RoutineText(stringResource(R.string.coverage_warning), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error, maxLines = RoutineTextDefaults.Paragraph)
+                        color = RoutineColors.Crimson, maxLines = RoutineTextDefaults.Paragraph)
                 }
             }
         }
@@ -259,7 +258,7 @@ private fun WeeklyBlockCell(position: PositionedBlock, date: LocalDate, onDate: 
     )
     BoxWithConstraints(
         Modifier.clip(RoundedCornerShape(6.dp))
-            .background(if (block.isSuppressed) MaterialTheme.colorScheme.surfaceContainerHigh else accent.copy(alpha = 0.22f))
+            .background(if (block.isSuppressed) RoutineColors.Surface3 else accent.copy(alpha = 0.22f))
             .clickable { onDate(date) }
             .semantics { contentDescription = description }
             .padding(RoutineSpacing.xs),
@@ -302,10 +301,10 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                 RoutineText(stringResource(R.string.month_heading), style = MaterialTheme.typography.titleLarge,
                     maxLines = RoutineTextDefaults.Body)
                 RoutineText(stringResource(R.string.month_hint), style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = RoutineTextDefaults.Paragraph)
+                    color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                 if (!SlovenianAcademicCalendar.covers(content.date)) {
                     RoutineText(stringResource(R.string.coverage_warning), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error, maxLines = RoutineTextDefaults.Paragraph)
+                        color = RoutineColors.Crimson, maxLines = RoutineTextDefaults.Paragraph)
                 }
             }
         }
@@ -331,8 +330,8 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                             val heat = (day.metrics.focusMinutes / 300f).coerceIn(0f, 1f)
                             val background = when {
                                 holiday -> RoutineColors.Recovery.container
-                                heat > 0 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.08f + heat * 0.35f)
-                                else -> MaterialTheme.colorScheme.surfaceContainerLow
+                                heat > 0 -> RoutineColors.Amber.copy(alpha = 0.08f + heat * 0.35f)
+                                else -> RoutineColors.Surface1
                             }
                             val description = if (holiday) stringResource(R.string.month_cell_off, date.toString())
                             else stringResource(
@@ -346,7 +345,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                                     .semantics { contentDescription = description },
                                 shape = RoundedCornerShape(12.dp),
                                 color = background,
-                                border = if (date == today) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                                border = if (date == today) androidx.compose.foundation.BorderStroke(2.dp, RoutineColors.Amber) else null,
                             ) {
                                 Column(
                                     Modifier.fillMaxWidth().padding(RoutineSpacing.xs),
@@ -363,7 +362,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                                         modifier = Modifier.padding(top = RoutineSpacing.xs),
                                     ) {
                                         if (holiday) Dot(RoutineColors.Recovery.accent)
-                                        if (day.metrics.examCount > 0) Dot(MaterialTheme.colorScheme.error)
+                                        if (day.metrics.examCount > 0) Dot(RoutineColors.Crimson)
                                         if (day.metrics.milestoneCount > day.metrics.examCount) Dot(RoutineColors.Crimson)
                                     }
                                 }
@@ -378,10 +377,10 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
             ) {
-                Legend(stringResource(R.string.legend_exam), MaterialTheme.colorScheme.error)
+                Legend(stringResource(R.string.legend_exam), RoutineColors.Crimson)
                 Legend(stringResource(R.string.legend_deadline), RoutineColors.Crimson)
                 Legend(stringResource(R.string.legend_no_school), RoutineColors.Recovery.accent)
-                Legend(stringResource(R.string.legend_focus), MaterialTheme.colorScheme.primary)
+                Legend(stringResource(R.string.legend_focus), RoutineColors.Amber)
             }
         }
         milestoneSection(R.string.month_markers, content.milestones.filter { YearMonth.from(it.dueDate) == month },
@@ -465,7 +464,7 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                 tag = "year-balance-toggle",
             ) {
                 if (!SlovenianAcademicCalendar.covers(start)) {
-                    RoutineText(stringResource(R.string.coverage_warning), color = MaterialTheme.colorScheme.error,
+                    RoutineText(stringResource(R.string.coverage_warning), color = RoutineColors.Crimson,
                         style = MaterialTheme.typography.bodySmall, maxLines = RoutineTextDefaults.Paragraph)
                 }
                 Column(Modifier.fillMaxWidth().testTag("year-month-grid"),
@@ -607,7 +606,7 @@ private fun LazyListScope.milestoneSection(
     if (entries.isEmpty()) {
         item(key = "markers-empty:$title") {
             RoutineText(stringResource(R.string.no_milestones), style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         }
     }
     items(entries, key = { "marker:$title:${it.second}:${it.first.id}" }, contentType = { "milestone" }) { (marker, source) ->
@@ -624,13 +623,12 @@ private fun LazyListScope.milestoneSection(
                 Dot(
                     when {
                         source == "g" -> RoutineColors.Violet
-                        marker.isExam -> MaterialTheme.colorScheme.error
+                        marker.isExam -> RoutineColors.Crimson
                         else -> RoutineColors.Crimson
                     },
                 )
                 Column(Modifier.weight(1f)) {
-                    RoutineText(marker.title, style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium, maxLines = RoutineTextDefaults.Body)
+                    RoutineText(marker.title, style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
                     RoutineLabel(
                         when {
                             source == "g" -> stringResource(R.string.marker_goal)

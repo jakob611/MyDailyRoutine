@@ -24,6 +24,7 @@ import com.example.mydailyroutine.core.designsystem.components.ActionRow
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheetScaffold
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
+import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.components.SheetPrimaryButton
@@ -280,10 +281,12 @@ fun EntryEditorSheet(
                     exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(startText, { times = times.withStart(it); error = null }, label = { RoutineText(stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due)) },
-                            singleLine = true, modifier = Modifier.weight(1f).testTag("entry-start"), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
-                        if (kind == EntryKind.BLOCK) OutlinedTextField(endText, { times = times.withEnd(it); error = null }, label = { RoutineText(stringResource(R.string.entry_end)) },
-                            singleLine = true, modifier = Modifier.weight(1f).testTag("entry-end"), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
+                        RoutineTimeField(startText, { times = times.withStart(it); error = null },
+                            label = stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due),
+                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-start"))
+                        if (kind == EntryKind.BLOCK) RoutineTimeField(endText, { times = times.withEnd(it); error = null },
+                            label = stringResource(R.string.entry_end),
+                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-end"))
                     }
                 }
                 if (kind == EntryKind.BLOCK) {

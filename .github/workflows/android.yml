@@ -59,7 +59,7 @@ jobs:
       - name: Build, unit tests and lint
         run: |
           set -o pipefail
-          ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --stacktrace 2>&1 | tee ci-build.log
+          ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug --stacktrace 2>&1 | tee ci-build.log
       - name: Publish compiler and test diagnostics
         if: always()
         run: python3 tools/report_ci_failures.py
@@ -81,10 +81,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           apk=$(ls app/build/outputs/apk/debug/*.apk | head -1)
-          notes="Debug build za testiranje nalog in Ciljev (CAS/EE). Gradnja ${{ github.sha }} iz CI (build + emulator testi). Podpisano z debug kljucem: pred namestitvijo dovoli namestitev iz neznanih virov. Ni produkcijska izdaja."
-          gh release create debug-latest --title "Debug APK (zadnji zelenci CI)" --notes "$notes" 2>/dev/null \
-            || gh release edit debug-latest --title "Debug APK (zadnji zelenci CI)" --notes "$notes"
+          rel=$(ls app/build/outputs/apk/release/*unsigned*.apk app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)
+          notes="app-release.apk je MINIFICIRANA (R8) gradnja za vsakdanje testiranje na telefonu - obcutno tekoca od debug razlicice, ki nosi Compose debug instrumentacijo. app-debug.apk ostaja za loge. Gradnja ${{ github.sha }} iz CI (build + emulator testi), podpisano z debug kljucem: pred namestitvijo dovoli namestitev iz neznanih virov. Ni produkcijska izdaja."
+          gh release create debug-latest --title "APK (zadnji zeleni CI): release + debug" --notes "$notes" 2>/dev/null \
+            || gh release edit debug-latest --title "APK (zadnji zeleni CI): release + debug" --notes "$notes"
           gh release upload debug-latest "$apk" --clobber
+          gh release upload debug-latest "$rel" --clobber
   device-tests:
     runs-on: ubuntu-latest
     steps:

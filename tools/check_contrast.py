@@ -14,7 +14,8 @@ palette to the levels it actually ships at, per role:
     light, which is exactly where grey-on-grey dark themes fail their readers,
   * 5.0:1 for accents, because they are used as text (metrics, chips, countdowns) and not only as fill,
   * 7.0:1 for category content on its container,
-  * 7.0:1 / 4.5:1 / 4.5:1 for primary / secondary / muted text on glass, worst case,
+  * 7.0:1 / 4.5:1 for primary / secondary text on glass, per role against the backdrop that role
+    can actually meet (page surfaces for the floating bar, scrolling text included for sheets),
   * surface ramp steps inside 1.04-1.20, which is the band Material 3's own dark container ladder
     measures (1.04-1.17 between its published tones),
   * hairlines at >= 1.25:1, since thin borders need more brightness to survive on dark,
@@ -113,23 +114,35 @@ for ink, accent in (('InkOnPrimary', 'Amber'), ('InkOnSecondary', 'Indigo'),
                     ('InkOnTertiary', 'Violet'), ('InkOnError', 'Crimson')):
     check(f'ink {ink} on {accent}', color(ink), color(accent), 4.5)
 
-# 5. Liquid glass, worst case: the tint over the brightest thing that can scroll under it.
-bright = [color(name) for name in ACCENTS] + [color('Surface4'), color('SheetSurface'), color('Background'),
-                                              color('TextPrimary')]
-for role, alpha_name in (('bar/chip', 'GlassTintAlpha'), ('sheet', 'GlassTintStrongAlpha')):
+# 5. Liquid glass, worst case per role: the tint over the brightest thing that can actually sit
+#    behind that role. The sets differ because the roles differ: every screen pads its content clear
+#    of the floating bar (check_presentation asserts it), so behind the bar and the chips only page
+#    surfaces and category containers ever sit - and there the tint can be clear glass. A sheet
+#    footer, on the other hand, really does have bright text lines scrolling above it inside the
+#    sheet window, so the sheet role is held to the full bright set, TextPrimary included.
+page = [color(name) for name in ('Background', 'SheetSurface', 'Surface1', 'Surface2', 'Surface3', 'Surface4')] \
+    + [container for _, container, _ in categories.values()]
+scrolling = [color(name) for name in ACCENTS] + [color('Surface4'), color('SheetSurface'), color('Background'),
+                                                 color('TextPrimary')]
+for role, alpha_name, backdrops in (('bar', 'GlassTintAlpha', page), ('chip', 'GlassTintAlpha', page),
+                                    ('sheet', 'GlassTintStrongAlpha', scrolling)):
     if alpha_name not in alphas:
         failures.append(f'Palette is missing {alpha_name}')
         continue
     alpha = alphas[alpha_name]
-    for behind in bright:
+    for behind in backdrops:
         panel = composite(color('GlassTint'), alpha, behind)
-        # Muted text is deliberately excluded, and that exclusion is what buys the transparency: the
-        # worst case here is bright text scrolling under the bar, where TextMuted would land at 4.15:1.
-        # Glass chrome therefore uses TextPrimary and TextSecondary only, and the tint can sit at 0.74
-        # instead of 0.82 - which is the difference between a panel that reads as glass and one that
-        # reads as a grey rectangle. `tools/check_presentation.py` keeps the call sites honest.
+        # Muted text is deliberately excluded on glass, and that exclusion is what buys the
+        # transparency: glass chrome uses TextPrimary and TextSecondary only.
         check(f'glass {role} over {behind}', color('TextPrimary'), panel, 7.0)
         check(f'glass {role} over {behind}', color('TextSecondary'), panel, 4.5)
+
+# 5b. Cards mix six percent of their category accent into Surface1; every text role keeps its floor
+#     on all six tinted surfaces, so the breath of colour never costs a reader.
+for name, (accent, _container, _content) in categories.items():
+    tinted = composite(color(accent), 0.06, color('Surface1'))
+    for text, minimum in TEXT_MINIMUM.items():
+        check(f'card tint {name}: {text}', color(text), tinted, minimum)
 
 # 6. The solid fallback (below Android 12) has to be as readable as the real thing.
 FALLBACK_MINIMUM = {'TextPrimary': 7.0, 'TextSecondary': 4.5}

@@ -15,7 +15,10 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
+import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTilt
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.createSavedStateHandle
@@ -59,6 +62,7 @@ class MainActivity : ComponentActivity() {
         refreshAccess()
         setContent {
             MyDailyRoutineTheme {
+                CompositionLocalProvider(LocalGlassTilt provides rememberGlassTilt()) {
                 RoutineApp(viewModel, access,
                     requestNotifications = {
                         if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -69,6 +73,7 @@ class MainActivity : ComponentActivity() {
                     },
                     openNotificationSettings = ::openNotificationSettings,
                 )
+                }
             }
         }
     }

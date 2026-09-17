@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.domain.model.RoutineCategory
 
@@ -120,8 +121,19 @@ object RoutineColors {
 
     /** Translucent wash painted on top of refracted glass to keep text readable. */
     val GlassTint = Color(0xFF111317)
-    val GlassTintAlpha = 0.74f
+    /**
+     * Bar and chip glass is *clear* glass: at 0.45 the lens, dispersion and vibrancy underneath
+     * actually reach the eye, which is the entire point of paying for them. Measured, not felt:
+     * tools/check_contrast.py composites this alpha over every full-bleed surface and category
+     * container that can scroll under the chrome and holds text on top to its floors.
+     */
+    val GlassTintAlpha = 0.45f
+    /** Sheet chrome keeps the legible wash: bright text lines scroll under a sheet footer, and a
+     *  clear tint there would put white glyphs over half-white lines. Two roles, two alphas, both
+     *  asserted by the contrast gate against the backdrop each role can actually meet. */
     val GlassTintStrongAlpha = 0.80f
+    /** Peak of the device-tilt specular: light that answers the hand holding the phone. */
+    val GlassTiltGlow = 0.10f
     /** Solid stand-in for platforms that cannot render the effect (below Android 12). */
     val GlassFallback = Color(0xBD131519)
     val GlassFallbackStrong = Color(0xCC131519)
@@ -139,6 +151,13 @@ object RoutineColors {
     val Exam = CategoryStyle(Crimson, Color(0xFF77332A), Color(0xFFFFD9D2))
     val Project = CategoryStyle(Violet, Color(0xFF5E3A6E), Color(0xFFF5D8FF))
     val Personal = CategoryStyle(Neutral, Color(0xFF48484C), Color(0xFFE3E3E8))
+    /**
+     * A dense day reads as coloured moments, not grey rows: each card mixes six percent of its
+     * category accent into Surface1. Six percent is the point where the hue is felt before it is
+     * named, and the contrast gate re-measures every text role on all six tinted surfaces.
+     */
+    fun cardSurface(accent: Color): Color = accent.copy(alpha = 0.06f).compositeOver(Surface1)
+
     val subjectSwatches = listOf(0xFFB2C4FFL, 0xFF9BD39DL, 0xFFEFBC87L, 0xFFFFB2A4L, 0xFFE1B6F3L, 0xFF68D2FEL)
 }
 @Immutable
