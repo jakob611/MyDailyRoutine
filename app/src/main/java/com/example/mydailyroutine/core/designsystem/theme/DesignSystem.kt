@@ -124,6 +124,8 @@ object RoutineColors {
     val Exam = CategoryStyle(Crimson, Color(0xFF463233), Color(0xFFFFC4B8))
     val Project = CategoryStyle(Violet, Color(0xFF3D344A), Color(0xFFE5C8F0))
     val Personal = CategoryStyle(Neutral, Color(0xFF35393E), Color(0xFFD1D1DA))
+    fun cardSurface(accent: Color): Color = accent.copy(alpha = 0.06f).compositeOver(Surface1)
+
     val subjectSwatches = listOf(0xFF87A9FFL, 0xFF69BD71L, 0xFFFBA73DL, 0xFFFF8A77L, 0xFFD194ECL, 0xFF42B7E3L)
 }
 
