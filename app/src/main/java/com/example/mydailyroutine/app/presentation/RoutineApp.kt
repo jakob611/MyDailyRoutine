@@ -295,7 +295,6 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     },
                 shape = RoutineShapes.GlassTopBar,
                 role = GlassRole.Bar,
-                tilt = LocalGlassTilt.current,
                 // Its top edge is the screen edge, under the status bar: a specular hairline there has
                 // nothing above it to catch and reads as a stray bright pixel.
                 specular = false,
@@ -390,7 +389,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(RoutineSpacing.lg)
                         .height(56.dp).testTag("fast-add")
                         .routineGlassTouch(fastAddTouch, RoutineShapes.Pill)
-                        .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control, RoutineColors.Amber, hue = true)
+                        .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control, RoutineColors.Amber, hue = true,
+                            tilt = LocalGlassTilt.current)
                         .clip(RoutineShapes.Pill)
                         .clickable(interactionSource = fastAddTouch.source, indication = null, role = Role.Button) {
                             onAction(TimelineAction.OpenAdd)

@@ -315,7 +315,8 @@ fun RoutineGlassSurface(
     content: @Composable () -> Unit,
 ) {
     val backdrop = LocalRoutineBackdrop.current
-    Box(modifier.routineGlass(backdrop, shape, role, tint, hue, specular).clip(shape)) { content() }
+    Box(modifier.routineGlass(backdrop, shape, role, tint, hue, specular, tilt = LocalGlassTilt.current)
+        .clip(shape)) { content() }
 }
 
 /**
