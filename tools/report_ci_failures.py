@@ -8,12 +8,25 @@ def escape(value):
     return str(value).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
 
 count = 0
+# A crashed app produces no TEST-*.xml and no compiler error, so the fatal trace itself has to be
+# recognised: without these patterns an instrumentation crash looks like a silent, empty failure.
+CRASH = re.compile(r'FATAL EXCEPTION|Fatal signal|Process crashed|SIGSEGV|SIGABRT|Caused by:|'
+                   r'There w(?:as|ere) \d+ failure|Test failed|Instrumentation run failed|'
+                   r'Unable to find instrumentation|AndroidRuntime:')
+context = 0
 for log in Path('.').glob('ci-*.log'):
     for line in log.read_text(errors='replace').splitlines():
         plain = re.sub(r'\x1b\[[0-9;]*m', '', line)
-        if plain.startswith('e: ') or ' error: ' in plain or plain.startswith('ERROR:'):
+        hit = plain.startswith('e: ') or ' error: ' in plain or plain.startswith('ERROR:')
+        crash = bool(CRASH.search(plain))
+        if crash:
+            context = 25  # keep the stack that follows the fatal line
+        if hit or crash or context > 0:
+            context = max(context - 1, 0)
             print(f'::error title=Android build::{escape(plain[:3000])}')
             count += 1
+            if count > 200:
+                break
 for folder in ('app/build', 'core/build'):
     for report in Path(folder).rglob('TEST-*.xml'):
         try: tree = ET.parse(report)

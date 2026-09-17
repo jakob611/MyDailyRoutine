@@ -8,6 +8,29 @@ status=0
 # MediaStore; that public folder survives the uninstall and is the first thing pulled here. The
 # app-dir routes stay as fallbacks. Every attempt is echoed as a workflow notice because log ZIP
 # downloads are blocked in some sandboxes while check-run annotations stay readable through the API.
+# Crash evidence. Log ZIP downloads are blocked in some sandboxes while check-run annotations stay
+# readable through the API, so a failing run publishes the fatal trace itself: first whatever Gradle
+# printed, then the emulator's crash buffer and the last AndroidRuntime lines. Without this a failed
+# instrumentation run is indistinguishable from a broken emulator.
+if [ "$status" -ne 0 ]; then
+  adb logcat -d -b crash -v threadtime > ci-device-crash.log 2>&1 || true
+  adb logcat -d -v threadtime > ci-device-logcat.log 2>&1 || true
+  esc() { printf '%s' "$1" | tr -d '\r' | sed 's/%/%25/g' | cut -c1-400; }
+  emit() { echo "::error title=device-test failure::$(esc "$1")"; }
+  grep -nE "FATAL EXCEPTION|Fatal signal|Process crashed|SIGSEGV|SIGABRT|Caused by:|> Task .*FAILED|There w(as|ere) [0-9]+ failure|Test failed|FAILED$|Instrumentation run failed|Unable to find instrumentation" \
+    ci-device.log 2>/dev/null | head -30 | while IFS= read -r line; do emit "gradle: $line"; done
+  grep -nE "FATAL EXCEPTION|Fatal signal|Process crashed|SIGSEGV|SIGABRT|AndroidRuntime:|backdrop|kyant|compose" \
+    ci-device-crash.log 2>/dev/null | head -40 | while IFS= read -r line; do emit "crash buffer: $line"; done
+  grep -nE "FATAL EXCEPTION|Fatal signal|Process crashed|SIGSEGV|SIGABRT" ci-device-logcat.log 2>/dev/null | head -10 | \
+    while IFS= read -r line; do
+      lineno="${line%%:*}"
+      emit "logcat: $line"
+      sed -n "$((lineno + 1)),$((lineno + 25))p" ci-device-logcat.log 2>/dev/null | \
+        while IFS= read -r trace; do emit "logcat: $trace"; done
+    done
+  emit "no test results: $(find app/build -name 'TEST-*.xml' 2>/dev/null | wc -l | tr -d ' ') xml, $(find app/build/outputs/androidTest-results -type f 2>/dev/null | wc -l | tr -d ' ') output files"
+fi
+
 pkg=com.example.mydailyroutine
 public_dir="/sdcard/Pictures/ui-audit"
 external="/sdcard/Android/data/$pkg/files/ui-audit"

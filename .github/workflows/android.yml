@@ -146,4 +146,6 @@ jobs:
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             ci-device.log
+            ci-device-crash.log
+            ci-device-logcat.log
             app/build/ui-audit/
