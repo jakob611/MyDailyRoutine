@@ -49,46 +49,29 @@ import com.example.mydailyroutine.domain.model.RoutineCategory
  */
 object RoutineColors {
     /**
-     * Derived, not designed. Every value below is computed by `tools/derive_palette.py --check`
-     * from published constants — Apple's dark-mode semantic colours and system tints, Material 3's
-     * published baseline dark scheme, WCAG 2.1 — and CI fails if a token here drifts from the
-     * derivation. What each role takes, and why:
-     *
-     * * **Surfaces** are Material 3's dark container tones, measured from Google's own hexes
-     *   (surface T5.8 … surfaceContainerHighest T22.1), painted on the carbon base's hue and chroma.
-     * * **Text** is Material 3's own dark text roles — `onSurface` T89.9 for secondary and
-     *   `onSurfaceVariant` T80.0 for meta — with the primary raised to the brightest tone that stays
-     *   under the halation cap, because Apple's label is pure white and pure white vibrates on OLED.
-     *   Secondary text measures 9.5:1 on the lightest surface and muted 7.2:1; Apple's own
-     *   secondaryLabel lands near 5.6:1 there, which is why grey-on-grey is the standard dark-mode
-     *   failure and why the gate refuses to let these steps sink.
-     * * **Hairlines** reproduce three published contrasts — Apple's tertiarySystemFill (well),
-     *   Apple's separator (row) and M3's outlineVariant (control) — solved for the white alpha that
-     *   paints the same ratio over Surface1. The spine takes Apple's systemGray2.
-     * * **Accents** carry Apple's hues on M3's primary tone T79.7 with one common chroma, capped at
-     *   35.6: the chroma at which the two closest category hues reach CIE76 Delta-E 20, the
-     *   distance at which two colours read as two categories. The warning state keeps Apple's yellow
-     *   chroma, because a warning mistaken for the amber focus accent has failed its only job.
-     * * **Wells** are the accent at M3's primaryContainer tone with content at onPrimaryContainer,
-     *   raised to WCAG AAA where that pair needs it: 7.0:1 for School, not the 4.5:1 floor.
-     * * **Ink** on a light fill is the same hue at M3's onPrimary tone — the colour gone deep, not a
-     *   hole punched in it. It replaces the near-black the scheme used to put on buttons.
+     * Derived, not designed: `tools/derive_palette.py --check` recomputes every token below from
+     * published Apple and Material constants and CI fails on drift. Direction A ("vivid tints on a
+     * tinted spine"): surfaces carry an indigo hue spine so the night reads as night, not as grey;
+     * category hues live at tone 70 and chroma up to 52 on small elements, where saturation is
+     * legibility; wells are the tint at 20% over the card surface (Apple's selected-row pattern) with
+     * tone-84 content; the brand amber is one confident accent at tone 75. Text keeps M3's dark
+     * roles under the halation cap; hairlines reproduce published Apple/M3 contrasts.
      */
-    val Background = Color(0xFF111317)
-    val SheetSurface = Color(0xFF0B0E13)
-    val Surface1 = Color(0xFF1A1C20)
-    val Surface2 = Color(0xFF1E2024)
-    val Surface3 = Color(0xFF282A2E)
-    val Surface4 = Color(0xFF333539)
+    val Background = Color(0xFF0F131A)
+    val SheetSurface = Color(0xFF090E16)
+    val Surface1 = Color(0xFF181C22)
+    val Surface2 = Color(0xFF1C2027)
+    val Surface3 = Color(0xFF262A31)
+    val Surface4 = Color(0xFF31353C)
     val TextPrimary = Color(0xFFF8FBFF)
-    val TextSecondary = Color(0xFFDFE2E8)
-    val TextMuted = Color(0xFFC4C6CC)
+    val TextSecondary = Color(0xFFDEE2EB)
+    val TextMuted = Color(0xFFC2C7CF)
     /** Disabled content only. Apple's quaternaryLabel / Material's 38 %: never body copy. */
-    val TextDisabled = Color(0xFF43454A)
-    val Border = Color.White.copy(alpha = 0.151f)
+    val TextDisabled = Color(0xFF41454C)
+    val Border = Color.White.copy(alpha = 0.152f)
     val BorderStrong = Color.White.copy(alpha = 0.188f)
     val CardBorder = Color.White.copy(alpha = 0.100f)
-    val Spine = Color(0xFF56575D)
+    val Spine = Color(0xFF54575F)
 
     /** Apple's system fills, verbatim, so wells, tracks and pressed states stop inventing alphas. */
     val Fill = Color(0xFF787880).copy(alpha = 0.36f)
@@ -96,47 +79,36 @@ object RoutineColors {
     val FillTertiary = Color(0xFF787880).copy(alpha = 0.24f)
     val FillQuaternary = Color(0xFF787880).copy(alpha = 0.18f)
 
-    /** Accents: Apple's dark tints on M3's primary tone, chroma capped by the Delta-E rule. */
-    val Cobalt = Color(0xFFB2C4FF)
-    val Amber = Color(0xFFEFBC87)
-    val Sage = Color(0xFF9BD39D)
-    val Crimson = Color(0xFFFFB2A4)
-    val Violet = Color(0xFFE1B6F3)
-    val Teal = Color(0xFF68D2FE)
-    val Indigo = Color(0xFFCABDFF)
+    /** Category hues at a saturated mid tone: stripes, dots, chip icons, progress, small text. */
+    val Cobalt = Color(0xFF87A9FF)
+    val Amber = Color(0xFFFBA73D)
+    val Sage = Color(0xFF69BD71)
+    val Crimson = Color(0xFFFF8A77)
+    val Violet = Color(0xFFD194EC)
+    val Teal = Color(0xFF42B7E3)
+    val Indigo = Color(0xFFAE9FFD)
     val Warning = Color(0xFFE9C300)
-    val Neutral = Color(0xFFC5C5CA)
+    val Neutral = Color(0xFFABABB0)
 
     /** Ink on a light accent fill: the accent's own hue at M3's onPrimary tone. */
-    val InkOnPrimary = Color(0xFF4B2A00)
-    val InkOnSecondary = Color(0xFF2F2B5F)
-    val InkOnTertiary = Color(0xFF452356)
-    val InkOnError = Color(0xFF5C1C15)
+    val InkOnPrimary = Color(0xFF5C2100)
+    val InkOnSecondary = Color(0xFF252775)
+    val InkOnTertiary = Color(0xFF4C1867)
+    val InkOnError = Color(0xFF6B0004)
 
     /** Ambient glow behind the content layer: the liquid glass refracts these two washes. */
-    val AmbientTop = Color(0xFFCABDFF)
-    val AmbientBottom = Color(0xFFEFBC87)
+    val AmbientTop = Color(0xFFAE9FFD)
+    val AmbientBottom = Color(0xFFFBA73D)
     val AmbientTopAlpha = 0.06f
     val AmbientBottomAlpha = 0.04f
 
     /** Translucent wash painted on top of refracted glass to keep text readable. */
-    val GlassTint = Color(0xFF111317)
-    /**
-     * Bar and chip glass is *clear* glass: at 0.45 the lens, dispersion and vibrancy underneath
-     * actually reach the eye, which is the entire point of paying for them. Measured, not felt:
-     * tools/check_contrast.py composites this alpha over every full-bleed surface and category
-     * container that can scroll under the chrome and holds text on top to its floors.
-     */
+    val GlassTint = Color(0xFF0F131A)
     val GlassTintAlpha = 0.45f
-    /** Sheet chrome keeps the legible wash: bright text lines scroll under a sheet footer, and a
-     *  clear tint there would put white glyphs over half-white lines. Two roles, two alphas, both
-     *  asserted by the contrast gate against the backdrop each role can actually meet. */
     val GlassTintStrongAlpha = 0.80f
-    /** Peak of the device-tilt specular: light that answers the hand holding the phone. */
-    val GlassTiltGlow = 0.10f
     /** Solid stand-in for platforms that cannot render the effect (below Android 12). */
-    val GlassFallback = Color(0xBD131519)
-    val GlassFallbackStrong = Color(0xCC131519)
+    val GlassFallback = Color(0xBD11151C)
+    val GlassFallbackStrong = Color(0xCC11151C)
     val GlassRim = Color(0xFFF8FBFF)
     val GlassRimWaist = 0.28f
     val GlassRimTail = 0.04f
@@ -144,34 +116,15 @@ object RoutineColors {
     val GlassSpecularFall = 0.18f
     val GlassTouchGlow = 0.22f
 
-    val WarningContainer = Color(0xFF5C4700)
-    val School = CategoryStyle(Cobalt, Color(0xFF2A477E), Color(0xFFDAE1FF))
-    val Focus = CategoryStyle(Amber, Color(0xFF654011), Color(0xFFFFDCBA))
-    val Recovery = CategoryStyle(Sage, Color(0xFF1D5225), Color(0xFFB7F0B8))
-    val Exam = CategoryStyle(Crimson, Color(0xFF77332A), Color(0xFFFFD9D2))
-    val Project = CategoryStyle(Violet, Color(0xFF5E3A6E), Color(0xFFF5D8FF))
-    val Personal = CategoryStyle(Neutral, Color(0xFF48484C), Color(0xFFE3E3E8))
-    /**
-     * A dense day reads as coloured moments, not grey rows: each card mixes six percent of its
-     * category accent into Surface1. Six percent is the point where the hue is felt before it is
-     * named, and the contrast gate re-measures every text role on all six tinted surfaces.
-     */
-    fun cardSurface(accent: Color): Color = accent.copy(alpha = 0.06f).compositeOver(Surface1)
-
-    val subjectSwatches = listOf(0xFFB2C4FFL, 0xFF9BD39DL, 0xFFEFBC87L, 0xFFFFB2A4L, 0xFFE1B6F3L, 0xFF68D2FEL)
+    val WarningContainer = Color(0xFF37351D)
+    val School = CategoryStyle(Cobalt, Color(0xFF2E384E), Color(0xFFC5D0FD))
+    val Focus = CategoryStyle(Amber, Color(0xFF453827), Color(0xFFF0CBA7))
+    val Recovery = CategoryStyle(Sage, Color(0xFF283C32), Color(0xFFB6DBB6))
+    val Exam = CategoryStyle(Crimson, Color(0xFF463233), Color(0xFFFFC4B8))
+    val Project = CategoryStyle(Violet, Color(0xFF3D344A), Color(0xFFE5C8F0))
+    val Personal = CategoryStyle(Neutral, Color(0xFF35393E), Color(0xFFD1D1DA))
+    val subjectSwatches = listOf(0xFF87A9FFL, 0xFF69BD71L, 0xFFFBA73DL, 0xFFFF8A77L, 0xFFD194ECL, 0xFF42B7E3L)
 }
-@Immutable
-data class CategoryStyle(val accent: Color, val container: Color, val content: Color)
-
-fun categoryStyle(category: RoutineCategory, subjectColor: Long? = null): CategoryStyle = when (category) {
-    RoutineCategory.SCHOOL -> RoutineColors.School.let { style -> subjectColor?.let { style.copy(accent = Color(it.toInt())) } ?: style }
-    RoutineCategory.FOCUS_ANALYTICAL -> RoutineColors.Focus
-    RoutineCategory.EMERGENCY_RESERVE -> RoutineColors.Recovery
-    RoutineCategory.REST_BUFFER -> RoutineColors.Recovery
-    RoutineCategory.FOCUS_SYNTHESIZING -> RoutineColors.Project
-    RoutineCategory.ADMIN -> RoutineColors.Personal
-}
-
 object RoutineShapes {
     val Card = RoundedCornerShape(16.dp)
     val Chip = RoundedCornerShape(8.dp)

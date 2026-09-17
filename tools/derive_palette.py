@@ -50,8 +50,9 @@ Derivation rules — each one is a published rule applied to a published value
    between the two published ranges for that reason. One accent is exempt: the warning state keeps
    Apple's yellow chroma, because a warning that can be mistaken for the amber focus accent has
    failed at its only job, and it never appears as a category or beside that amber as a fill.
-5. **Category wells** are the accent at M3's dark `primaryContainer` tone with content at
-   `onPrimaryContainer`, raised further where that pair does not yet clear WCAG AAA.
+5. **Category wells** are the accent tint at one fifth alpha over the card surface — Apple's
+   selected-row pattern — with content at tone 84 of the same hue at low chroma, raised further
+   where that pair does not yet clear WCAG AAA.
 6. **Ink** on a light accent fill is the same hue at M3's dark `onPrimary` tone: a deep version of
    the colour itself rather than a flat near-black, which reads as a hole punched in the design.
 7. **Apple's system fills** are kept verbatim as translucent tokens (#787880 at 0.36/0.32/0.24/0.18)
@@ -120,6 +121,20 @@ ACCENT_FLOOR = WCAG_BODY        # accents are used as text (metrics, chips, coun
 CATEGORY_CONTENT_FLOOR = WCAG_AAA
 HUE_GAP_FLOOR = 12.0            # degrees between two chromatic accents, or categories merge
 DELTA_E_FLOOR = 20.0            # CIE76 distance at which two colours read as two categories
+# Direction A, "vivid tints on a tinted spine": the research summary in
+# docs/audits/2026-09-17-ux-dodajanje-blokov-in-paleta-porocilo.md. Surfaces carry an indigo hue
+# spine instead of dead grey; category hues live at a saturated mid tone on small elements; wells
+# are an alpha fill of the tint over the card surface (Apple's selected-cell pattern) instead of a
+# muddy tonal slab; the brand accent is one confident amber.
+NEUTRAL_CHROMA_MIN = 5.0
+ACCENT_TONE = 70.0
+ACCENT_CHROMA = 52.0
+BRAND_TONE = 75.0
+BRAND_CHROMA = 68.0
+WELL_ALPHA = 0.20
+CONTENT_TONE = 84.0
+CONTENT_CHROMA = 24.0
+WARNING_FILL_ALPHA = 0.15
 HALATION_CAP = 18.0             # strongest text/background pair; 21:1 (white on black) vibrates
 HAIRLINE_FLOOR = 1.25           # a border the reader has to look for is not a border
 TEXT_STEP_FLOOR = 1.15          # two text steps closer than this read as one step
@@ -264,6 +279,7 @@ def derive() -> dict:
     """Computes the palette: published constants plus the rules in the module docstring."""
     tones = {role: to_lab(value)[0] for role, value in M3_DARK.items()}
     _, neutral_chroma, neutral_hue = lch(BASE)   # lch() returns (L*, C, h)
+    neutral_chroma = max(neutral_chroma, NEUTRAL_CHROMA_MIN)
     neutral = lambda t: at_tone(t, neutral_hue, neutral_chroma)
 
     # 1. Surfaces.
@@ -310,37 +326,49 @@ def derive() -> dict:
     # Two colours at one tone and one chroma, `gap` degrees apart, sit a chord of
     # 2 * C * sin(gap / 2) apart in Lab. Solve that for the floor, then verify: sRGB clamps the
     # bluest hues below the requested chroma, which would quietly shrink the distance again.
-    accent_chroma_cap = DELTA_E_FLOOR / (2 * math.sin(math.radians(hue_gap) / 2))
+    accent_chroma_cap = ACCENT_CHROMA
 
     def categories_clear(cap: float) -> bool:
-        painted = {name: at_tone(tones['primary'], apple_lch[name][2],
+        painted = {name: at_tone(ACCENT_TONE, apple_lch[name][2],
                                  min(apple_lch[name][1], cap)) for name in CATEGORY_ACCENT.values()}
         values = list(painted.values())
         return all(delta_e(a, b) >= DELTA_E_FLOOR for i, a in enumerate(values) for b in values[i + 1:])
 
-    while accent_chroma_cap < 200.0 and not categories_clear(accent_chroma_cap):
-        accent_chroma_cap += 0.5
+    assert categories_clear(accent_chroma_cap), 'category hues collapse at the target chroma'
     accent_lch = {}
     for name, (_, chroma, hue) in apple_lch.items():
-        # The warning state is exempt: it has to be unmistakable, and it is never a category.
-        accent_lch[name] = (hue, chroma if name == 'Warning' else min(chroma, accent_chroma_cap))
-    accents = {name: at_tone(tones['primary'], hue, chroma)
-               for name, (hue, chroma) in accent_lch.items()}
+        # The warning state keeps Apple's yellow at full chroma: unmistakable, never a category.
+        # The brand amber sits one notch brighter and stronger than the category family.
+        if name == 'Warning':
+            accent_lch[name] = (hue, chroma, tones['primary'])
+        elif name == 'Amber':
+            accent_lch[name] = (hue, min(chroma, BRAND_CHROMA), BRAND_TONE)
+        else:
+            accent_lch[name] = (hue, min(chroma, ACCENT_CHROMA), ACCENT_TONE)
+    accents = {name: at_tone(tone, hue, chroma)
+               for name, (hue, chroma, tone) in accent_lch.items()}
 
     # 5. Category wells.
     categories = {}
     for name, accent_name in CATEGORY_ACCENT.items():
-        hue, chroma = accent_lch[accent_name]
-        container = at_tone(tones['primaryContainer'], hue, chroma)
-        content_tone = tones['onPrimaryContainer']
-        while ratio(at_tone(content_tone, hue, chroma), container) < CATEGORY_CONTENT_FLOOR:
+        hue, chroma, _tone = accent_lch[accent_name]
+        # A well is light, not a slab: the tint at one fifth over the card surface, the way Apple
+        # paints a selected row. Deep tonal containers turn dark orange into brown; an alpha fill
+        # keeps the hue luminous and lets the glass behind it have something to refract.
+        container = composite(accents[accent_name], WELL_ALPHA, surfaces['Surface1'])
+        # A neutral category stays neutral: content inherits the accent's own colourfulness,
+        # capped, so Personal reads as warm grey on grey and never as a lavender surprise.
+        content_chroma = CONTENT_CHROMA if chroma > 8 else min(CONTENT_CHROMA, chroma + 2)
+        content_tone = CONTENT_TONE
+        while ratio(at_tone(content_tone, hue, content_chroma), container) < CATEGORY_CONTENT_FLOOR:
             content_tone += 0.5
         categories[name] = {'accent_name': accent_name, 'accent': accents[accent_name],
-                            'container': container, 'content': at_tone(content_tone, hue, chroma),
+                            'container': container,
+                            'content': at_tone(content_tone, hue, content_chroma),
                             'content_tone': round(content_tone, 1)}
 
     # 6. Ink.
-    inks = {role: at_tone(tones['onPrimary'], *accent_lch[accent])
+    inks = {role: at_tone(tones['onPrimary'], accent_lch[accent][0], accent_lch[accent][1])
             for role, accent in INK_ROLE.items()}
 
     # 7. Apple's system fills, verbatim.
@@ -349,7 +377,7 @@ def derive() -> dict:
              'FillTertiary': (APPLE_FILL_BASE, APPLE_FILL_TERTIARY_ALPHA),
              'FillQuaternary': (APPLE_FILL_BASE, APPLE_FILL_QUATERNARY_ALPHA)}
 
-    warning_hue, warning_chroma = accent_lch['Warning']
+    warning_hue, warning_chroma, _warning_tone = accent_lch['Warning']
     glass_tint = surfaces['Background']
     return {
         'surfaces': surfaces, 'text': text, 'text_tones': text_tones, 'borders': borders,
@@ -359,7 +387,7 @@ def derive() -> dict:
         'categories': categories,
         'inks': inks, 'fills': fills, 'lightest': lightest, 'tones': tones, 'ramp_band': ramp_band,
         'neutral_hue': neutral_hue, 'neutral_chroma': neutral_chroma,
-        'warning_container': at_tone(tones['primaryContainer'], warning_hue, warning_chroma),
+        'warning_container': composite(accents['Warning'], WARNING_FILL_ALPHA, surfaces['Surface1']),
         'glass_tint': glass_tint,
         'glass_fallback': argb_with_alpha(glass_tint, 0.74, surfaces['Surface1']),
         'glass_fallback_strong': argb_with_alpha(glass_tint, 0.80, surfaces['Surface1']),
@@ -434,7 +462,7 @@ def report(d: dict) -> None:
     print(f'ACCENTS — Apple hue on M3 primary tone T{tones["primary"]:.2f}, chroma capped at '
           f'{d["accent_chroma_cap"]:.1f} (Delta-E rule)')
     for name, value in accents.items():
-        hue, chroma = d['accent_lch'][name]
+        hue, chroma, _tone = d['accent_lch'][name]
         ink = d['inks'].get({v: k for k, v in INK_ROLE.items()}.get(name, ''), '')
         print(f'  {name:<9} {APPLE_TINTS[ACCENT_SOURCE[name]]} -> {value}  hue {hue:6.1f}  chroma '
               f'{chroma:5.1f}  base {ratio(value, surfaces["Background"]):5.2f}:1  lightest '

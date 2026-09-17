@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 
 /**
@@ -38,6 +39,7 @@ fun RoutineTimeField(
     label: String,
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
+    supporting: String? = null,
 ) {
     var picking by remember { mutableStateOf(false) }
     OutlinedTextField(
@@ -54,6 +56,10 @@ fun RoutineTimeField(
             )
         },
         modifier = modifier,
+        isError = supporting != null,
+        supportingText = supporting?.let {
+            { RoutineText(it, style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning) }
+        },
     )
     if (picking) {
         val parts = value.split(':')

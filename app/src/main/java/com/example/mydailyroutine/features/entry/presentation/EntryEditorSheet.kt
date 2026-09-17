@@ -112,6 +112,15 @@ fun EntryEditorSheet(
     val haptics = LocalRoutineHaptics.current
     val context = LocalContext.current
     val standardPresets = remember { PresetFactory.standard() }
+    // One rail instead of two: standard presets always, the selected subject's own beside them.
+    val quickPresets = if (editing == null) {
+        standardPresets + subjectPresets.filter { subjectId == null || it.subjectId == subjectId }
+    } else {
+        subjectPresets.filter { it.isExam && (subjectId == null || it.subjectId == subjectId) }
+    }
+    var showError by rememberSaveable { mutableStateOf(false) }
+    val parsedStart = ScheduleValidation.parseTime(startText)
+    val parsedEnd = ScheduleValidation.parseTime(endText)
 
     fun applyPreset(preset: QuickAddPreset) {
         haptics.selection()
@@ -142,6 +151,7 @@ fun EntryEditorSheet(
         val priorityValue = priority.replace(',', '.').toDoubleOrNull()
         val effortValue = if (effort.isBlank()) 0.0 else effort.replace(',', '.').toDoubleOrNull()
         val raw = if (start != null && end != null) nominalMinutes(start, end) else 0
+        showError = true
         error = when {
             chosenTitle.isBlank() -> R.string.error_title
             date == null -> R.string.error_date
@@ -172,10 +182,6 @@ fun EntryEditorSheet(
             onClose = onDismiss,
             modifier = Modifier.fillMaxHeight(0.92f).testTag("entry-editor"),
             footer = {
-                error?.let {
-                    RoutineText(stringResource(it), style = MaterialTheme.typography.bodySmall,
-                        color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
-                }
                 if (editing == null && kind == EntryKind.BLOCK && category == RoutineCategory.SCHOOL) {
                     SheetSecondaryButton(
                         label = stringResource(R.string.save_next_lesson),
@@ -195,12 +201,11 @@ fun EntryEditorSheet(
                 )
             },
         ) {
-                if (editing == null) LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(standardPresets, key = { it.key }) { preset ->
-                        SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
-                            label = { RoutineLabel(preset.label(context)) })
-                    }
-                }
+                OutlinedTextField(title, { title = it.take(120); error = null }, label = { RoutineText(stringResource(R.string.entry_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
+                    isError = showError && title.isBlank(),
+                    supportingText = if (showError && title.isBlank()) {
+                        { RoutineText(stringResource(R.string.error_title), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning) }
+                    } else null)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     val choices = if (editing == null) EntryKind.entries else listOf(EntryKind.DEADLINE, EntryKind.EXAM)
                     choices.forEachIndexed { index, choice ->
@@ -212,8 +217,20 @@ fun EntryEditorSheet(
                         }
                     }
                 }
-                RoutineText(stringResource(R.string.saved_subjects), style = MaterialTheme.typography.titleSmall,
-                    maxLines = RoutineTextDefaults.Body)
+                if (subjects.isEmpty()) {
+                    RoutineText(stringResource(R.string.no_subjects_hint), style = MaterialTheme.typography.bodySmall,
+                        color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+                }
+                // One rail, one job: fast entries. Standard presets plus the selected subject's own,
+                // each an explicit tap that says what it will fill in.
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(quickPresets, key = { it.key }) { preset ->
+                        val color = preset.colorHex?.let { Color(it.toInt()) } ?: RoutineColors.Amber
+                        SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.45f)),
+                            label = { RoutineLabel(preset.label(context), color = color) })
+                    }
+                }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(subjectId == null, onClick = { subjectId = null; haptics.selection() }, enabled = !busy,
                         label = { RoutineLabel(stringResource(R.string.subject_all)) }, shape = RoutineShapes.Chip)
@@ -227,40 +244,21 @@ fun EntryEditorSheet(
                                 selectedLabelColor = RoutineColors.TextPrimary,
                             ),
                             onClick = {
+                                // Selecting a subject selects it. Nothing else: no silent rewrite of
+                                // the time, category or title - presets are an explicit tap below.
                                 subjectId = subject.id
-                                if (editing != null || kind == EntryKind.DEADLINE) {
-                                    // Associating a subject must not turn an EE/IA deadline into an exam,
-                                    // or overwrite a title/date/time in an existing milestone editor.
-                                    haptics.selection()
-                                } else {
-                                    val desired = if (kind == EntryKind.BLOCK) PresetKind.SUBJECT_LESSON else PresetKind.SUBJECT_TEST
-                                    subjectPresets.firstOrNull { it.subjectId == subject.id && it.kind == desired }?.let(::applyPreset)
-                                }
+                                haptics.selection()
                             }, label = { RoutineLabel(subject.name, modifier = Modifier.widthIn(max = 180.dp)) })
                     }
                     SuggestionChip(onClick = onNewSubject, enabled = !busy, shape = RoutineShapes.Chip,
                         label = { RoutineLabel(stringResource(R.string.new_subject)) })
                 }
-                if (subjects.isEmpty()) {
-                    RoutineText(stringResource(R.string.no_subjects_hint), style = MaterialTheme.typography.bodySmall,
-                        color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
-                } else {
-                    RoutineText(stringResource(R.string.subject_presets), style = MaterialTheme.typography.titleSmall,
-                        maxLines = RoutineTextDefaults.Body)
-                    val visible = subjectPresets.filter { (subjectId == null || it.subjectId == subjectId) && (editing == null || it.isExam) }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(visible, key = { it.key }) { preset ->
-                            val color = preset.colorHex?.let { Color(it.toInt()) } ?: RoutineColors.Cobalt
-                            SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f)),
-                                label = { RoutineLabel(preset.label(context), color = color) })
-                        }
-                    }
-                }
-                OutlinedTextField(title, { title = it.take(120); error = null }, label = { RoutineText(stringResource(R.string.entry_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
-                OutlinedTextField(dateText, { dateText = it; error = null
-                    if (!daysTouched) ScheduleValidation.parseDate(it)?.let { date -> repeatDays = Weekdays.mask(setOf(date.dayOfWeek)) }
-                }, label = { RoutineText(stringResource(R.string.entry_date)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
+                OutlinedTextField(dateText, { dateText = it; error = null },
+                    label = { RoutineText(stringResource(R.string.entry_date)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
+                    isError = showError && ScheduleValidation.parseDate(dateText) == null,
+                    supportingText = if (showError && ScheduleValidation.parseDate(dateText) == null) {
+                        { RoutineText(stringResource(R.string.error_date), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning) }
+                    } else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), trailingIcon = {
                         IconButton(onClick = { pickingDate = true; haptics.tap() }, enabled = !busy) { Icon(Icons.Outlined.CalendarMonth, stringResource(R.string.choose_date)) }
                     })
@@ -283,27 +281,18 @@ fun EntryEditorSheet(
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         RoutineTimeField(startText, { times = times.withStart(it); error = null },
                             label = stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due),
-                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-start"))
+                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-start"),
+                            supporting = if (showError && parsedStart == null) stringResource(R.string.error_time) else null)
                         if (kind == EntryKind.BLOCK) RoutineTimeField(endText, { times = times.withEnd(it); error = null },
                             label = stringResource(R.string.entry_end),
-                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-end"))
+                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-end"),
+                            supporting = if (showError && (parsedEnd == null || parsedEnd == parsedStart)) stringResource(R.string.error_time_range) else null)
                     }
                 }
                 if (kind == EntryKind.BLOCK) {
-                    RoutineText(stringResource(R.string.duration_follows_start, times.durationMinutes), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(30,45,60,90,times.durationMinutes).distinct().sorted().forEach { minutes ->
-                            FilterChip(selected=times.durationMinutes==minutes, onClick={ times=times.withDuration(minutes); haptics.selection(); error=null },
-                                enabled=!busy, shape=RoutineShapes.Chip,
-                                label={ RoutineLabel(stringResource(R.string.duration_minutes,minutes)) })
-                        }
-                    }
-                    RoutineText(stringResource(R.string.entry_overnight_hint), style = MaterialTheme.typography.bodySmall,
-                        color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         RoutineCategory.entries.forEach { option -> FilterChip(category == option, {
                             category = option; haptics.selection()
-                            if (option == RoutineCategory.SCHOOL) { times = times.withDuration(subjects.firstOrNull { it.id == subjectId }?.defaultDurationMinutes ?: defaults.lessonDurationMinutes); notifications = false }
                         }, enabled = !busy,
                             label = { RoutineLabel(option.label()) },
                             leadingIcon = { Icon(categoryIcon(option), null, Modifier.size(16.dp)) }, shape = RoutineShapes.Chip) }
