@@ -293,6 +293,12 @@ fun EntryEditorSheet(
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         RoutineCategory.entries.forEach { option -> FilterChip(category == option, {
                             category = option; haptics.selection()
+                            // A school block IS a lesson: picking the category states its standard
+                            // length once, openly; the end field still shows and edits the result.
+                            if (option == RoutineCategory.SCHOOL) {
+                                times = times.withDuration(subjects.firstOrNull { it.id == subjectId }?.defaultDurationMinutes ?: defaults.lessonDurationMinutes)
+                                notifications = false
+                            }
                         }, enabled = !busy,
                             label = { RoutineLabel(option.label()) },
                             leadingIcon = { Icon(categoryIcon(option), null, Modifier.size(16.dp)) }, shape = RoutineShapes.Chip) }
