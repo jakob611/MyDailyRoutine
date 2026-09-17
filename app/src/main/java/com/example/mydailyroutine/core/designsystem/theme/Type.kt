@@ -4,9 +4,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.example.mydailyroutine.R
 
@@ -20,8 +18,8 @@ import com.example.mydailyroutine.R
 val RoutineFont = FontFamily(Font(R.font.roboto_flex))
 
 /**
- * One step of the scale, with all five of its numbers set together so a style can never end up
- * half-Apple and half-Material.
+ * One step of the scale, with all four of its numbers — size, leading, weight, tracking — set
+ * together, so a style can never end up half-Apple and half-Material.
  *
  * * **Size and leading** are Apple's: Body 17/22, Callout 16/21, Subhead 15/20, Footnote 13/18,
  *   Caption 1 12/16, Headline 17 semibold, Title 3 20/25, Title 2 22/28, Title 1 28/34, Large Title
@@ -33,38 +31,30 @@ val RoutineFont = FontFamily(Font(R.font.roboto_flex))
  *   proper leading is easier to read, and Semibold then actually means something.
  * * **Tracking** follows SF Pro's variable letter spacing: negative and growing with size above 15 sp,
  *   flat around 13 sp, slightly positive on the caption sizes. Material's defaults point the other way
- *   (positive tracking on body text), which is the other half of the loose look.
- * * **Optical size** is the axis Apple's face has and Material's typography never sets: see [optical].
+ *   (positive tracking on body text), which is the other half of the loose look. The values are given
+ *   in sp, which is what Apple's own tables are measured in and which scales with the reader's font
+ *   scale just as a proportional value would.
  *
  * `tnum` keeps digits monospaced, which a time-blocking app needs: hours in the gutter, durations and
  * countdowns stay aligned while the text around them reflows. It only affects digits, so it is safe on
  * every style.
  */
-private fun apple(size: Int, leading: Int, weight: FontWeight, tracking: Float): TextStyle = TextStyle(
+private fun apple(size: Int, leading: Int, weight: FontWeight, trackingSp: Float): TextStyle = TextStyle(
     fontFamily = RoutineFont,
     fontSize = size.sp,
     lineHeight = leading.sp,
     fontWeight = weight,
-    letterSpacing = tracking.em,
+    letterSpacing = trackingSp.sp,
     fontFeatureSettings = "tnum",
-    fontVariationSettings = optical(size),
 )
 
-/**
- * Roboto Flex is a variable font with an `opsz` axis from 8 to 144 whose default is 14 — the same idea
- * as SF Pro's dynamic optical sizes, where small text is drawn sturdier and looser and large text
- * thinner and tighter. Because the axis was never set, every style in the app, including a 34 sp
- * heading, was being rendered with the optical size of a caption, which is exactly what makes big
- * numbers look clumsy.
- *
- * `FontVariation.opticalSizing` takes the size in sp and multiplies it by the user's font scale, so a
- * reader who enlarges text also gets the optical size belonging to the enlarged text: the axis tracks
- * what is on screen, not what was designed. Weight is deliberately not set here — Compose merges
- * `fontWeight` into the `wght` axis on its own. On API 24-25, where variable fonts do not exist, the
- * setting is ignored and the default instance is used.
- */
-private fun optical(size: Int): FontVariation.Settings =
-    FontVariation.Settings(FontVariation.opticalSizing(size.sp))
+// Roboto Flex carries an `opsz` axis from 8 to 144 — the same idea as SF Pro's dynamic optical sizes,
+// where small text is drawn sturdier and large text thinner and tighter. Compose cannot reach it:
+// `TextStyle` and `SpanStyle` expose no font-variation parameter at all (checked against the published
+// ui-text API surface, where the axis appears nowhere), so in Compose the axis stays at its default of
+// 14 and only weight comes through, via `fontWeight`. The widget is the exception: it is drawn through
+// `TextView`, which has had `android:fontVariationSettings` since API 26, so its four layouts do set
+// `'opsz'` to the size they render at.
 
 /**
  * The app's type scale. Role names stay Material's, because 300-odd call sites name them; the metrics
@@ -83,33 +73,33 @@ private fun optical(size: Int): FontVariation.Settings =
  */
 val Typography = Typography(
     // Large Title and its two accessibility sizes: the countdown numbers and the biggest headings.
-    displayLarge = apple(40, 48, FontWeight.Bold, -0.030f),
-    displayMedium = apple(36, 43, FontWeight.Bold, -0.028f),
-    displaySmall = apple(34, 41, FontWeight.Bold, -0.026f),
+    displayLarge = apple(40, 48, FontWeight.Bold, -1.2f),
+    displayMedium = apple(36, 43, FontWeight.Bold, -1.0f),
+    displaySmall = apple(34, 41, FontWeight.Bold, -0.9f),
     // Title 1 and its xLarge step: sheet titles, screen headings.
-    headlineLarge = apple(30, 37, FontWeight.SemiBold, -0.024f),
-    headlineMedium = apple(28, 34, FontWeight.SemiBold, -0.022f),
+    headlineLarge = apple(30, 37, FontWeight.SemiBold, -0.7f),
+    headlineMedium = apple(28, 34, FontWeight.SemiBold, -0.6f),
     // Title 2: section headings, the folded period title in the glass bar.
-    headlineSmall = apple(22, 28, FontWeight.SemiBold, -0.020f),
+    headlineSmall = apple(22, 28, FontWeight.SemiBold, -0.45f),
     // Title 3: card and panel titles.
-    titleLarge = apple(20, 25, FontWeight.SemiBold, -0.018f),
+    titleLarge = apple(20, 25, FontWeight.SemiBold, -0.4f),
     // Headline: the emphasised line inside a card — a block title, a row's leading text.
-    titleMedium = apple(17, 22, FontWeight.SemiBold, -0.016f),
+    titleMedium = apple(17, 22, FontWeight.SemiBold, -0.3f),
     // Callout at Semibold: list rows, tab labels, anything leading a secondary line.
-    titleSmall = apple(16, 21, FontWeight.SemiBold, -0.014f),
+    titleSmall = apple(16, 21, FontWeight.SemiBold, -0.25f),
     // Body: paragraphs, hints, the long-form text that is actually meant to be read.
-    bodyLarge = apple(17, 22, FontWeight.Normal, -0.012f),
+    bodyLarge = apple(17, 22, FontWeight.Normal, -0.2f),
     // Subhead: the default secondary line — form labels, descriptions, card body copy.
-    bodyMedium = apple(15, 20, FontWeight.Normal, -0.008f),
+    bodyMedium = apple(15, 20, FontWeight.Normal, -0.1f),
     // Footnote: metadata, timestamps, gutters, the small print under a value.
-    bodySmall = apple(13, 18, FontWeight.Normal, -0.002f),
+    bodySmall = apple(13, 18, FontWeight.Normal, 0f),
     // Button and chip labels. Apple sets control text in Body Semibold; 15 sp Semibold is the same
     // voice at the density this app's controls are built to, and RoutineLabel shrinks it rather than
     // truncating when a Slovenian label does not fit.
-    labelLarge = apple(15, 20, FontWeight.SemiBold, -0.008f),
+    labelLarge = apple(15, 20, FontWeight.SemiBold, -0.1f),
     // Caption 1: counters, badges, the smallest neutral text.
-    labelMedium = apple(12, 16, FontWeight.Medium, 0.006f),
+    labelMedium = apple(12, 16, FontWeight.Medium, 0.07f),
     // Caption 1 at Semibold: eyebrows, day names, unit suffixes — small and structural, so it earns
     // the weight instead of the size.
-    labelSmall = apple(12, 16, FontWeight.SemiBold, 0.010f),
+    labelSmall = apple(12, 16, FontWeight.SemiBold, 0.12f),
 )

@@ -308,12 +308,19 @@ prek implicitnega sprejemnika ni kandidat. Vse tri so zdaj zapisane tudi v komen
    je delno pokrita: lestvica Card 16 → Chip 8 ob 8 dp odmika **je** koncentrična (16 − 8 = 8), kar je
    Appleovo pravilo (notranji polmer = zunanji − odmik); listi v pladnju z 16 dp odmika pa ostanejo pri
    16 dp, ker bi 8 dp na Androidu delovalo zastarelo.
-10. **Adaptivne sence in »Reduce Transparency«/»Increase Contrast« ostanejo nedosegljivi.** Appleove
+10. **Optične velikosti pisave v Composeu ni mogoče nastaviti.** Roboto Flex ima os `opsz`, SF Pro ima
+    enako zamisel, javni `TextStyle`/`SpanStyle` pa parametra za različice pisave nima — preverjeno v
+    izvozu javnega API `ui-text` (`api/current.txt`), v izvorni kodi obeh razredov in z gradnjo, ki je
+    javila `No parameter with name 'fontVariationSettings' found`. Widget jo dobi prek `TextView`
+    (razdelek 6.6.2), Compose del ostane na privzeti optiki 14. Obhod bi bil lasten `FontFamily` z več
+    statičnimi rezinami (ena na optično velikost): nekaj sto KB v APK in ročna izbira rezine po slogu,
+    kar za zdaj presega korist.
+11. **Adaptivne sence in »Reduce Transparency«/»Increase Contrast« ostanejo nedosegljivi.** Appleove
    sene se prilagajajo vsebini pod steklom, kar zahteva vzorčenje svetlosti ozadja — kyant0-jev backdrop
    tega ne izpostavlja. Sistemskih nastavitev za prosojnost in kontrast na Androidu ni; naš odgovor je,
    da je tint že na Appleovi ravni »zmanjšane prosojnosti« (0,74/0,80) in da kontrastni gate meri
    najslabši primer čez steklo.
-11. **Sklad nazaj ima dve plasti, ne poljubno globok seznam.** Merilo in cilji sta edini plasti, ki
+12. **Sklad nazaj ima dve plasti, ne poljubno globok seznam.** Merilo in cilji sta edini plasti, ki
    živita znotraj activity-ja; če bi kdaj pribil tretji celozaslonski pogled, bi ga bilo treba
    dodati v vrstni red sestavljanja v `RoutineApp.kt` (globina = vrstni red). Splošnejša rešitev bi
    bil Navigation 3 z `NavDisplay`, kar je prevelik poseg za to vejo.
@@ -604,17 +611,28 @@ prav zato se sprememba zgodi **povsod naenkrat**:
 | `labelMedium` | 22 | Caption 1 | 12/16 | Medium | +0,006 em |
 | `labelSmall` | 39 | Caption 1 poudarjen | 12/16 | SemiBold | +0,010 em |
 
-**Optična velikost.** Roboto Flex je spremenljiva pisava z osjo `opsz` 8-144 s privzeto vrednostjo 14
-— ista zamisel kot SF Pro-jeva dinamična optična velikost: majhna besedila so risana robustneje in
-ohlapneje, velika tanjše in tesneje. Ker os ni bila nikoli nastavljena, je bil **vsak slog v
-aplikaciji, tudi 34 sp naslov, risan z optiko za 14 pt**. Zdaj vsak slog nastavi svojo vrednost prek
-`FontVariation.opticalSizing(velikost.sp)`, ki velikost pomnoži z uporabnikovim merilom pisave: bralec,
-ki pisavo poveča, dobi tudi optiko za povečano pisavo — os sledi tistemu, kar je na zaslonu, ne tistemu,
-kar je bilo narisano. Debeline tu ni treba nastavljati, ker Compose `fontWeight` sam zlije v os `wght`.
-Podrobnost, preverjena v izvorni kodi `FontVariation.kt`: `Setting` je zapečaten vmesnik s tovarniškimi
-funkcijami, zato `Setting("opsz", 17f)` sicer obstaja, a `opticalSizing` je tisti, ki zna sp in merilo.
-Na API 24-25, kjer spremenljivih pisav ni, se nastavitev preprosto ignorira. Isti popravek je šel tudi
-v widget, ki se riše prek `TextView` (`android:fontVariationSettings="'opsz' 12"` itd.).
+**Optična velikost — in meja, na katero je ta krog naletel.** Roboto Flex je spremenljiva pisava z
+osjo `opsz` 8-144 in privzeto vrednostjo 14 — ista zamisel kot SF Pro-jeva dinamična optična velikost:
+majhna besedila so risana robustneje in ohlapneje, velika tanjše in tesneje. Ker os ni bila nikoli
+nastavljena, je bil vsak slog v aplikaciji, tudi 34 sp naslov, risan z optiko za 14 pt.
+
+Popravek je bil napisan (`FontVariation.opticalSizing(velikost.sp)`, ki upošteva tudi uporabnikovo
+merilo pisave) in **se ni izšel**: `TextStyle` in `SpanStyle` v Composeu sploh nimata parametra za
+različice pisave. Preverjeno na treh mestih — javni API `ui-text` (`api/current.txt`) ne vsebuje niza
+`fontVariationSettings` nikjer, izvorna koda `TextStyle.kt` in `SpanStyle.kt` ga ne vsebuje, gradnja pa
+je javila `No parameter with name 'fontVariationSettings' found`. `FontVariation` kot razred obstaja in
+ga uporabljata ponudnik Google Fonts ter `PlatformTypefaces`, iz javnega `TextStyle` pa ni dosegljiv.
+Zato v Composeu os ostane na privzeti vrednosti, debelina pa pride prek `fontWeight` (to Compose sam
+zlije v os `wght`).
+
+**Widget je izjema in je popravljen:** riše se prek `TextView`, ki ima `android:fontVariationSettings`
+od API 26, zato vsi štirje postavitvi widgeta nastavljajo `'opsz'` na velikost, pri kateri se rišejo
+(12, 15, 20). Isti atribut na API 24-25 preprosto ne obstaja in se ignorira.
+
+Sledenje je zato podano v **sp**, ne v em: Appleove tabele so izmerjene v absolutnih točkah (Large Title
+−1,05 px, Body −0,43 px, Caption 1 +0,12 px), sp pa se z uporabnikovim merilom pisave povečuje enako
+kot sorazmerna vrednost — razlika je samo v tem, da se pri večjem merilu ne poveča tudi sledenje,
+kar je pri Appleu prav tako.
 
 **Dva zavestna odmika od dobesednega prenosa**, oba zaradi gostote in ne okusa: `titleSmall` je Callout
 in `bodyMedium` Subhead (ne Body 17), ker se načrtovalnik bere na pogled in v stolpcih — Apple to v
