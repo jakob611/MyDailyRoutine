@@ -94,6 +94,7 @@ class ScheduleNotifier(private val context: Context) {
             .setGroup(alarm.block.occurrenceDate.toString())
             .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
             .setSortKey(window.start.toString())
+            .setExtras(android.os.Bundle().apply { putBoolean(EXTRA_QUIET, quiet) })
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
@@ -144,7 +145,7 @@ class ScheduleNotifier(private val context: Context) {
             // never reacquires a sound through its own summary row.
             val quiet = platform.activeNotifications
                 .firstOrNull { it.tag?.startsWith("$day:") == true && it.tag != "$day:summary" }
-                ?.notification?.channelId == QUIET_CHANNEL
+                ?.notification?.extras?.getBoolean(EXTRA_QUIET, false) == true
             refreshSummary(day, quiet, now, zone)
         }
     }
@@ -201,6 +202,7 @@ class ScheduleNotifier(private val context: Context) {
     }
 
     companion object {
+        const val EXTRA_QUIET = "routine_quiet"
         const val NORMAL_CHANNEL = "routine_reminders_v1"
         const val QUIET_CHANNEL = "routine_school_quiet_v1"
     }
