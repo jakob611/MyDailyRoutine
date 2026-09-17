@@ -336,6 +336,7 @@ class RoutineViewModel(
                 messages.send(TimelineEffect.Message(R.string.entry_defaults_saved))
             }
             is TimelineAction.SetMute -> perform { settings.setMuteDuringSchoolHours(action.muted) }
+            is TimelineAction.SetRecoveryNotifications -> perform { settings.setRecoveryNotifications(action.enabled) }
             is TimelineAction.SetSchoolWindow -> perform {
                 settings.setSchoolWindow(action.start, action.end)
                 messages.send(TimelineEffect.Message(R.string.message_quiet_saved))

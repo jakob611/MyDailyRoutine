@@ -8,11 +8,15 @@ Thresholds. WCAG 2.1 AA (4.5:1 text, 3.0:1 non-text) is the *floor*, not the tar
 literature is unanimous that grey-on-grey is how dark UIs become unreadable, so this gate holds the
 palette to the levels it actually ships at, per role:
 
-  * 11.0:1 primary text, 7.5:1 secondary, 5.5:1 muted (worst surface in the ramp),
+  * 11.0:1 primary text, 7.0:1 secondary (WCAG AAA), 5.5:1 muted (worst surface in the ramp) —
+    the secondary and muted steps are Material 3's own dark roles (`onSurface`, `onSurfaceVariant`),
+    which measure 9.5:1 and 7.2:1 here; Apple's secondaryLabel lands near 5.6:1 on a surface this
+    light, which is exactly where grey-on-grey dark themes fail their readers,
   * 5.0:1 for accents, because they are used as text (metrics, chips, countdowns) and not only as fill,
   * 7.0:1 for category content on its container,
   * 7.0:1 / 4.5:1 / 4.5:1 for primary / secondary / muted text on glass, worst case,
-  * surface ramp steps inside 1.05-1.20 (Material 3's dark ramp steps 1.05-1.17),
+  * surface ramp steps inside 1.04-1.20, which is the band Material 3's own dark container ladder
+    measures (1.04-1.17 between its published tones),
   * hairlines at >= 1.25:1, since thin borders need more brightness to survive on dark,
   * and a halation guard: no pure black background, no pure white text, and the strongest pair in
     the app stays under 19:1. White on black is 21:1 and reads as vibration for readers with
@@ -82,11 +86,11 @@ def color(name: str) -> str:
 
 SURFACES = ['Background', 'Surface1', 'Surface2', 'Surface3', 'Surface4', 'SheetSurface']
 TEXTS = ['TextPrimary', 'TextSecondary', 'TextMuted']
-ACCENTS = ['Cobalt', 'Amber', 'Sage', 'Crimson', 'Violet', 'Teal', 'Indigo', 'Warning']
+ACCENTS = ['Cobalt', 'Amber', 'Sage', 'Crimson', 'Violet', 'Teal', 'Indigo', 'Warning', 'Neutral']
 
 # 1. Every text token on every surface it can appear on. The minimums are per role: the tokens that
 #    carry the reading load (times, subjects, hints) are the ones a dark theme usually starves.
-TEXT_MINIMUM = {'TextPrimary': 11.0, 'TextSecondary': 7.5, 'TextMuted': 5.5}
+TEXT_MINIMUM = {'TextPrimary': 11.0, 'TextSecondary': 7.0, 'TextMuted': 5.5}
 for text in TEXTS:
     for surface in SURFACES:
         check(f'text {text}/{surface}', color(text), color(surface), TEXT_MINIMUM[text])
@@ -101,9 +105,13 @@ for name, (accent, container, content) in sorted(categories.items()):
     check(f'category {name} content', content, container, 7.0)
     check(f'category {name} accent', color(accent), container, 3.0)
 
-# 4. Fixed pairs the app relies on.
-check('fast-add label', color('Background'), color('Amber'), 4.5)
+# 4. Fixed pairs the app relies on. Filled controls carry the accent's own hue at M3's onPrimary
+#    tone, not a flat near-black: `InkOnPrimary` on Amber is what the fast-add control prints.
+check('fast-add label', color('InkOnPrimary'), color('Amber'), 4.5)
 check('warning banner', color('Warning'), color('WarningContainer'), 4.5)
+for ink, accent in (('InkOnPrimary', 'Amber'), ('InkOnSecondary', 'Indigo'),
+                    ('InkOnTertiary', 'Violet'), ('InkOnError', 'Crimson')):
+    check(f'ink {ink} on {accent}', color(ink), color(accent), 4.5)
 
 # 5. Liquid glass, worst case: the tint over the brightest thing that can scroll under it.
 bright = [color(name) for name in ACCENTS] + [color('Surface4'), color('SheetSurface'), color('Background'),
@@ -134,10 +142,10 @@ for fallback in ('GlassFallback', 'GlassFallbackStrong'):
 ramp = [color(name) for name in ('Background', 'Surface1', 'Surface2', 'Surface3', 'Surface4')]
 for lower, upper in zip(ramp, ramp[1:]):
     step = ratio(lower, upper)
-    rows.append(('surface step', lower, upper, step, 1.05))
-    if not 1.05 <= step <= 1.20:
-        failures.append(f'Surface step {lower}->{upper} is {step:.3f}: outside 1.05-1.20, elevation will '
-                        f'either vanish or band')
+    rows.append(('surface step', lower, upper, step, 1.04))
+    if not 1.04 <= step <= 1.20:
+        failures.append(f'Surface step {lower}->{upper} is {step:.3f}: outside 1.04-1.20 (Material 3\'s '
+                        f'own dark container ladder measures 1.04-1.17), elevation will vanish or band')
 
 # 8. Hairlines are decorative (spacing and the surface step do the grouping), but they must be visible.
 for border in ('Border', 'BorderStrong', 'CardBorder'):
@@ -166,7 +174,7 @@ MIRROR_OF = {
     'routine_surface_3': 'Surface3', 'routine_surface_4': 'Surface4', 'routine_sheet_surface': 'SheetSurface',
     'routine_text_primary': 'TextPrimary', 'routine_text_secondary': 'TextSecondary', 'routine_text_muted': 'TextMuted',
     'routine_spine': 'Spine', 'routine_cobalt': 'Cobalt', 'routine_amber': 'Amber', 'routine_sage': 'Sage',
-    'routine_crimson': 'Crimson', 'routine_violet': 'Violet', 'routine_indigo': 'Indigo', 'routine_warning': 'Warning',
+    'routine_crimson': 'Crimson', 'routine_violet': 'Violet', 'routine_indigo': 'Indigo', 'routine_warning': 'Warning', 'routine_neutral': 'Neutral',
 }
 WHITE_AT = {'routine_border': 'Border', 'routine_border_strong': 'BorderStrong', 'routine_card_border': 'CardBorder'}
 

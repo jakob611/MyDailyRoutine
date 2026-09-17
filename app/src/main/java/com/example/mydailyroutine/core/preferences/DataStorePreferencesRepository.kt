@@ -25,6 +25,7 @@ private val Context.scheduleDataStore by preferencesDataStore(name = "schedule_p
 class DataStorePreferencesRepository(context: Context, private val onChanged: () -> Unit) : PreferencesRepository {
     private val store = context.applicationContext.scheduleDataStore
     private val muteKey = booleanPreferencesKey("mute_during_school")
+    private val recoveryKey = booleanPreferencesKey("notify_recovery_breaks")
     private val startKey = intPreferencesKey("school_start_minute")
     private val endKey = intPreferencesKey("school_end_minute")
     private val teachingEndKey = longPreferencesKey("teaching_end_epoch_day")
@@ -42,6 +43,7 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
     }.map { values ->
         SchedulePreferences(
             muteDuringSchoolHours = values[muteKey] ?: defaults.muteDuringSchoolHours,
+            notifyRecovery = values[recoveryKey] ?: defaults.notifyRecovery,
             schoolStart = time(values[startKey], defaults.schoolStart),
             schoolEnd = time(values[endKey], defaults.schoolEnd),
             hapticsEnabled = values[hapticsKey] ?: true,
@@ -64,6 +66,11 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
 
     override suspend fun setMuteDuringSchoolHours(muted: Boolean) {
         store.edit { it[muteKey] = muted }
+        onChanged()
+    }
+
+    override suspend fun setRecoveryNotifications(enabled: Boolean) {
+        store.edit { it[recoveryKey] = enabled }
         onChanged()
     }
 

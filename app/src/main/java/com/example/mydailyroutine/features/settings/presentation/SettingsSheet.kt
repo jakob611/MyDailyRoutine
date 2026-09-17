@@ -290,6 +290,15 @@ private fun LazyListScope.remindersTab(
             }
         }
     }
+    item(key = "settings-recovery-alerts") {
+        SettingRow(
+            title = stringResource(R.string.recovery_alerts_title),
+            description = stringResource(R.string.recovery_alerts_description),
+            control = {
+                Switch(preferences.notifyRecovery, { onAction(TimelineAction.SetRecoveryNotifications(it)) }, enabled = !busy)
+            },
+        )
+    }
     item(key = "settings-quiet") {
         Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
             SettingRow(

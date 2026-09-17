@@ -702,7 +702,7 @@ private fun GanttMilestoneStrip(milestones: List<GoalMilestone>, modifier: Modif
                 Box(
                     Modifier.size(9.dp).rotate(45f)
                         .background(
-                            if (milestone.isDone) RoutineColors.TextMuted.copy(alpha = 0.5f) else RoutineColors.Crimson,
+                            if (milestone.isDone) RoutineColors.TextDisabled else RoutineColors.Crimson,
                             RoundedCornerShape(2.dp),
                         )
                         .semantics { contentDescription = RoutineDate.normal(milestone.dueDate) },

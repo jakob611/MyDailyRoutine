@@ -5,5 +5,20 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowBackground">@color/routine_background</item>
         <item name="android:windowActionModeOverlay">true</item>
+        <!-- Every window this theme owns, dialogs and bottom sheets included, must show the same
+             dark translucent bars. A white navigation bar under a sheet is the loudest possible
+             contradiction of an OLED dark app, and on some devices the system lightens the bars
+             per window unless the theme says otherwise. -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/routine_background</item>
+        <item name="android:dialogTheme">@style/Theme.MyDailyRoutine.Dialog</item>
+        <item name="android:alertDialogTheme">@style/Theme.MyDailyRoutine.Dialog</item>
+    </style>
+
+    <style name="Theme.MyDailyRoutine.Dialog" parent="android:Theme.Material.Dialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/routine_background</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

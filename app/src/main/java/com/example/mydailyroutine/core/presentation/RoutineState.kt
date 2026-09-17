@@ -178,6 +178,7 @@ sealed interface TimelineAction {
     data class SaveSleep(val value: SleepSchedule, val sleepTitle: String, val morningTitle: String) : TimelineAction
     data class SaveEntryDefaults(val defaults: EntryDefaults) : TimelineAction
     data class SetMute(val muted: Boolean) : TimelineAction
+    data class SetRecoveryNotifications(val enabled: Boolean) : TimelineAction
     data class SetSchoolWindow(val start: LocalTime, val end: LocalTime) : TimelineAction
     data class SetTeachingEnd(val date: LocalDate) : TimelineAction
     data object ExportSchedule : TimelineAction

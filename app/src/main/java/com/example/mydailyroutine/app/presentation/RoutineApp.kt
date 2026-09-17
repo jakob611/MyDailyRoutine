@@ -392,8 +392,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                        Icon(Icons.Default.Add, null, tint = RoutineColors.Background)
-                        RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Background)
+                        Icon(Icons.Default.Add, null, tint = RoutineColors.InkOnPrimary)
+                        RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge, color = RoutineColors.InkOnPrimary)
                     }
                 }
             }

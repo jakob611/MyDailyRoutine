@@ -5,32 +5,34 @@
 
   Only the views that cannot read Compose need it: the home-screen widget (RemoteViews inflate XML
   layouts) and the window background behind the first frame. Everything else takes its colour from
-  RoutineColors, so this file is deliberately small — a second palette that grows is a palette that
+  RoutineColors, so this file is deliberately small - a second palette that grows is a palette that
   drifts.
 
   It is not left to discipline: tools/check_contrast.py parses both files and fails the build when a
   value here stops matching DesignSystem.kt, when a stray hex colour appears in res/layout or
-  res/drawable, and when any of these colours fails its WCAG pair.
+  res/drawable, and when any of these colours fails its WCAG pair. The values themselves come from
+  tools/derive_palette.py, which computes them from published Apple and Material constants.
 -->
 <resources>
-    <color name="routine_background">#FF0B0E13</color>
-    <color name="routine_surface_1">#FF141922</color>
-    <color name="routine_surface_2">#FF1B212C</color>
-    <color name="routine_surface_3">#FF232A37</color>
-    <color name="routine_surface_4">#FF2B3342</color>
-    <color name="routine_sheet_surface">#FF101419</color>
-    <color name="routine_text_primary">#FFF4F7FC</color>
-    <color name="routine_text_secondary">#FFC6CEDC</color>
-    <color name="routine_text_muted">#FFAAB3C3</color>
-    <color name="routine_spine">#FF2C3542</color>
-    <color name="routine_border">#24FFFFFF</color>
-    <color name="routine_border_strong">#3DFFFFFF</color>
-    <color name="routine_card_border">#1FFFFFFF</color>
-    <color name="routine_cobalt">#FF85B1F9</color>
-    <color name="routine_amber">#FFE5A746</color>
-    <color name="routine_sage">#FF69CFA4</color>
-    <color name="routine_crimson">#FFF9909F</color>
-    <color name="routine_violet">#FFB9A1FA</color>
-    <color name="routine_indigo">#FF929FF9</color>
-    <color name="routine_warning">#FFF7A969</color>
+    <color name="routine_background">#FF111317</color>
+    <color name="routine_surface_1">#FF1A1C20</color>
+    <color name="routine_surface_2">#FF1E2024</color>
+    <color name="routine_surface_3">#FF282A2E</color>
+    <color name="routine_surface_4">#FF333539</color>
+    <color name="routine_sheet_surface">#FF0B0E13</color>
+    <color name="routine_text_primary">#FFF8FBFF</color>
+    <color name="routine_text_secondary">#FFDFE2E8</color>
+    <color name="routine_text_muted">#FFC4C6CC</color>
+    <color name="routine_spine">#FF56575D</color>
+    <color name="routine_border">#27FFFFFF</color>
+    <color name="routine_border_strong">#30FFFFFF</color>
+    <color name="routine_card_border">#1AFFFFFF</color>
+    <color name="routine_cobalt">#FFB2C4FF</color>
+    <color name="routine_amber">#FFEFBC87</color>
+    <color name="routine_sage">#FF9BD39D</color>
+    <color name="routine_crimson">#FFFFB2A4</color>
+    <color name="routine_violet">#FFE1B6F3</color>
+    <color name="routine_indigo">#FFCABDFF</color>
+    <color name="routine_neutral">#FFC5C5CA</color>
+    <color name="routine_warning">#FFE9C300</color>
 </resources>

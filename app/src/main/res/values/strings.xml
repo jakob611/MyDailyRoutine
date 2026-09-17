@@ -290,6 +290,15 @@
     <string name="notification_recovery_late">Počitek se je začel ob %1$s. Vzemi si trenutek za obnovo.</string>
     <string name="notification_starts">Začetek ob %1$s · %2$s</string>
     <string name="notification_started">Začelo se je ob %1$s · %2$s</string>
+    <plurals name="notification_group_title">
+        <item quantity="one">%1$d blok danes</item>
+        <item quantity="two">%1$d bloka danes</item>
+        <item quantity="few">%1$d bloki danes</item>
+        <item quantity="other">%1$d blokov danes</item>
+    </plurals>
+    <string name="notification_group_summary">Dotakni se za razpored dneva</string>
+    <string name="recovery_alerts_title">Obvestilo ob začetku počitka</string>
+    <string name="recovery_alerts_description">Odmori so vidni v razporedu; posebna pasica zanje je ponavadi odveč, zato je privzeto izklopljena.</string>
     <string name="notification_subject_fallback">Tvoj dnevni ritem</string>
     <string name="widget_name">Tvoj dnevni pregled</string>
     <string name="widget_description">Preostali bloki, odštevanje do konca pouka in hitro dodajanje. Brez povezave.</string>

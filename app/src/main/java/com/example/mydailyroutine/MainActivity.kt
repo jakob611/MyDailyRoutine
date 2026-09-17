@@ -14,6 +14,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -45,7 +46,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.BLACK))
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
+        // Edge-to-edge asks the system for a contrast scrim under the gesture bar on Android 10+,
+        // and that scrim follows the *system* theme: with the phone in light mode it paints a pale
+        // strip under an otherwise black app. The app draws its own legible backdrop, so refuse it.
+        if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
+        enforceDarkSystemBars()
         if (savedInstanceState == null) consumeIntent(intent)
         refreshAccess()
         setContent {
@@ -64,7 +73,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() { super.onResume(); refreshAccess() }
+    override fun onResume() {
+        super.onResume()
+        refreshAccess()
+        enforceDarkSystemBars()
+    }
+
+    /**
+     * Some devices reapply their own bar appearance when a window regains focus, which shows up as
+     * the navigation bar flashing white between screens. Assert ours on every resume; the theme
+     * also covers the windows this activity never sees directly (dialogs, sheets).
+     */
+    private fun enforceDarkSystemBars() {
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = false
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
