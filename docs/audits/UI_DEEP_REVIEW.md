@@ -237,8 +237,28 @@ vrednost vrne exit 1 z imenom barve in obema številkama.
 | `tools/check_sqlite_integrity.py` | shema, FK, migracije, indeksi | 19 testov OK |
 | `tools/check_presentation.py` | slovenski nizi, pisava, tabularne številke, en domen model, merjene postavitve, en vir datuma, en backdrop okna, zasloni pod stekleno vrstico | 701 nizov, 43 datotek, 5 zaslonov |
 | `tools/check_contrast.py` (**nov**) | 137 parov WCAG, worst-case stekla, koraki rampe, bordi, ogledalo palete v XML, proste hex barve | exit 0 |
-| `:core:test`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:lintDebug` | prevajanje, enote, lint (`abortOnError = true`) | — |
-| `:app:connectedDebugAndroidTest` | 9 UI testov na napravi + posnetki | — |
+| `:core:test`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:lintDebug` | prevajanje, enote, lint (`abortOnError = true`) | uspešno (run 35136305318) |
+| `:app:connectedDebugAndroidTest` | 9 UI testov na napravi + 10 posnetkov | uspešno (run 35136305318) |
+
+### 4.1 Preverjeno v CI
+
+**Commit `eb141b4`, [run 35136305318](https://github.com/jakob611/MyDailyRoutine/actions/runs/35136305318) — oba joba uspešna.**
+
+| Job | Koraki | Rezultat |
+|---|---|---|
+| `build` | static gates (shema, predstavitev, kontrast), `:core:test`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:lintDebug`, objava debug APK | success (18:44:48 → 18:49:20) |
+| `device-tests` | emulator API 35, `:app:connectedDebugAndroidTest` | success (18:44:49 → 18:52:57), **10 posnetkov** zbranih v `device-test-reports`: `01-day`, `02-week`, `03-month`, `04-year`, `05-glass-day`, `05-quick-add`, `06-settings-data`, `07-planning-tabs`, `09-goals-tabs`, `10-year-folds` |
+
+Posnetki so dokaz, da zložljiva vrhnja vrstica ni podrla obstoječih UI testov:
+`glassChromeOverlaysTheContentInsteadOfPushingItDown` (steklo se še vedno prekriva z vsebino) in
+`allFourSlovenianViewsAndFastAddAreReachable` (ime aplikacije je ob zagonu vidno, ker je vrstica
+razprta) tečeta na vsakem zagonu.
+
+Med implementacijo so se ujemale tri napake, ki jih je CI našel in so popravljene v
+`985638a → 69420f9 → e5bc5c1 → eb141b4`: `staticCompositionLocalOf` potrebuje lambda; `onSizeChanged`
+poda `IntSize` (ne `Int`); klic `AnimatedVisibility` znotraj `Box{}` v `actions` mora biti s polnim
+imenom, ker je `RowScope` označen z `@LayoutScopeMarker` (DslMarker) in zato njegov razširitveni
+prek implicitnega sprejemnika ni kandidat. Vse tri so zdaj zapisane tudi v komentarjih v kodi.
 
 ---
 
