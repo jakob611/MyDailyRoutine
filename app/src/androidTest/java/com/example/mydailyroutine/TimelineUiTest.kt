@@ -168,7 +168,11 @@ class TimelineUiTest {
         compose.onAllNodesWithTag("week-day-column")[0].performClick()
         awaitText(R.string.day_heading)
         compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()
-        awaitText(R.string.goals_empty_body)
+        // Not the empty state: `goalsAreSplitIntoTabsInsteadOfOneLongScroll` runs fourth in this
+        // class and seeds a CAS project, and the Room database outlives the activity every rule
+        // recreates, so by the time this test runs Goals has a project in it. What this test is
+        // about is the layer, not its contents — and the top bar says which layer is up either way.
+        awaitAnyText(R.string.goals_title)
         // First back: Goals closes and the day underneath is reachable again.
         Espresso.pressBack()
         awaitText(R.string.day_heading)
@@ -238,8 +242,22 @@ class TimelineUiTest {
             }.onFailure { error -> println("ui-audit: failed to write $name into $directory: $error") }
         }
     }
+    /**
+     * Waits for a string to be **on screen**, not merely composed. During a transition the node
+     * exists while it is still sliding in or fading up, and asserting `isDisplayed` the instant it
+     * appears is what made these tests flaky on a slow emulator; retrying the assertion itself until
+     * the transition settles is the honest form. Every string waited for this way is unique in the
+     * tree — for anything that legitimately repeats, use [awaitAnyText].
+     */
     private fun awaitText(@StringRes id: Int) {
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty() &&
+                runCatching { compose.onNodeWithText(text(id)).assertIsDisplayed() }.isSuccess
+        }
+    }
+
+    /** Waits for a string that may appear more than once, such as a top bar title echoed in a heading. */
+    private fun awaitAnyText(@StringRes id: Int) {
         compose.waitUntil(10000) { compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText(text(id)).assertIsDisplayed()
     }
 }

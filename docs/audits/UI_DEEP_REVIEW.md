@@ -521,9 +521,15 @@ uspešen spust ne vrne ničesar lokalno, ker `SaveBlockEdit` v ovojnici že dobi
 
 #### 6.5.4 Test in CI
 
-`systemBackClosesGoalsAndWalksOutOfTheDay` je padel z `IndexOutOfBoundsException`: naslov tedna
-pride pred stolpci (stolpci so leno sestavljen element), test pa je segel po `[0]`. Dodan
-`waitUntil`. CI ob padcu zdaj **najprej** objavi ime padlega testa in njegovo trditev iz Gradlovega
+`systemBackClosesGoalsAndWalksOutOfTheDay` je padel dvakrat, vsakič kasneje. Prvič z
+`IndexOutOfBoundsException`: naslov tedna pride pred stolpci (stolpci so leno sestavljen element),
+test pa je segel po `[0]` — popravljeno z `waitUntil`. Drugič s `ComposeTimeoutException` pri
+`goals_empty_body`, in tu je bil kriv test, ne aplikacija: `goalsAreSplitIntoTabsInsteadOfOneLongScroll`
+teče v razredu četrti (JUnit razvrsti metode po hashu imena, ne po vrstnem redu v datoteki), poseje
+projekt CAS, Roomova baza pa preživi activity, ki ga pravilo za vsak test znova ustvari. Test zato
+zdaj čaka **plast** (naslov vrhnje vrstice »CAS in EE«, ki je enak v obeh stanjih ciljev) in ne njene
+vsebine. `awaitText` poleg tega ne čaka več samo na obstoj besedila, ampak ponavlja `assertIsDisplayed`
+dokler se prehod ne usede — vozel, ki je na počasnem emulatorju metal naključne napake. CI ob padcu zdaj **najprej** objavi ime padlega testa in njegovo trditev iz Gradlovega
 XML — prej so grep-i po dnevniku porabili budget annotacij, »1 test failed« brez imena pa je
 neuporaben.
 
