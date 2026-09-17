@@ -13,24 +13,24 @@
   res/drawable, and when any of these colours fails its WCAG pair.
 -->
 <resources>
-    <color name="routine_background">#FF07080B</color>
-    <color name="routine_surface_1">#FF0E1218</color>
-    <color name="routine_surface_2">#FF151A22</color>
-    <color name="routine_surface_3">#FF1D222B</color>
-    <color name="routine_surface_4">#FF252B36</color>
-    <color name="routine_sheet_surface">#FF0B0E13</color>
-    <color name="routine_text_primary">#FFF2F5FA</color>
-    <color name="routine_text_secondary">#FFA3ADBE</color>
-    <color name="routine_text_muted">#FF8A95A8</color>
-    <color name="routine_spine">#FF242933</color>
-    <color name="routine_border">#1AFFFFFF</color>
-    <color name="routine_border_strong">#2EFFFFFF</color>
-    <color name="routine_card_border">#14FFFFFF</color>
-    <color name="routine_cobalt">#FF7FB0FF</color>
-    <color name="routine_amber">#FFF0A93B</color>
-    <color name="routine_sage">#FF5FD9A6</color>
-    <color name="routine_crimson">#FFFF8A9B</color>
-    <color name="routine_violet">#FFB79CFF</color>
-    <color name="routine_indigo">#FF8C9BFF</color>
-    <color name="routine_warning">#FFFFA861</color>
+    <color name="routine_background">#FF0B0E13</color>
+    <color name="routine_surface_1">#FF141922</color>
+    <color name="routine_surface_2">#FF1B212C</color>
+    <color name="routine_surface_3">#FF232A37</color>
+    <color name="routine_surface_4">#FF2B3342</color>
+    <color name="routine_sheet_surface">#FF101419</color>
+    <color name="routine_text_primary">#FFF4F7FC</color>
+    <color name="routine_text_secondary">#FFC6CEDC</color>
+    <color name="routine_text_muted">#FFAAB3C3</color>
+    <color name="routine_spine">#FF2C3542</color>
+    <color name="routine_border">#1FFFFFFF</color>
+    <color name="routine_border_strong">#33FFFFFF</color>
+    <color name="routine_card_border">#1AFFFFFF</color>
+    <color name="routine_cobalt">#FF85B1F9</color>
+    <color name="routine_amber">#FFE5A746</color>
+    <color name="routine_sage">#FF69CFA4</color>
+    <color name="routine_crimson">#FFF9909F</color>
+    <color name="routine_violet">#FFB9A1FA</color>
+    <color name="routine_indigo">#FF929FF9</color>
+    <color name="routine_warning">#FFF7A969</color>
 </resources>

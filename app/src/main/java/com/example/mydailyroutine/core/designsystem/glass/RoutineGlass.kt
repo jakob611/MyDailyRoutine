@@ -2,6 +2,7 @@ package com.example.mydailyroutine.core.designsystem.glass
 
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.runtime.Composable
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
@@ -24,8 +26,8 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 
 /**
  * Liquid glass for the floating chrome of the app (Kyant0's Backdrop, `io.github.kyant0:backdrop`).
@@ -42,6 +44,18 @@ import com.kyant.backdrop.effects.vibrancy
  * 3. **Readability is never traded for the effect.** Every panel paints a tinted surface over the
  *    refracted backdrop so small text stays above 4.5:1, and below Android 12 — where `RenderEffect`
  *    does not exist — the same panel is drawn as the matching solid surface.
+ *
+ * The three things that make this read as *liquid glass* rather than as a grey translucent rectangle
+ * are the three things Apple's material does and most Android copies skip:
+ *
+ * * **A heavy blur** (24-28 dp for bars and sheets, against Apple's ~30-40 px regular material and
+ *   40-48 for navigation bars). Heavy blur is also what buys legibility: it removes the high-frequency
+ *   detail that competes with text, so the tint can stay at 0.74 instead of 0.82 and the panel stays
+ *   see-through.
+ * * **A saturation and brightness lift on the blurred content** (`colorControls`, ~160 % saturation —
+ *   `vibrancy()` is exactly 150 %). This is what makes glass look lit from behind.
+ * * **A specular rim**: one hairline of light along the top-left edge falling away to the bottom-right.
+ *   Without an edge, a translucent panel has no boundary and reads as a smudge.
  *
  * The modifier helpers are deliberately *not* `@Composable`: Compose lint requires composable
  * functions that return a value to be PascalCase, and `Modifier.routineGlass()` has to stay a normal
@@ -68,18 +82,28 @@ enum class GlassRole(
     val lensHeight: Dp,
     val lensAmount: Dp,
     val depth: Boolean,
+    val dispersion: Boolean,
+    val rim: Float,
     val tintAlpha: Float,
     val fallback: Color,
 ) {
     /** Top bar, segmented control row, any header floating over scrolling content. */
-    Bar(8.dp, 10.dp, 20.dp, depth = false, tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallbackStrong),
-    /** Sticky header and footer inside a bottom sheet. */
-    Sheet(10.dp, 12.dp, 24.dp, depth = true, tintAlpha = RoutineColors.GlassTintStrongAlpha, fallback = RoutineColors.GlassFallbackStrong),
-    /** Filter chips, tabs, small pill buttons. Slightly thinner: small surfaces need less scrim. */
-    Chip(3.dp, 8.dp, 16.dp, depth = false, tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallback),
+    Bar(24.dp, 14.dp, 22.dp, depth = false, dispersion = true, rim = 0.30f,
+        tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallbackStrong),
+    /** Sticky header and footer inside a bottom sheet. Thickest blur: it sits over the most content. */
+    Sheet(28.dp, 14.dp, 26.dp, depth = true, dispersion = true, rim = 0.26f,
+        tintAlpha = RoutineColors.GlassTintStrongAlpha, fallback = RoutineColors.GlassFallbackStrong),
+    /** Filter chips, tabs, small pill buttons. Thinner material, and no dispersion at this size: on a
+     *  32 dp chip the colour fringing reads as a printing defect, not as optics. */
+    Chip(14.dp, 8.dp, 14.dp, depth = false, dispersion = false, rim = 0.22f,
+        tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallback),
     /** Floating action button and other floating primary controls. */
-    Control(4.dp, 12.dp, 24.dp, depth = true, tintAlpha = 0f, fallback = RoutineColors.GlassFallback),
+    Control(18.dp, 16.dp, 26.dp, depth = true, dispersion = true, rim = 0.38f,
+        tintAlpha = 0f, fallback = RoutineColors.GlassFallback),
 }
+
+/** Rim hairline. Drawn centred on the shape outline, so the clip leaves half of it: ~0.8 dp of light. */
+private val RimWidth = 1.6.dp
 
 /** Creates the window backdrop and publishes it to the subtree; the ambient wash is drawn into it. */
 @Composable
@@ -98,6 +122,20 @@ fun Modifier.routineBackdropLayer(backdrop: Backdrop?): Modifier {
 }
 
 /**
+ * The specular edge: bright at the top-left, falling to almost nothing at the bottom-right, which is
+ * how a lit pane of glass actually reads. One gradient for both the effect path and the fallback path
+ * so a device without `RenderEffect` still gets the same edge.
+ */
+private fun rimBrush(strength: Float, start: Offset = Offset.Zero, end: Offset = Offset.Unspecified) =
+    Brush.linearGradient(
+        0f to RoutineColors.GlassRim.copy(alpha = strength),
+        0.42f to RoutineColors.GlassRim.copy(alpha = strength * RoutineColors.GlassRimWaist),
+        1f to RoutineColors.GlassRim.copy(alpha = strength * RoutineColors.GlassRimTail),
+        start = start,
+        end = end,
+    )
+
+/**
  * The glass treatment: effect chain in the order the library requires (colour filter ⇒ blur ⇒ lens),
  * finished with a tinted surface for legibility. Falls back to a plain solid surface when there is no
  * backdrop to sample or the platform cannot render effects.
@@ -114,14 +152,17 @@ fun Modifier.routineGlass(
 ): Modifier {
     if (backdrop == null || !glassSupported) {
         val fallback = if (hue) tint else role.fallback
+        // No RenderEffect, no lens — but the rim stays, because the edge is what tells the reader the
+        // panel is a surface and not a stain on the background.
         return this.clip(shape).background(fallback)
+            .border(RimWidth / 2f, rimBrush(role.rim), shape)
     }
     // A coloured control is tinted the way the library documents: hue-blend first so the refracted
     // backdrop keeps its own shading, then a translucent wash of the accent on top. Neutral chrome
     // only gets the wash, because its job is to make text readable, not to carry meaning.
     // Braces after a `when` arrow are the branch body, not a lambda, so the drawing is written as an
     // `if` whose branches are lambdas typed by the declaration above them.
-    val surface: (DrawScope.() -> Unit)? = if (hue) {
+    val wash: (DrawScope.() -> Unit)? = if (hue) {
         {
             drawRect(tint, blendMode = BlendMode.Hue)
             drawRect(tint.copy(alpha = RoutineColors.GlassTintStrongAlpha))
@@ -131,13 +172,26 @@ fun Modifier.routineGlass(
     } else {
         null
     }
+    val surface: DrawScope.() -> Unit = {
+        wash?.invoke(this)
+        // Specular rim, drawn last so it sits on top of the wash and survives the clip as a hairline.
+        drawOutline(
+            outline = shape.createOutline(size, layoutDirection, this),
+            brush = rimBrush(role.rim, Offset.Zero, Offset(size.width, size.height)),
+            style = Stroke(width = RimWidth.toPx()),
+        )
+    }
     return this.drawBackdrop(
         backdrop = backdrop,
         shape = { shape },
         effects = {
-            vibrancy()
+            // Colour filter, then blur, then lens — the order the library requires, each stage
+            // chaining onto the previous RenderEffect. The lift is what makes glass read as lit from
+            // behind rather than as a grey rectangle: 160 % saturation (`vibrancy()` is 150 %),
+            // a hair of contrast, and +4 % brightness, which Apple's materials also apply.
+            colorControls(brightness = 0.04f, contrast = 1.02f, saturation = 1.6f)
             blur(role.blur.toPx())
-            lens(role.lensHeight.toPx(), role.lensAmount.toPx(), role.depth)
+            lens(role.lensHeight.toPx(), role.lensAmount.toPx(), role.depth, role.dispersion)
         },
         onDrawSurface = surface,
     )

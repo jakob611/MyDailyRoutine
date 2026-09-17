@@ -136,8 +136,11 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
                     Row(Modifier.width(gridWidth)) {
                         Box(Modifier.width(RoutineMetrics.GutterTextWidth))
                         days.forEach { day ->
+                            // Tagged because it is the drill-down entry point: tapping a week column
+                            // opens the day, and the back stack has to be able to prove it walks out again.
                             Column(
-                                Modifier.width(dayWidth).clickable { onDate(day.date) }.padding(RoutineSpacing.xs),
+                                Modifier.width(dayWidth).clickable { onDate(day.date) }
+                                    .testTag("week-day-column").padding(RoutineSpacing.xs),
                                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
                             ) {
                                 RoutineLabel(

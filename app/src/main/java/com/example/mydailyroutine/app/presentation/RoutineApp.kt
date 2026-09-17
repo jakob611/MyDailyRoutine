@@ -2,6 +2,8 @@ package com.example.mydailyroutine.app.presentation
 
 import com.example.mydailyroutine.core.presentation.*
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.snap
@@ -67,6 +69,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -90,6 +93,7 @@ import com.example.mydailyroutine.features.settings.presentation.NotificationAcc
 import com.example.mydailyroutine.features.settings.presentation.SettingsSheet
 import com.example.mydailyroutine.core.designsystem.theme.*
 import java.time.ZonedDateTime
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -148,6 +152,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         // The bar folds while the reader scrolls and unfolds the moment they scroll back up, which
         // is what gives a content screen its room: ~48 dp of date chrome only when it is being used.
         var collapsed by remember { mutableStateOf(false) }
+        // Progress of the predictive-back gesture, 0..1, while the reader drags out of Goals.
+        var backProgress by remember { mutableFloatStateOf(0f) }
         val headerScroll = remember {
             object : NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -160,6 +166,16 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         // Coming back from goals, or changing scale, always lands on an open bar: the reader just
         // chose something, and the controls they chose it with should still be on screen.
         LaunchedEffect(data.mode, state.panels.showGoals) { collapsed = false }
+        // Drilling from a wider scale into a day pushes the scale it came from, so back walks out of
+        // the day again instead of leaving the app — the stack a calendar reader expects. One entry
+        // deep, because a day view never drills any further.
+        var drilledFrom by rememberSaveable { mutableStateOf<TimelineMode?>(null) }
+        var previousMode by rememberSaveable { mutableStateOf(data.mode) }
+        LaunchedEffect(data.mode) {
+            if (data.mode == TimelineMode.DAY && previousMode != TimelineMode.DAY) drilledFrom = previousMode
+            else if (data.mode != TimelineMode.DAY) drilledFrom = null
+            previousMode = data.mode
+        }
         // Full-bleed stack instead of a Scaffold: a Scaffold body starts below its top bar, which
         // would leave nothing for the glass to refract. Here the content fills the window and the
         // floating chrome sits on top of it — as siblings of the layer, never inside it, or a panel
@@ -172,7 +188,14 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         (slideInVertically(spatialSpec<IntOffset>(reduceMotion)) { it / 6 } + fadeIn(effectSpec<Float>(reduceMotion))) togetherWith
                             (slideOutVertically(spatialSpec<IntOffset>(reduceMotion)) { -it / 6 } + fadeOut(effectSpec<Float>(reduceMotion)))
                     }) { goalsShown ->
-                    if (goalsShown) GoalsScreen(state.goals, state.panels.isSaving, onAction, topInset = topInset)
+                    if (goalsShown) Box(Modifier.fillMaxSize().graphicsLayer {
+                        // Read in the draw phase, so the gesture drives the transform directly
+                        // instead of recomposing the screen sixty times a second.
+                        val progress = backProgress
+                        scaleX = 1f - 0.08f * progress
+                        scaleY = 1f - 0.08f * progress
+                        alpha = 1f - 0.30f * progress
+                    }) { GoalsScreen(state.goals, state.panels.isSaving, onAction, topInset = topInset) }
                     else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
                         modifier = Modifier.fillMaxSize(), transitionSpec = {
                             // Moving through time slides along a shared horizontal axis in the
@@ -324,6 +347,33 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
                     .padding(bottom = if (state.panels.showGoals) RoutineSpacing.md else RoutineMetrics.FabClearance),
             )
+        }
+        // ---- the back stack ------------------------------------------------------------------
+        // Composed outermost-first: Compose answers with the last enabled callback, so the order of
+        // these three blocks is the depth of the stack — scale, then Goals, then (in their own
+        // windows, and therefore ahead of both) the sheets and dialogs.
+        BackHandler(enabled = drilledFrom != null && data.mode == TimelineMode.DAY && !state.panels.showGoals) {
+            val target = drilledFrom ?: return@BackHandler
+            drilledFrom = null
+            onAction(TimelineAction.SelectMode(target))
+        }
+        // Panels here are plain state, so the stack is derived rather than remembered: each layer on
+        // screen contributes one callback and Compose answers with the innermost enabled one. Dialogs
+        // and ModalBottomSheets live in their own window and therefore answer before this does, which
+        // is why the only layer needing a callback is Goals — a full-screen swap inside the activity,
+        // and until now the one screen where back left the app instead of closing it.
+        // PredictiveBackHandler rather than BackHandler so the drag itself animates the exit.
+        PredictiveBackHandler(enabled = state.panels.showGoals) { progress ->
+            try {
+                progress.collect { event -> backProgress = event.progress }
+                onAction(TimelineAction.CloseGoals)
+            } catch (cancelled: CancellationException) {
+                // Gesture abandoned halfway: stay on Goals, unwind the transform, and let the
+                // cancellation propagate — swallowing it would break the caller's coroutine.
+                throw cancelled
+            } finally {
+                backProgress = 0f
+            }
         }
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
         RoutineSheet(state.panels.showAdd) { sheetState -> key(state.panels.addSession) {

@@ -16,81 +16,106 @@ import com.example.mydailyroutine.domain.model.RoutineCategory
  *
  * * **Surfaces** are one neutral ramp (`Background` → `Surface4`) tinted towards indigo instead of
  *   pure grey, so stacked cards read as depth and not as unrelated boxes. The base is near-black
- *   (#07080B) rather than #000000: a hair of blue keeps elevation visible on an OLED panel and gives
- *   the liquid-glass layers something to refract. Each step is 1.07-1.12 times the luminance of the
- *   one below it, which is the range Material 3's own dark ramp uses (1.05-1.17); flatter than that
- *   and cards stop reading as elevation, steeper and text loses contrast headroom.
- * * **Accents** all sit at the same perceived lightness (HCT tone ≈ 80, chroma ≈ 45-60). Equal tone
- *   across hues is what makes six category colours look like one family instead of a box of crayons,
- *   and it keeps every accent legible on the dark ramp.
- * * **Containers** are the matching tone ≈ 22 of the same hue with content at tone ≈ 90, which is the
- *   pair that passes WCAG AA (4.5:1) for small text without reaching for white-on-saturated.
+ *   (#0B0E13) rather than #000000 — 1.09 times the luminance of pure black, with a card at 1.19 — so
+ *   elevation stays visible on an OLED panel, the liquid-glass layers have something to refract, and
+ *   white text never halates against a field of absolute black. Each step is 1.09-1.14 times the
+ *   luminance of the one below it, inside the range Material 3's own dark ramp uses (1.05-1.17);
+ *   flatter than that and cards stop reading as elevation, steeper and text loses contrast headroom.
+ * * **Accents** keep their hue and their lightness (59-81 %) but lose about ten points of saturation
+ *   each. That is the standard dark-theme correction: on a dark field a fully saturated colour
+ *   vibrates against its neighbours and bleeds at the edges, and desaturating it costs none of the
+ *   hue distinction that makes six category colours read as one family.
+ * * **Containers** are a deep well of the same hue with content near-white. All five pairs measure
+ *   12.1:1 or better, far past the 4.5:1 WCAG AA needs for small text, without reaching for
+ *   white-on-saturated.
  *
- * Measured ratios (worst case over the whole ramp, `tools/check_contrast.py`): primary text 13.0:1,
- * secondary 6.3:1, muted 4.7:1, weakest accent (indigo) 5.6:1, category content on its container
- * 12.9:1, background text on the amber control 10.0:1.
+ * Measured ratios (worst case over the whole ramp, `tools/check_contrast.py`): primary text 11.8:1,
+ * secondary 8.0:1, muted 6.0:1, weakest accent (indigo) 5.2:1, category content on its container
+ * 12.1:1, background text on the amber control 9.2:1.
+ *
+ * Two rules shape every value here, both from the dark-theme literature rather than from taste:
+ *
+ * * **No pure black and no pure white.** White on black is 21:1, which reads as vibration and haloing
+ *   for readers with astigmatism or low contrast sensitivity — the single most common complaint about
+ *   dark UI. The base is a carbon dark grey and the brightest text is a cool off-white, so the
+ *   strongest pair in the app is 18:1 and the weakest body pair is still 6:1.
+ * * **Body text is not allowed to be the dim one.** The old ramp kept `TextSecondary` at 6.3:1 and
+ *   `TextMuted` at 4.7:1: legal, but they carry most of the reading load (times, subjects, hints),
+ *   which is exactly where grey-on-grey dark themes fail. They are now 8.0:1 and 6.0:1 worst case,
+ *   close to Material 3's own dark `onSurfaceVariant` (~10:1).
  *
  * Contrast is verified in CI by `tools/check_contrast.py`; do not edit a value without running it.
  */
 object RoutineColors {
     /** Ambient base of the whole app; also the colour the glass backdrop is filled with. */
-    val Background = Color(0xFF07080B)
+    val Background = Color(0xFF0B0E13)
     /** Neutral surface ramp: cards, rows, sheets, popovers — each step is one elevation level. */
-    val Surface1 = Color(0xFF0E1218)
-    val Surface2 = Color(0xFF151A22)
-    val Surface3 = Color(0xFF1D222B)
-    val Surface4 = Color(0xFF252B36)
+    val Surface1 = Color(0xFF141922)
+    val Surface2 = Color(0xFF1B212C)
+    val Surface3 = Color(0xFF232A37)
+    val Surface4 = Color(0xFF2B3342)
     /** Bottom sheets sit above the dim scrim; slightly darker than Surface1 so glass reads on them. */
-    val SheetSurface = Color(0xFF0B0E13)
-    val Border = Color.White.copy(alpha = 0.10f)
-    val BorderStrong = Color.White.copy(alpha = 0.18f)
-    val CardBorder = Color.White.copy(alpha = 0.08f)
-    val TextPrimary = Color(0xFFF2F5FA)
-    val TextSecondary = Color(0xFFA3ADBE)
-    val TextMuted = Color(0xFF8A95A8)
-    val Spine = Color(0xFF242933)
+    val SheetSurface = Color(0xFF101419)
+    val Border = Color.White.copy(alpha = 0.12f)
+    val BorderStrong = Color.White.copy(alpha = 0.20f)
+    val CardBorder = Color.White.copy(alpha = 0.10f)
+    val TextPrimary = Color(0xFFF4F7FC)
+    val TextSecondary = Color(0xFFC6CEDC)
+    val TextMuted = Color(0xFFAAB3C3)
+    val Spine = Color(0xFF2C3542)
 
     /** Accents at equal tone. Names kept stable so every call site keeps its meaning. */
-    val Cobalt = Color(0xFF7FB0FF)
-    val Amber = Color(0xFFF0A93B)
-    val Sage = Color(0xFF5FD9A6)
-    val Crimson = Color(0xFFFF8A9B)
-    val Violet = Color(0xFFB79CFF)
-    val Teal = Color(0xFF6FE3D2)
-    val Indigo = Color(0xFF8C9BFF)
-    val Warning = Color(0xFFFFA861)
-    val WarningContainer = Color(0xFF33200E)
+    val Cobalt = Color(0xFF85B1F9)
+    val Amber = Color(0xFFE5A746)
+    val Sage = Color(0xFF69CFA4)
+    val Crimson = Color(0xFFF9909F)
+    val Violet = Color(0xFFB9A1FA)
+    val Teal = Color(0xFF78DACC)
+    val Indigo = Color(0xFF929FF9)
+    val Warning = Color(0xFFF7A969)
+    val WarningContainer = Color(0xFF3A2510)
 
     /** Ambient glow behind the content layer: the liquid glass refracts these two washes. */
-    val AmbientTop = Color(0xFF8C9BFF)
-    val AmbientBottom = Color(0xFFF0A93B)
-    val AmbientTopAlpha = 0.055f
-    val AmbientBottomAlpha = 0.035f
+    val AmbientTop = Color(0xFF929FF9)
+    val AmbientBottom = Color(0xFFE5A746)
+    val AmbientTopAlpha = 0.06f
+    val AmbientBottomAlpha = 0.04f
 
     /**
      * Translucent wash painted on top of refracted glass to keep text readable.
      *
-     * Dark-mode glass needs more opacity than light-mode glass: the panel has to survive the
-     * brightest thing that can scroll under it, and in this palette that is a saturated accent
-     * (amber #F0A93B). At 0.82 the worst case is still 12.5:1 for primary text and 5.8:1 for
-     * secondary, both above WCAG AA, while the blurred content and the rim highlight keep reading as
-     * glass. Muted text is not allowed on glass at any alpha — see `tools/check_contrast.py`.
+     * Dark-mode glass needs more opacity than light-mode glass, and the worst case is not an accent
+     * scrolling under the bar but **primary text** at #F4F7FC — the brightest content in the palette.
+     * Blended over that, 0.74 still leaves 8.2:1 for primary and 5.5:1 for secondary text; muted text
+     * falls to 4.2:1, so muted is used for meta text on solid surfaces only and never on glass (a rule
+     * the contrast gate enforces). Every point of opacity traded away is a point of glass gained, and
+     * the heavy blur (24-28 dp) is what makes the lower alpha safe: it removes the high-frequency
+     * detail that competes with text. Verified by `tools/check_contrast.py`.
      */
-    val GlassTint = Color(0xFF0B0D12)
-    val GlassTintAlpha = 0.82f
-    val GlassTintStrongAlpha = 0.86f
+    val GlassTint = Color(0xFF0B0E14)
+    val GlassTintAlpha = 0.74f
+    val GlassTintStrongAlpha = 0.80f
     /** Solid stand-in used when the platform cannot render the effect (below Android 12): the same
      *  tint at the same alpha over the surface it would have been floating on, so nothing shifts. */
-    val GlassFallback = Color(0xF20D1015)
-    val GlassFallbackStrong = Color(0xF70B0E13)
+    val GlassFallback = Color(0xBD0D1118)
+    val GlassFallbackStrong = Color(0xCC0C0F15)
+    /** Cool near-white specular highlight for the glass rim. Not pure white: the rim sits on top of
+     * everything else, and pure white would make the chrome the brightest thing on screen — exactly
+     * the halation the text tokens are tuned against. It is a 1.6 dp stroke at ≤0.38 alpha, so it
+     * reads as an edge and never as an area. */
+    val GlassRim = Color(0xFFF4F8FF)
+    /** Rim ramp stops, multiplied by each material's own rim strength: the highlight falls away from
+     * the top-left through the waist to the tail. */
+    val GlassRimWaist = 0.28f
+    val GlassRimTail = 0.04f
 
-    val School = CategoryStyle(Cobalt, Color(0xFF131C31), Color(0xFFD9E5FF))
-    val Focus = CategoryStyle(Amber, Color(0xFF2B2010), Color(0xFFFFE3B8))
-    val Recovery = CategoryStyle(Sage, Color(0xFF0E2A20), Color(0xFFC9F5E4))
-    val Exam = CategoryStyle(Crimson, Color(0xFF31141B), Color(0xFFFFDCE1))
-    val Project = CategoryStyle(Violet, Color(0xFF1F1633), Color(0xFFE6DDFF))
-    val Personal = CategoryStyle(TextSecondary, Surface2, Color(0xFFDDE3EC))
-    val subjectSwatches = listOf(0xFF7FB0FFL, 0xFF5FD9A6L, 0xFFF0A93BL, 0xFFFF8A9BL, 0xFFB79CFFL, 0xFF6FE3D2L)
+    val School = CategoryStyle(Cobalt, Color(0xFF16203A), Color(0xFFDCE7FF))
+    val Focus = CategoryStyle(Amber, Color(0xFF33260F), Color(0xFFFFE6BC))
+    val Recovery = CategoryStyle(Sage, Color(0xFF10301F), Color(0xFFCDF6E6))
+    val Exam = CategoryStyle(Crimson, Color(0xFF38161E), Color(0xFFFFDEE3))
+    val Project = CategoryStyle(Violet, Color(0xFF241A3B), Color(0xFFE9E0FF))
+    val Personal = CategoryStyle(TextSecondary, Surface2, Color(0xFFE0E6EF))
+    val subjectSwatches = listOf(0xFF85B1F9L, 0xFF69CFA4L, 0xFFE5A746L, 0xFFF9909FL, 0xFFB9A1FAL, 0xFF78DACCL)
 }
 
 @Immutable

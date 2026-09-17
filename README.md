@@ -53,8 +53,8 @@ No example timetable is inserted at startup. Settings offers a confirmed, one-ti
 
 ## Connected Slovenian / OLED integration
 
-- Shared OLED palette — every text/surface/glass pair verified against WCAG 2.1 by `tools/check_contrast.py` in CI, including the widget's XML mirror of the palette — hairline cards, bundled Roboto Flex, and tabular clock/countdown figures.
-- Liquid-glass chrome (kyant0 `backdrop`) over full-bleed content, a top bar that folds while the reader scrolls, spring transitions that follow the direction of travel, and full respect for the system's *Remove animations* setting and predictive back. See [the deep UI review](docs/audits/UI_DEEP_REVIEW.md).
+- Shared OLED palette — 141 text/surface/accent/glass pairs verified by `tools/check_contrast.py` in CI against **per-role minimums** (body text 11.8 / 8.0 / 6.0:1 worst case, not the 4.5:1 floor), with a halation guard that forbids both pure black and pure white, including the widget's XML mirror of the palette — hairline cards, bundled Roboto Flex, and tabular clock/countdown figures.
+- Liquid-glass chrome (kyant0 `backdrop`) over full-bleed content — per-role material tiers (24-28 dp blur, refraction lens with chromatic dispersion, 160 % saturation lift, specular rim) — a top bar that folds while the reader scrolls, spring transitions that follow the direction of travel, a derived back stack (scale → Goals → sheets, Goals exiting on the predictive-back drag itself), and full respect for the system's *Remove animations* setting. See [the deep UI review](docs/audits/UI_DEEP_REVIEW.md).
 - Agent3's adapted components replace the older daily card, navigator, load bar and calendar/warning UI; there is no second model or navigation stack.
 - Live NOW spine, real 15-minute-step long-press rescheduling, and distinct opt-out haptics for tap, drag, completion and new warnings.
 - Each saved subject automatically provides **Pouk / Učenje / Test** presets. Presets react to name, color and duration edits; deletion removes them without orphan rows. The milestone adder offers one-tap **Predpisan test** entries for the selected date/time.

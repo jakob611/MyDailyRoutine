@@ -5,11 +5,16 @@ Datum: 2026-09-16 · Veja: `arena/01a0a0f9-mydailyroutine` · Obseg: **celotna a
 barve), `AndroidManifest.xml`, CI gate-i.
 
 Pregled ni narejen »na oko«. Vsaka trditev spodaj je bodisi izmerjena (skripte v `tools/`),
-bodisi prebrana v dokumentaciji/virih (razdelek 6), bodisi preverjena v CI. Kjer je bila stvar
+bodisi prebrana v dokumentaciji/virih (razdelka 6 in 7), bodisi preverjena v CI. Kjer je bila stvar
 zavrnjena kot nepotrebna, je to zapisano v razdelku 5.
 
 > **Stanje: implementirano.** Popravki so v kodi, ne samo v tem dokumentu. Vsak popravek ima
 > v razdelku 3 svojo vrstico: težava → praksa → kje je popravljeno → kako je zavarovano v CI.
+>
+> **Dva kroga.** Razdelki 0–5 so prvi krog (2026-09-16). Po testu APK-ja na napravi so prišle tri
+> pripombe — gumb nazaj ne dela nikjer, besedilo je pogosto slabo berljivo, steklo še ni pravo —
+> zato je **razdelek 6 drugi krog (2026-09-17)** in njegove številke so trenutne; kjer si
+> nasprotujejo s tabelami zgoraj, velja razdelek 6.
 
 ---
 
@@ -228,6 +233,10 @@ vrednost vrne exit 1 z imenom barve in obema številkama.
 13+/14+ ne more narisati predogleda prejšnjega zaslona med gesto nazaj; z njim gesta nazaj v listih
 (cilji, nastavitve, načrt, urejevalnik) pokaže, kam gre, preden jo uporabnik dokonča.
 
+Zastavica sama ne naredi sklada: test na napravi je pokazal, da nazaj zapre aplikacijo, ker je v
+kodi takrat bilo **0** `BackHandler` klicev. Pravi sklad (merilo → cilji → listi) je implementiran v
+drugem krogu, §6.3.
+
 ---
 
 ## 4. Kaj zdaj preverja CI
@@ -236,7 +245,7 @@ vrednost vrne exit 1 z imenom barve in obema številkama.
 |---|---|---|
 | `tools/check_sqlite_integrity.py` | shema, FK, migracije, indeksi | 19 testov OK |
 | `tools/check_presentation.py` | slovenski nizi, pisava, tabularne številke, en domen model, merjene postavitve, en vir datuma, en backdrop okna, zasloni pod stekleno vrstico | 701 nizov, 43 datotek, 5 zaslonov |
-| `tools/check_contrast.py` (**nov**) | 137 parov WCAG, worst-case stekla, koraki rampe, bordi, ogledalo palete v XML, proste hex barve | exit 0 |
+| `tools/check_contrast.py` (**nov**) | 141 parov WCAG z nivojskimi minimumi, worst-case stekla čez `TextPrimary`, halacijski varoval, koraki rampe, bordi, ogledalo palete v XML, proste hex barve (2. krog, §6.4) | exit 0 |
 | `:core:test`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:lintDebug` | prevajanje, enote, lint (`abortOnError = true`) | uspešno (run 35136305318) |
 | `:app:connectedDebugAndroidTest` | 9 UI testov na napravi + 10 posnetkov | uspešno (run 35136305318) |
 
@@ -282,12 +291,142 @@ prek implicitnega sprejemnika ni kandidat. Vse tri so zdaj zapisane tudi v komen
 5. **Dynamic Color (Material You) ni vklopljen.** Namerno: paleta je del identitete in je
    preverjena za kontrast; barve iz ozadja uporabnika tega zagotovila nimajo.
 6. **`TextMuted` na steklu je prepovedan** in to je zapisano samo v komentarju ter izmerjeno v
-   gate-u — strojna prepoved (npr. lint pravilo ali parameter tipa) bi bila močnejša, a bi zahtevala
-   spremembo podpisov `RoutineText`/`RoutineLabel`.
+   gate-u (2. krog: worst-case je izračunan čez `TextPrimary`, zato je pravilo zdaj iz pravega
+   najslabšega primera) — strojna prepoved (npr. lint pravilo ali parameter tipa) bi bila močnejša,
+   a bi zahtevala spremembo podpisov `RoutineText`/`RoutineLabel`.
+7. **Sklad nazaj ima dve plasti, ne poljubno globok seznam.** Merilo in cilji sta edini plasti, ki
+   živita znotraj activity-ja; če bi kdaj pribil tretji celozaslonski pogled, bi ga bilo treba
+   dodati v vrstni red sestavljanja v `RoutineApp.kt` (globina = vrstni red). Splošnejša rešitev bi
+   bil Navigation 3 z `NavDisplay`, kar je prevelik poseg za to vejo.
 
 ---
 
-## 6. Viri
+## 6. Drugi krog (2026-09-17): berljivost, steklo, sklad nazaj
+
+Tri pripombe po testu na napravi, vsaka obravnavana z raziskavo in meritvijo, ne z ugibanjem:
+
+| Pripomba | Vzrok, ki ga je raziskava pokazala | Popravek |
+|---|---|---|
+| »Back gumb ne funkcionira nikjer« | v repozitoriju je bilo **0** klicev `BackHandler`; vsi zasloni so stanje znotraj enega activity-ja, zato je sistemski nazaj vedno padel do zaganjalnika | izpeljan sklad nazaj (§6.3) |
+| »Tekst pogosto težko berljiv« | prag 4,5:1 je bil obravnavan kot cilj; telesni nivoji (`TextSecondary` 6,3:1, `TextMuted` 4,7:1) so nosili večino branja, accenti pa so imeli več rezerve | paleta v2 z nivojskimi minimumi + halacijski varoval (§6.1, §6.4) |
+| »Liquid glass in izgled še ni najboljši« | blur 3–10 dp (to je motno steklo, ne tekoče), brez dviga nasičenosti/svetlosti, **brez roba** (rim), lom brez disperzije | steklo v2 po parametrih materialov (§6.2) |
+
+### 6.1 Paleta v2: zakaj je bilo besedilo težko berljivo
+
+Literatura o temnih temah se strinja v treh točkah, ki jih prvi krog ni upošteval dovolj:
+
+* **Niti čisto črno niti čisto belo.** Belo na črnem je 21:1 in pri astigmatizmu ali nižji
+  občutljivosti na kontrast bere kot vibriranje in halo. Material 3 dark zato ne uporablja `#000000`
+  in ne `#FFFFFF`: osnova je `#141218`, `onSurface` `#E6E1E5`, `onSurfaceVariant` `#CAC4D0`.
+* **Barve se v temnem načinu desaturira** (okoli 10–20 točk nasičenosti): popolnoma nasičena barva
+  na temnem polju »krvavi« preko robov in tekmuje z besedilom.
+* **4,5:1 je tla, ne cilj.** Za besedilo, ki nosi bralno obremenitev (ure, predmeti, namigi),
+  ciljne vrednosti praktičnih sistemov segajo k 7:1 in več.
+
+Prvi krog je zgrešil ravno tretjo točko: gate je zahteval 4,5:1 za vse, zato so telesni nivoji
+pristali tik nad pragom, medtem ko so accenti imeli rezervo. Berljivost pa določajo telesni nivoji.
+
+| Žeton | 1. krog | 2. krog | Najslabši primer po celem sistemu |
+|---|---|---|---|
+| `Background` | `#07080B` | `#0B0E13` | 1,086× luminanca čiste črne (halacijski prag 1,05) |
+| `Surface1..4` | `#0E1218` … `#252B36` | `#141922` … `#2B3342` | koraki 1,09 / 1,09 / 1,12 / 1,14 (kartica 1,192× črne) |
+| `SheetSurface` | `#0B0E13` | `#101419` | list ostane temnejši od vsebine |
+| `TextPrimary` | `#F2F5FA` (13,0:1) | `#F4F7FC` | **11,82:1** — namenoma pod 13:1, da ni hala; 2,6× praga |
+| `TextSecondary` | `#A3ADBE` (6,3:1) | `#C6CEDC` | **8,01:1** |
+| `TextMuted` | `#8A95A8` (4,7:1) | `#AAB3C3` | **6,01:1** |
+| Accenti (8) | nasičenost 100 % | nasičenost −9 do −11 točk, enak odtenek in svetlost | najšibkejši (`Indigo`) 5,2:1 |
+| `Border`/`Strong`/`Card` | 0,10/0,18/0,08 | 0,12/0,20/0,10 | ≥1,25:1 (gate) |
+| Kategorijske sklede | `#131C31` … | `#16203A` … | vsebina na skledi ≥12,1:1 |
+| `GlassTintAlpha`/`Strong` | 0,82/0,86 | **0,74/0,80** | glej §6.2: najslabši primer je zdaj bel tekst, ne accent |
+
+**Ključna sprememba pri steklu.** Prvi krog je worst-case stekla računal proti najbolj svetlemu
+*accentu* (amber). To ni najslabši primer: pod vrhnjo vrstico se pomika **belo besedilo** `#F4F7FC`.
+Preračunano čez njega tint 0,74 pusti 8,16:1 za primarni in 5,53:1 za sekundarni tekst; `TextMuted`
+pade na 4,15:1, zato ostaja pravilo prvega kroga — muted nikoli na steklu — zdaj pa je izračunano
+iz pravega worst case-a in vpisano v gate.
+
+**Halacijski varoval (nov, §11 v `check_contrast.py`):** osnova ≥1,05× črne, kartica ≥1,15× črne,
+najsvetlejši tekst ≤1,10× bele, najmočnejši par v aplikaciji ≤19:1 (izmerjeno 18,00). To je strojna
+oblika pravila »niti črno niti belo«: paleta ne more zdrsniti niti v eno skrajnost.
+
+### 6.2 Steklo v2: parametri materialov
+
+Raziskava (Apple Material tiers + implementacije tekočega stekla) da štiri številke, ki jih prvi krog
+ni imel: debelina blurja po vlogi, dvig nasičenosti in svetlosti, **specularni rob** in disperzija.
+
+| Vloga | blur | lom (višina/količina) | globina | disperzija | rob | tint |
+|---|---|---|---|---|---|---|
+| `Bar` (vrhnja vrstica, segmented) | **24 dp** | 14 / 22 dp | ne | da | 0,30 | 0,74 |
+| `Sheet` (glava/noga lista) | **28 dp** | 14 / 26 dp | da | da | 0,26 | 0,80 |
+| `Chip` (filtri, zavihki, pilule) | **14 dp** | 8 / 14 dp | ne | **ne** | 0,22 | 0,74 |
+| `Control` (FAB, plavajoči gumbi) | **18 dp** | 16 / 26 dp | da | da | 0,38 | 0 (hue-blend) |
+
+Reference za debelino: Apple thin 16–20, regular 28–34, navigacijska vrstica 40–48 px. Prejšnjih
+3–10 dp je bilo motno steklo — efekt, ki ga je bilo komaj videti, a je kljub temu jemal tint.
+
+* **Dvig barv:** `colorControls(brightness = 0.04, contrast = 1.02, saturation = 1.6)` namesto
+  `vibrancy()` (ki je natanko saturacija 1,5 brez svetlosti). To je tisto, zaradi česar steklo bere
+  kot osvetljeno od zadaj in ne kot siv pravokotnik.
+* **Specularni rob:** `RoutineColors.GlassRim` `#F4F8FF` (hladno bela, ne čista bela — rob je nad
+  vsem in bi čista bela naredila krom najsvetlejši element na zaslonu), linearni prehod
+  0,30 → 0,28× → 0,04× od zgoraj levo navzdol desno, poteza 1,6 dp centrirana na obris (obrez
+  pusti ~0,8 dp svetlobe). Rob je narisan **tudi** v rezervni poti (pod Androidom 12), ker je prav
+  rob tisti, ki pove, da je panel površina in ne madež.
+* **Disperzija (kromatska aberacija)** je vklopljena za vrstico, list in FAB, izklopljena za chip:
+  na 32 dp visokem chipu barvni robovi berejo kot tiskarska napaka, ne kot optika.
+
+**Preverjeno proti izvorni kodi verzije, ki jo dejansko uporabljamo** (`backdrop:1.0.0`,
+`gradle/libs.versions.toml`), ne proti dokumentaciji za 2.x: `lens(refractionHeight, refractionAmount,
+depthEffect, chromaticAberration)` in `colorControls(brightness, contrast, saturation)` obstajata v
+1.0.0; vrstni red effectov je colorFilter ⇒ blur ⇒ lens; `blur` nastavi `padding = radius` (ker je
+colorFilter že nastavil `renderEffect`), `lens` pa ga zmanjša za `refractionHeight` — ostane
+10 / 14 / 6 / 2 dp, vse pozitivno, torej brez artefaktov na robovih. Edina trda omejitev je
+`CornerBasedShape` (vse naše oblike so `RoundedCornerShape` ali `CircleShape`).
+
+### 6.3 Sklad nazaj
+
+Model: **sklad nazaj je stanje**, ne pomnjena struktura. Zasloni v tej aplikaciji so že stanje
+(`state.panels.showGoals`, `data.mode`), zato se sklad izpelje iz tega, kar je trenutno na zaslonu —
+vsaka plast prispeva en callback, Compose pa odgovori z **najglobljo vklopljeno** (callbacks tečejo
+v obratnem vrstnem redu dodajanja). Vrstni red sestavljanja v `RoutineApp.kt` je torej globina sklada:
+
+1. **Merilo (drill-down).** Tedenski/mesečni/letni pogled → dotik dneva preklopi v `DAY`
+   (`SelectDate(date, openDay = true)` v `RoutineViewModel`). Prejšnje merilo se shrani
+   (`drilledFrom`) in nazaj vrne nanj — ena globina, ker dan ne drill-a naprej. To je vedenje, ki ga
+   bralec koledarja pričakuje.
+2. **Cilji.** `PredictiveBackHandler(enabled = state.panels.showGoals)`: gesta sama animira izhod
+   (`graphicsLayer` prebere napredek v risalni fazi → `scaleX/Y = 1 − 0,08·p`, `alpha = 1 − 0,30·p`),
+   preklic vrne `CancellationException` naprej (požiranje bi podrlo strukturno sočasnost),
+   `finally` ponastavi napredek.
+3. **Listi in dialogi.** `ModalBottomSheet` in `AlertDialog` živita v svojem oknu in namestita svoj
+   callback, zato odgovorita **pred** obema plastema zgoraj; `onDismissRequest` je bil že povsod
+   pravilno pripet (preverjeno v prvem krogu).
+4. **Izhod.** Ko ni vklopljene nobene plasti, nazaj zapre aplikacijo — in sistem na Androidu 13+
+   pokaže predogled, ker je `android:enableOnBackInvokedCallback="true"` že v manifestu.
+
+Podpis API-ja preverjen za `activity-compose:1.11.0`:
+`PredictiveBackHandler(enabled: Boolean = true, onBack: suspend (Flow<BackEventCompat>) -> Unit)`,
+stabilen (brez opt-in na klicni strani).
+
+### 6.4 Gate v2 (`tools/check_contrast.py`)
+
+| Preverjanje | 1. krog | 2. krog |
+|---|---|---|
+| Minimumi za besedilo | 4,5:1 povsod | **po nivojih**: primarni ≥11,0, sekundarni ≥7,5, muted ≥5,5 |
+| Accenti | 4,5:1 | ≥5,0 |
+| Vsebina na kategorijski skledi | 4,5:1 | ≥7,0 (izmerjeno ≥12,1) |
+| Worst-case stekla | proti najbolj svetlemu accentu | **proti `TextPrimary`**: TP ≥7,0, TS ≥4,5; muted izključen in dokumentiran |
+| Koraki rampe | 1,03–1,25 | 1,05–1,20 |
+| Bordi | ≥1,15 | ≥1,25 |
+| Halacija | — | **nov §11**: osnova ≥1,05× črne, kartica ≥1,15× črne, tekst ≤1,10× bele, najmočnejši par ≤19:1 |
+| Obseg | 137 parov, 20 barv | **141 parov, 25 barv**, ogledalo XML 20 barv sinhrono |
+
+Nivojski minimumi so bistvo: gate zdaj ne preverja, ali je paleta *legalna*, ampak ali je
+*berljiva* — in ali je ostala takšna na vsakem nivoju posebej.
+
+---
+
+## 7. Viri
 
 **Dokumentacija (preverjeno v tej seji):**
 
@@ -309,7 +448,26 @@ prek implicitnega sprejemnika ni kandidat. Vse tri so zdaj zapisane tudi v komen
 Things 3, Morgen — vzorci iz razdelka 2.1: datum v naslovu, smer prehoda sledi potovanju, en
 pogled = ena naloga.
 
-**Izmerjeno v tem repozitoriju:** `tools/check_contrast.py` (137 parov, worst-case stekla, koraki
-rampe, ogledalo palete), `tools/check_presentation.py` (besedilna pogodba, drsniki, steklo),
+**Drugi krog — berljivost temnih tem:** Material 3 dark theme (toni `#141218`/`#E6E1E5`/`#CAC4D0`,
+elevation overlay) <https://m3.material.io/styles/color/dark-theme/overview>; WCAG 1.4.3 in 1.4.11
+(zgornje povezave); priporočila o izogibanju `#000000` ozadju in `#FFFFFF` besedilu zaradi halacije
+pri astigmatizmu ter o desaturaciji barv (~20 %) v temnem načinu — pregledani članki o dark-mode
+kontrastu in Material/Apple dark-theme smernice.
+
+**Drugi krog — tekoče steklo:** Apple Material/HIG debeline materialov (thin 16–20, regular 28–34,
+navigacija 40–48 px), saturacija 140–180 % + ~105 % svetlosti, temna prevleka 12/24/32 %, specularni
+rob (1 px prehod 25 % → 5 %), lom ~12/16 dp s kromatsko aberacijo; pravila o glass-on-glass in
+»legibility floor« iz dokumentacije kyant0 (`https://kyant.gitbook.io/backdrop/api/backdrop-effects`).
+Parametri v kodi so preverjeni proti **izvorni kodi tag-a 1.0.0** (`Lens.kt`, `ColorFilter.kt`,
+`Blur.kt`, `BackdropEffectScope.kt`), ker se API v 2.x razlikuje od dokumentacije.
+
+**Drugi krog — nazaj:** predvidljiv nazaj in `PredictiveBackHandler`
+<https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture>; veriga
+odgovornosti (najgloblji vklopljen callback zmaga; dialogi/listi so v svojem oknu); mentalni model
+Navigation 3 »back stack is just state«.
+
+**Izmerjeno v tem repozitoriju:** `tools/check_contrast.py` (141 parov, nivojski minimumi, worst-case
+stekla čez `TextPrimary`, halacijski varoval, koraki rampe, ogledalo palete),
+`tools/check_presentation.py` (besedilna pogodba, drsniki, steklo, ena paleta),
 `docs/audits/UI_TEXT_AND_SCROLL_AUDIT.md` (rezanje besedila), `docs/audits/UI_LAYOUT_CRITIQUE.md`
 (prekrivanje in prelom).

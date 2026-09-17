@@ -4,9 +4,19 @@
 Every value is parsed straight out of `DesignSystem.kt`, so what is checked here is what ships: the
 palette cannot drift away from the numbers in this file without CI noticing.
 
-Thresholds (WCAG 2.1):
-  * 4.5:1 for body text and anything read as text (1.4.3 AA),
-  * 3.0:1 for large text, icons and meaningful non-text boundaries (1.4.11).
+Thresholds. WCAG 2.1 AA (4.5:1 text, 3.0:1 non-text) is the *floor*, not the target: the dark-theme
+literature is unanimous that grey-on-grey is how dark UIs become unreadable, so this gate holds the
+palette to the levels it actually ships at, per role:
+
+  * 11.0:1 primary text, 7.5:1 secondary, 5.5:1 muted (worst surface in the ramp),
+  * 5.0:1 for accents, because they are used as text (metrics, chips, countdowns) and not only as fill,
+  * 7.0:1 for category content on its container,
+  * 7.0:1 / 4.5:1 / 4.5:1 for primary / secondary / muted text on glass, worst case,
+  * surface ramp steps inside 1.05-1.20 (Material 3's dark ramp steps 1.05-1.17),
+  * hairlines at >= 1.25:1, since thin borders need more brightness to survive on dark,
+  * and a halation guard: no pure black background, no pure white text, and the strongest pair in
+    the app stays under 19:1. White on black is 21:1 and reads as vibration for readers with
+    astigmatism or low contrast sensitivity.
 
 Glass is verified as a *worst case*, not as a screenshot. A translucent panel only has to fail once —
 when the brightest thing in the palette scrolls underneath it — for the text on it to become
@@ -74,19 +84,21 @@ SURFACES = ['Background', 'Surface1', 'Surface2', 'Surface3', 'Surface4', 'Sheet
 TEXTS = ['TextPrimary', 'TextSecondary', 'TextMuted']
 ACCENTS = ['Cobalt', 'Amber', 'Sage', 'Crimson', 'Violet', 'Teal', 'Indigo', 'Warning']
 
-# 1. Every text token on every surface it can appear on.
+# 1. Every text token on every surface it can appear on. The minimums are per role: the tokens that
+#    carry the reading load (times, subjects, hints) are the ones a dark theme usually starves.
+TEXT_MINIMUM = {'TextPrimary': 11.0, 'TextSecondary': 7.5, 'TextMuted': 5.5}
 for text in TEXTS:
     for surface in SURFACES:
-        check(f'text/{surface}', color(text), color(surface), 4.5)
+        check(f'text {text}/{surface}', color(text), color(surface), TEXT_MINIMUM[text])
 
 # 2. Accents are used as text (metrics, chips, countdowns), so they carry the text threshold too.
 for accent in ACCENTS:
     for surface in SURFACES:
-        check(f'accent {accent}/{surface}', color(accent), color(surface), 4.5)
+        check(f'accent {accent}/{surface}', color(accent), color(surface), 5.0)
 
 # 3. Category wells: content on container, and the accent stripe on its container.
 for name, (accent, container, content) in sorted(categories.items()):
-    check(f'category {name} content', content, container, 4.5)
+    check(f'category {name} content', content, container, 7.0)
     check(f'category {name} accent', color(accent), container, 3.0)
 
 # 4. Fixed pairs the app relies on.
@@ -103,24 +115,28 @@ for role, alpha_name in (('bar/chip', 'GlassTintAlpha'), ('sheet', 'GlassTintStr
     alpha = alphas[alpha_name]
     for behind in bright:
         panel = composite(color('GlassTint'), alpha, behind)
-        # Muted text is deliberately excluded: on glass only primary and secondary are allowed,
-        # which is what the palette documents and what the screens do.
-        check(f'glass {role} over {behind}', color('TextPrimary'), panel, 4.5)
+        # Muted text is deliberately excluded, and that exclusion is what buys the transparency: the
+        # worst case here is bright text scrolling under the bar, where TextMuted would land at 4.15:1.
+        # Glass chrome therefore uses TextPrimary and TextSecondary only, and the tint can sit at 0.74
+        # instead of 0.82 - which is the difference between a panel that reads as glass and one that
+        # reads as a grey rectangle. `tools/check_presentation.py` keeps the call sites honest.
+        check(f'glass {role} over {behind}', color('TextPrimary'), panel, 7.0)
         check(f'glass {role} over {behind}', color('TextSecondary'), panel, 4.5)
 
 # 6. The solid fallback (below Android 12) has to be as readable as the real thing.
+FALLBACK_MINIMUM = {'TextPrimary': 7.0, 'TextSecondary': 4.5}
 for fallback in ('GlassFallback', 'GlassFallbackStrong'):
-    for text in ('TextPrimary', 'TextSecondary'):
-        check(f'fallback {fallback}', color(text), color(fallback), 4.5)
+    for text, minimum in FALLBACK_MINIMUM.items():
+        check(f'fallback {text} on {fallback}', color(text), color(fallback), minimum)
 
 # 7. Elevation: the surface ramp has to be perceptible but must not eat text contrast.
-#    Material 3's own dark ramp steps between 1.05 and 1.17; outside 1.03-1.25 something is wrong.
+#    Material 3's own dark ramp steps between 1.05 and 1.17; outside 1.05-1.20 something is wrong.
 ramp = [color(name) for name in ('Background', 'Surface1', 'Surface2', 'Surface3', 'Surface4')]
 for lower, upper in zip(ramp, ramp[1:]):
     step = ratio(lower, upper)
-    rows.append(('surface step', lower, upper, step, 1.03))
-    if not 1.03 <= step <= 1.25:
-        failures.append(f'Surface step {lower}->{upper} is {step:.3f}: outside 1.03-1.25, elevation will '
+    rows.append(('surface step', lower, upper, step, 1.05))
+    if not 1.05 <= step <= 1.20:
+        failures.append(f'Surface step {lower}->{upper} is {step:.3f}: outside 1.05-1.20, elevation will '
                         f'either vanish or band')
 
 # 8. Hairlines are decorative (spacing and the surface step do the grouping), but they must be visible.
@@ -132,8 +148,8 @@ for border in ('Border', 'BorderStrong', 'CardBorder'):
         continue
     painted = composite('#FFFFFF', float(alpha.group(1)), color('Surface1'))
     step = ratio(painted, color('Surface1'))
-    rows.append((f'border {border}', '#FFFFFF@' + alpha.group(1), color('Surface1'), step, 1.15))
-    if step < 1.15:
+    rows.append((f'border {border}', '#FFFFFF@' + alpha.group(1), color('Surface1'), step, 1.25))
+    if step < 1.25:
         failures.append(f'{border} is invisible: {step:.2f}:1 against Surface1')
 
 # 9. The XML mirror has to be the same palette, not a second one.
@@ -184,6 +200,28 @@ for path in sorted(list((res / 'layout').glob('*.xml')) + list((res / 'drawable'
         stray.append(f'{path.relative_to(root)}: {found}')
 if stray:
     failures.append('stray hex colours in res/ (use @color/routine_*): ' + '; '.join(stray))
+
+# 11. Halation guard. Pure white on pure black is 21:1 and reads as vibration, not as contrast, which
+#     is the most common complaint about dark UI (astigmatism, low contrast sensitivity). The base may
+#     stay near-black for OLED, but the surface text actually sits on has to be a dark grey — Material
+#     3's own dark surface is 1.13x black — and the brightest text has to be a cool off-white.
+base = ratio(color('Background'), '#000000')
+card = ratio(color('Surface1'), '#000000')
+white = ratio(color('TextPrimary'), '#FFFFFF')
+strongest = ratio(color('TextPrimary'), color('Background'))
+rows.append(('halation: base off black', color('Background'), '#000000', base, 1.05))
+rows.append(('halation: card surface grey', color('Surface1'), '#000000', card, 1.15))
+rows.append(('halation: text off white', color('TextPrimary'), '#FFFFFF', white, 1.01))
+rows.append(('halation: headroom under 19:1', color('TextPrimary'), color('Background'), 19.0 - strongest, 0.0))
+if base < 1.05:
+    failures.append(f'Background {color("Background")} is pure black')
+if card < 1.15:
+    failures.append(f'Surface1 {color("Surface1")} is too close to black: text needs a dark grey card, '
+                    f'not a black one (Material 3 dark surface is 1.13x black)')
+if white < 1.01:
+    failures.append(f'TextPrimary {color("TextPrimary")} is pure white; use a cool off-white')
+if strongest > 19.0:
+    failures.append(f'Strongest text/background pair is {strongest:.2f}:1 (limit 19:1): halation risk')
 
 width = max(len(label) for label, *_ in rows)
 for label, foreground, background, value, minimum in rows:

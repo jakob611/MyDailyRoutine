@@ -15,6 +15,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.annotation.StringRes
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
 import org.junit.Rule
@@ -152,6 +153,26 @@ class TimelineUiTest {
         compose.onNodeWithText(text(R.string.goals_progress_log)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.goals_add_activity)).assertDoesNotExist()
         captureTag("09-goals-tabs", "goal-tab-body")
+    }
+    /**
+     * The system back button walks the stack the reader built, innermost layer first: Goals closes
+     * before the day does, and the day returns to the scale it was drilled into instead of leaving
+     * the app. Sheets and dialogs are not tested here — they answer from their own window.
+     */
+    @Test fun systemBackClosesGoalsAndWalksOutOfTheDay() {
+        awaitText(R.string.day_heading)
+        click(R.string.nav_week); awaitText(R.string.week_heading)
+        compose.onAllNodesWithTag("week-day-column")[0].performClick()
+        awaitText(R.string.day_heading)
+        compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()
+        awaitText(R.string.goals_empty_body)
+        // First back: Goals closes and the day underneath is reachable again.
+        Espresso.pressBack()
+        awaitText(R.string.day_heading)
+        // Second back: the day unwinds to the week it was drilled into, not to the launcher.
+        Espresso.pressBack()
+        awaitText(R.string.week_heading)
+        capture("11-back-stack")
     }
     /** The year view keeps its countdown and folds the three long panels away. */
     @Test fun yearOverviewFoldsItsLongSections() {
