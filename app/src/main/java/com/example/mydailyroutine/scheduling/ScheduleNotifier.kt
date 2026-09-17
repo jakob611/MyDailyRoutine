@@ -31,11 +31,11 @@ class ScheduleNotifier(private val context: Context) {
     /** The notification accent is the category's own hue, the same one the timeline spine uses. */
     private val categoryAccent = mapOf(
         RoutineCategory.SCHOOL to R.color.routine_cobalt,
-        RoutineCategory.FOCUS to R.color.routine_amber,
+        RoutineCategory.FOCUS_ANALYTICAL to R.color.routine_amber,
+        RoutineCategory.FOCUS_SYNTHESIZING to R.color.routine_violet,
+        RoutineCategory.ADMIN to R.color.routine_neutral,
         RoutineCategory.REST_BUFFER to R.color.routine_sage,
-        RoutineCategory.EXAM to R.color.routine_crimson,
-        RoutineCategory.PROJECT to R.color.routine_violet,
-        RoutineCategory.PERSONAL to R.color.routine_neutral,
+        RoutineCategory.EMERGENCY_RESERVE to R.color.routine_sage,
     )
 
     fun ensureChannels() {
