@@ -149,7 +149,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
     ) { isEmpty ->
         if (isEmpty) {
             Box(Modifier.fillMaxSize().padding(top = topInset)) {
-                GoalEmptyState(busy, onAction) { haptics.tap(); addingProject = true }
+                GoalEmptyState(busy, onAction) { haptics.press(); addingProject = true }
             }
         } else {
             Column(Modifier.fillMaxSize()) {
@@ -162,7 +162,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                     items(goals.projects, key = { it.id }) { candidate ->
                         FilterChip(
                             selected = project?.id == candidate.id,
-                            onClick = { haptics.tap(); selectedId = candidate.id; tab = GoalTab.OVERVIEW },
+                            onClick = { haptics.selection(); selectedId = candidate.id; tab = GoalTab.OVERVIEW },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
                             modifier = Modifier.testTag("goal-project-${candidate.id}"),
@@ -171,7 +171,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                     }
                     item {
                         SuggestionChip(
-                            onClick = { haptics.tap(); addingProject = true },
+                            onClick = { haptics.press(); addingProject = true },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
                             modifier = Modifier.testTag("goal-project-new"),
@@ -187,7 +187,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                         entries = GoalTab.entries.toList(),
                         selected = tab,
                         label = { stringResource(it.labelRes) },
-                        onSelect = { haptics.tap(); tab = it },
+                        onSelect = { haptics.selection(); tab = it },
                         modifier = Modifier.padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.sm),
                         tagPrefix = "goal-tab",
                         enabled = !busy,
@@ -201,7 +201,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                             GoalTab.OVERVIEW -> {
                                 item(key = "status") {
                                     StatusCard(project, activities, milestones, progress, busy,
-                                        onEdit = { haptics.tap(); editingProject = project }, onAction = onAction)
+                                        onEdit = { haptics.press(); editingProject = project }, onAction = onAction)
                                 }
                                 item(key = "gantt") {
                                     Card(
@@ -220,7 +220,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                                                 maxLines = RoutineTextDefaults.Body,
                                             )
                                             GoalGantt(goals.projects, goals.activities, goals.milestones, project.id) { activity ->
-                                                haptics.tap()
+                                                haptics.press()
                                                 goals.projects.firstOrNull { it.id == activity.projectId }?.let { selectedId = it.id }
                                                 editingActivity = activity
                                             }
@@ -230,13 +230,13 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                             }
                             GoalTab.ACTIVITIES -> item(key = "activities") {
                                 ActivityList(activities, progress, busy, onAction,
-                                    onAdd = { haptics.tap(); addingActivity = true },
-                                    onEdit = { haptics.tap(); editingActivity = it })
+                                    onAdd = { haptics.press(); addingActivity = true },
+                                    onEdit = { haptics.press(); editingActivity = it })
                             }
                             GoalTab.MILESTONES -> item(key = "milestones") {
                                 MilestoneList(milestones, busy, onAction,
-                                    onAdd = { haptics.tap(); addingMilestone = true },
-                                    onEdit = { haptics.tap(); editingMilestone = it })
+                                    onAdd = { haptics.press(); addingMilestone = true },
+                                    onEdit = { haptics.press(); editingMilestone = it })
                             }
                             GoalTab.PROGRESS -> item(key = "progress") {
                                 ProgressLog(progress, activities, busy, onAction)
@@ -1365,7 +1365,9 @@ private fun DeleteConfirmation(
         confirmButton = {
             TextButton(
                 enabled = !busy,
-                onClick = { haptics.warning(); onDelete(); onConfirm() },
+                // Deleting dispatches an action, and the wrapper answers every destructive action with the
+                // error haptic. Warning here as well would be two vibrations for one decision.
+                onClick = { onDelete(); onConfirm() },
             ) { RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson) }
         },
         dismissButton = {

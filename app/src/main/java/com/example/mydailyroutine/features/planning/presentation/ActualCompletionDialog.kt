@@ -72,7 +72,7 @@ fun ActualCompletionDialog(block: ResolvedTimelineItem.Block, busy: Boolean, onA
                     listOf(15, 30, 45, 60, 90, planned).distinct().sorted().forEach { option ->
                         FilterChip(
                             selected = value == option,
-                            onClick = { haptics.tap(); minutes = option.toString(); invalid = false },
+                            onClick = { haptics.selection(); minutes = option.toString(); invalid = false },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
                             label = { RoutineLabel(stringResource(R.string.duration_minutes, option)) },

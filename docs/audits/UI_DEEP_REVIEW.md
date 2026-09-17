@@ -294,7 +294,14 @@ prek implicitnega sprejemnika ni kandidat. Vse tri so zdaj zapisane tudi v komen
    gate-u (2. krog: worst-case je izračunan čez `TextPrimary`, zato je pravilo zdaj iz pravega
    najslabšega primera) — strojna prepoved (npr. lint pravilo ali parameter tipa) bi bila močnejša,
    a bi zahtevala spremembo podpisov `RoutineText`/`RoutineLabel`.
-7. **Sklad nazaj ima dve plasti, ne poljubno globok seznam.** Merilo in cilji sta edini plasti, ki
+7. **Haptika je odvisna od motorja.** `RoutineHaptics` je štiri nivoje globok in najnižji nivo ni
+   naš: na napravah, ki ne znajo risati primitivov (`arePrimitivesSupported()` vrne false) ali so pod
+   API 29, odločitev pade na `View.performHapticFeedback`, kjer jakost uglašuje OEM. *Vrsta*
+   povratne informacije (izbira / pritisk / uspeh / napaka) ostane prava povsod, natančna jakost ne.
+8. **Interaktivno steklo je na enem kontrolniku** (plavajoči »Dodaj«). Apple interaktivnost uporablja
+   tam, kjer je pritisk res dogodek; deset hkrati animiranih steklenih plasti bi bilo nasprotno od
+   tistega, kar steklo počne — miruje v ustaljenih stanjih.
+9. **Sklad nazaj ima dve plasti, ne poljubno globok seznam.** Merilo in cilji sta edini plasti, ki
    živita znotraj activity-ja; če bi kdaj pribil tretji celozaslonski pogled, bi ga bilo treba
    dodati v vrstni red sestavljanja v `RoutineApp.kt` (globina = vrstni red). Splošnejša rešitev bi
    bil Navigation 3 z `NavDisplay`, kar je prevelik poseg za to vejo.
@@ -424,6 +431,102 @@ stabilen (brez opt-in na klicni strani).
 Nivojski minimumi so bistvo: gate zdaj ne preverja, ali je paleta *legalna*, ampak ali je
 *berljiva* — in ali je ostala takšna na vsakem nivoju posebej.
 
+### 6.5 Tretji krog (2026-09-17): otip in gibanje po iOS
+
+Poročilo uporabnika je bilo, da je steklo »še ne najboljše«, naročilo pa natančno: preuči iOS
+liquid glass — **točne vibracije in animacije** — in jih naredi na Androidu. Rezultat so trije
+sklopi: semantična haptika, Appleove vzmeti pretvorjene po formuli (ne približane) in interaktivno
+steklo, ki se odziva na prst.
+
+#### 6.5.1 Haptika: iOS ne pozna »vibracije«, pozna tri družine
+(`core/designsystem/haptics/RoutineHaptics.kt`)
+
+| iOS | metoda | API 31+ (`Composition`) | API 29+ | API 24+ (OEM) |
+|---|---|---|---|---|
+| impact `.light` | `tap()` | `PRIMITIVE_TICK` 0,55 | `EFFECT_TICK` | `VIRTUAL_KEY` |
+| impact `.medium` | `press()` | `PRIMITIVE_CLICK` 0,80 | `EFFECT_CLICK` | `CONTEXT_CLICK` |
+| impact `.heavy`/`.rigid` | `impact()` | `PRIMITIVE_THUD` 1,00 | `EFFECT_HEAVY_CLICK` | `LONG_PRESS` |
+| `selectionChanged()` | `selection()` | `PRIMITIVE_LOW_TICK` 0,50 | `EFFECT_TICK` | `CLOCK_TICK` |
+| detent | `dragThreshold()` | `PRIMITIVE_TICK` 0,70 | `SEGMENT_TICK` (30+) | `CLOCK_TICK` |
+| notification `.success` | `confirm()`, `complete()` | `TICK` 0,50 → `CLICK` 0,85 | `EFFECT_DOUBLE_CLICK` | val 25/30 ms, 70/110 |
+| notification `.warning` | `warning()` | `PRIMITIVE_CLICK` 1,00 | `EFFECT_CLICK` | val 20/20 ms, 50/40 |
+| notification `.error` | `reject()` | `TICK` 0,40 → `CLICK` 0,70 → `THUD` 1,00 | `EFFECT_HEAVY_CLICK` | val naraščajoče |
+| gesture start/end | `dragStart()`, `dragEnd()` | — | `GESTURE_START`/`_END` (30+) | `LONG_PRESS`/`VIRTUAL_KEY` |
+| stikalo | `toggle(on)` | — | `TOGGLE_ON`/`TOGGLE_OFF` (34+) | `confirm()` / `tap()` |
+
+Dve pošteni razliki proti Appleu, zapisani tudi v kodi:
+
+* **Sharpnessa ni.** Core Haptics (AHAP) ima dva zvezna parametra — intenziteto in ostrino; javni
+  Android API izpostavlja samo intenziteto. Ostrina je zato v *izbiri primitiva*: `TICK` je kratek in
+  oster (soft 0,4/0,4), `THUD` nizek in mehak (strong 1,0/0,8). Izbira primitiva **je** izbira ostrine.
+* **Štirje nivoji nazaj, ne eden.** `PRIMITIVE_THUD`, `PRIMITIVE_LOW_TICK` in `PRIMITIVE_SPIN` so
+  API 31, `addPrimitive` API 30, in primitivi so *izbirna strojna oprema* — motor, ki jih ne zna
+  risati, to pove prek `arePrimitivesSupported()`. Zato je vsaka metoda: sestavljen primitiv z
+  eksplicitno intenziteto → preddefiniran efekt → platformina konstanta → valovna oblika.
+
+**Popravljen `warning()`:** bil je `DOUBLE_CLICK`, kar je na iOS *success* vzorec — opozorilo in
+uspeh sta se torej občutila enako. Zdaj je sredinski enojni tap, kot v `UINotificationFeedbackGenerator`.
+
+**En vir resnice za dejanja.** Prej je 42 mest klicalo `tap()`: vsak gumb je sam odločal, vse pa se
+je občutilo enako. Zdaj haptiko dejanj določa ovojnica v `RoutineApp.onAction`, razvrščena po *pomenu*
+dejanja — izbira (način, datum, premik, danes) = `selection()`; odpiranje površine (Dodaj, Načrt,
+Nastavitve, Naloge, Cilji, urejanje, zagon izvedbe) = `press()`; shranjevanje/uvoz/obnovitev/
+samopopravek = `confirm()`; brisanje/preklic/preskok = `reject()`; nastavitvena stikala =
+`toggle(vklopljeno)`; zapiranje in vse ostalo = `tap()`. `ToggleComplete`, `SyncExecution` in
+preklopi ciljev ostanejo tihi, ker odgovorijo prek svojega efekta (`TimelineEffect.Completed`).
+Lokalni haptiki, ki bi dejanje **podvojili**, so odstranjeni: uvoz urnika, potrditev brisanja v
+ciljih in dolgi pritisk na predmet (vsak od njih pošlje dejanje, ovojnica pa ga že sliši).
+
+#### 6.5.2 Gibanje: Appleove vzmeti po formuli, ne po občutku
+(`core/designsystem/motion/RoutineMotion.kt`)
+
+WWDC23 »Animate with springs« pove pretvorbo točno: masa 1, `k = (2π ÷ trajanje)²`,
+`ζ = 1 − bounce`. `appleSpring(trajanje, bounce)` je ta formula; `AppleMotion` hrani številke z
+izvorom, da nihče ne ugiba, ali je vrednost izmišljena ali prebrana.
+
+| SwiftUI | trajanje | bounce | `appleSpring` → stiffness |
+|---|---|---|---|
+| `.smooth` / `.snappy` / `.bouncy` | 0,5 s | 0 / 0,15 / 0,30 | 158 |
+| `.bouncy(duration: 0.4)` | 0,4 s | 0,30 | 247 |
+| drag release v Appleovih vzorcih za liquid glass | 0,3 s | 0,40 | 439 |
+
+Compose-ov `StiffnessMedium` (1500) je vzmet 0,16 s — približno trikrat hitrejša. Obe platformi imata
+prav; napaka je mešanje znotraj ene interakcije. Zato velja pravilo, zapisano v obeh datotekah:
+**`spatialSpec` (Material) premika vsebino, `glassTouchSpec`/`glassMorphSpec` (Apple) premikata
+stekleni krom.** Vse tri funkcije ob izklopu animacij vrnejo `snap()`.
+
+#### 6.5.3 Interaktivno steklo in 15-minutni detenti
+(`core/designsystem/glass/RoutineGlass.kt`, `features/timeline/components/TimelineComponents.kt`)
+
+`rememberGlassTouch()` + `Modifier.routineGlassTouch()` sta prevod `.glassEffect(.regular.interactive())`:
+
+* **Skrčenje na 0,96** ob pritisku in izpust na Appleovi vzmeti 0,3 s / ζ 0,6 (rahel prekorač, kot
+  pri spuščanju povlečenega stekla);
+* **osvetlitev v točki dotika** — radialni sij prek `drawOutline` (ne krog: modifier sedi *zunaj*
+  panelovega clip-a, krog bi se razlil čez zaobljene robove), jakost do `GlassTouchGlow` 0,22,
+  animirana z efektnim tweenom 120 ms. Premik sme prekoračiti cilj, svetlost ne — zato dva spec-a;
+* **brez Material valovčka**: `clickable(interactionSource = touch.source, indication = null)`,
+  ker je skrčenje *že* stanjska plast; valovček čez lomni panel je drug, protisloven odgovor;
+* **vrstni red**: `routineGlassTouch` je prvi v verigi, pred `routineGlass`, da scale ovije cel panel
+  (steklo + rob + vsebina) namesto da se bori s panelovim clip-om.
+
+Namerno **izpuščeno**, z razlogom v kodi: *shimmer* (na OLED deluje kot šum; Apple ga uporabi le ob
+prvem pojavu materiala) in *morphing med dvema stekloma* (zahteva vzorčenje druge plasti, kar je
+glass-on-glass — v dokumentaciji kyant0 in v Appleovih vzorcih izrecno odsvetovano; naš sklad že
+uporablja dve plasti).
+
+Drag bloka na časovnici zdaj odda `dragThreshold()` **na vsak prestopljeni 15-minutni korak** — prst
+sliši detente, ki jih na gostem dnevu ne vidi (iOS picker rail). Preklic drag-a vrne `dragEnd()`;
+uspešen spust ne vrne ničesar lokalno, ker `SaveBlockEdit` v ovojnici že dobi `confirm()`.
+
+#### 6.5.4 Test in CI
+
+`systemBackClosesGoalsAndWalksOutOfTheDay` je padel z `IndexOutOfBoundsException`: naslov tedna
+pride pred stolpci (stolpci so leno sestavljen element), test pa je segel po `[0]`. Dodan
+`waitUntil`. CI ob padcu zdaj **najprej** objavi ime padlega testa in njegovo trditev iz Gradlovega
+XML — prej so grep-i po dnevniku porabili budget annotacij, »1 test failed« brez imena pa je
+neuporaben.
+
 ---
 
 ## 7. Viri
@@ -465,6 +568,35 @@ Parametri v kodi so preverjeni proti **izvorni kodi tag-a 1.0.0** (`Lens.kt`, `C
 <https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture>; veriga
 odgovornosti (najgloblji vklopljen callback zmaga; dialogi/listi so v svojem oknu); mentalni model
 Navigation 3 »back stack is just state«.
+
+**Tretji krog — iOS otip in gibanje:** Apple HIG, igranje haptike (tri družine generatorjev, kdaj
+katera) <https://developer.apple.com/design/human-interface-guidelines/playing-haptics>;
+`UIImpactFeedbackGenerator` (light/medium/heavy/soft/rigid), `UISelectionFeedbackGenerator`,
+`UINotificationFeedbackGenerator` (success = dva lahka tapa, warning = en srednji, error = trije
+naraščajoči) <https://developer.apple.com/documentation/uikit/uiimpactfeedbackgenerator>;
+WWDC23 »Animate with springs« (masa 1, `k = (2π/trajanje)²`, `ζ = 1 − bounce`; `.smooth`/`.snappy`/
+`.bouncy` = 0,5 s z bounce 0/0,15/0,3; bounce > 0,4 je pretirano)
+<https://developer.apple.com/videos/play/wwdc2023/10158/>; Appleovi vzorci za liquid glass
+(`.glassEffect(.regular.interactive())`, spuščanje povlečenega stekla na `.spring(response: 0.3,
+dampingFraction: 0.6)`, dvig na 1,1 med dragom, `GlassEffectContainer` za morphing, pravilo
+»steklo miruje v ustaljenih stanjih« in odsvetovanje glass-on-glass) — pregledani prek referenčne
+zbirke <https://github.com/conorluddy/LiquidGlassReference>.
+
+**Tretji krog — Android ekvivalenti:** `VibrationEffect.Composition` in primitivi
+(`PRIMITIVE_CLICK`, `PRIMITIVE_TICK`, `PRIMITIVE_QUICK_RISE`, `PRIMITIVE_SLOW_RISE`,
+`PRIMITIVE_QUICK_FALL` = API 30; `PRIMITIVE_THUD`, `PRIMITIVE_SPIN`, `PRIMITIVE_LOW_TICK` = API 31;
+`addPrimitive(int, float)` = API 30, `addPrimitive(int, float, int, int)` in `DELAY_TYPE_*` = API 36;
+javni API **nima** parametra sharpness) <https://developer.android.com/reference/android/os/VibrationEffect.Composition>;
+preddefinirani efekti `EFFECT_CLICK`/`EFFECT_DOUBLE_CLICK`/`EFFECT_TICK`/`EFFECT_HEAVY_CLICK` = API 29
+<https://developer.android.com/reference/android/os/VibrationEffect>; `arePrimitivesSupported()` =
+API 30 <https://developer.android.com/reference/android/os/Vibrator>; `HapticFeedbackConstants`
+(`CLOCK_TICK` 21, `CONTEXT_CLICK` 23, `GESTURE_START`/`GESTURE_END`/`SEGMENT_TICK` 30,
+`SEGMENT_FREQUENT_TICK` 33, `TOGGLE_ON`/`TOGGLE_OFF` 34)
+<https://developer.android.com/reference/android/view/HapticFeedbackConstants>; preslikava iOS → Android
+(light → TICK, medium → CLICK, heavy → THUD/`EFFECT_HEAVY_CLICK`, soft → TICK pri 0,3, rigid → CLICK
+pri 0,9) iz <https://github.com/mkuczera/react-native-haptic-feedback>; AHAP intenziteta/ostrina
+(soft 0,4/0,4; strong 1,0/0,8; naravna frekvenca Taptic Engine 100–250 Hz)
+<https://developer.apple.com/documentation/corehaptics>.
 
 **Izmerjeno v tem repozitoriju:** `tools/check_contrast.py` (141 parov, nivojski minimumi, worst-case
 stekla čez `TextPrimary`, halacijski varoval, koraki rampe, ogledalo palete),

@@ -85,6 +85,8 @@ import com.example.mydailyroutine.core.designsystem.glass.LocalRoutineBackdrop
 import com.example.mydailyroutine.core.designsystem.glass.RoutineAmbientBackground
 import com.example.mydailyroutine.core.designsystem.glass.RoutineBackdropProvider
 import com.example.mydailyroutine.core.designsystem.glass.RoutineGlassSurface
+import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
+import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.glass.routineBackdropLayer
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.features.tasks.presentation.TasksSheet
@@ -113,8 +115,50 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         }
     }
     val onAction: (TimelineAction) -> Unit = remember(viewModel, haptics) { { action ->
-        if (action !is TimelineAction.ToggleComplete && action !is TimelineAction.SyncExecution && action !is TimelineAction.ToggleTask &&
-            action !is TimelineAction.ToggleGoalMilestone && action !is TimelineAction.ToggleGoalActivity) haptics.tap()
+        // One haptic per action, chosen by what the action *means* instead of one tick for everything.
+        // Apple's generators are semantic — selection for a discrete step, impact for a collision,
+        // notification for an outcome — and that mapping is most of why an iPhone feels precise. The
+        // toggles and the execution sync stay silent here because they answer through their own
+        // effects (`TimelineEffect.Completed`), and a second haptic would muddy the first.
+        when (action) {
+            is TimelineAction.ToggleComplete, is TimelineAction.SyncExecution, is TimelineAction.ToggleTask,
+            is TimelineAction.ToggleGoalMilestone, is TimelineAction.ToggleGoalActivity -> Unit
+            // A discrete step under the finger: a scale, a date, a nudge through time.
+            is TimelineAction.SelectMode, is TimelineAction.SelectDate, is TimelineAction.Shift,
+            is TimelineAction.Today -> haptics.selection()
+            // A switch changing side. Android has had distinct on/off haptics since API 34, as iOS has.
+            is TimelineAction.SetReminder -> haptics.toggle(action.enabled)
+            is TimelineAction.SetAutomaticHealing -> haptics.toggle(action.enabled)
+            is TimelineAction.SetHaptics -> haptics.toggle(action.enabled)
+            is TimelineAction.SetMute -> haptics.toggle(action.muted)
+            // A change committed: Apple's `.success`, two light taps.
+            is TimelineAction.SaveEntry, is TimelineAction.SaveBlockEdit, is TimelineAction.SaveSubject,
+            is TimelineAction.SaveTopic, is TimelineAction.SaveGoalsProject, is TimelineAction.SaveGoalActivity,
+            is TimelineAction.SaveGoalMilestone, is TimelineAction.AddGoalProgress, is TimelineAction.SeedGoalProject,
+            is TimelineAction.AddTask, is TimelineAction.UpdateTask, is TimelineAction.AddReserve,
+            is TimelineAction.PlanMilestone, is TimelineAction.RecordActual, is TimelineAction.ImportTimetable,
+            is TimelineAction.ImportSchedule, is TimelineAction.Restore, is TimelineAction.InsertRecovery,
+            is TimelineAction.AutoHeal, is TimelineAction.ScheduleBacklog, is TimelineAction.TaskToSchedule,
+            is TimelineAction.GoalActivityToSchedule, is TimelineAction.SaveSleep, is TimelineAction.SaveEntryDefaults,
+            is TimelineAction.SetPlanningConfig, is TimelineAction.SetHealthConfig, is TimelineAction.SetPeriodicBreak,
+            is TimelineAction.SetSchoolWindow, is TimelineAction.SetTeachingEnd, is TimelineAction.LoadDemo,
+            is TimelineAction.ExportSchedule -> haptics.confirm()
+            // Something destroyed or refused: Apple's `.error`, three taps of rising strength.
+            is TimelineAction.ConfirmDelete, is TimelineAction.DeleteTopic, is TimelineAction.DeleteSubject,
+            is TimelineAction.DeleteTask, is TimelineAction.DeleteBacklog, is TimelineAction.DeleteGoalsProject,
+            is TimelineAction.DeleteGoalActivity, is TimelineAction.DeleteGoalMilestone,
+            is TimelineAction.DeleteGoalProgress, is TimelineAction.DeleteSeries,
+            is TimelineAction.ClearCompletedTasks, is TimelineAction.Skip, is TimelineAction.CancelExecution ->
+                haptics.reject()
+            // A surface opening under the finger: a medium impact, the one Apple's interactive glass fires.
+            is TimelineAction.OpenAdd, is TimelineAction.OpenPlanning, is TimelineAction.OpenSettings,
+            is TimelineAction.OpenTasks, is TimelineAction.OpenGoals, is TimelineAction.ShowTimetableImport,
+            is TimelineAction.Edit, is TimelineAction.EditSubject, is TimelineAction.NewTopic,
+            is TimelineAction.StartExecution, is TimelineAction.RequestDelete, is TimelineAction.RequestDemo ->
+                haptics.press()
+            // Everything else is a light impact: closing, dismissing, retrying.
+            else -> haptics.tap()
+        }
         viewModel.onAction(action)
     } }
     val snackbars = remember { SnackbarHostState() }
@@ -326,18 +370,28 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                 }
             }
             // Amber glass: hue-blended, so the refracted content keeps its shading under the accent.
-            if (!state.panels.showGoals) Box(
-                Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(RoutineSpacing.lg)
-                    .height(56.dp).testTag("fast-add")
-                    .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control, RoutineColors.Amber, hue = true)
-                    .clip(RoutineShapes.Pill)
-                    .clickable(role = Role.Button) { onAction(TimelineAction.OpenAdd) }
-                    .padding(horizontal = RoutineSpacing.lg),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                    Icon(Icons.Default.Add, null, tint = RoutineColors.Background)
-                    RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Background)
+            // Interactive in Apple's sense: it shrinks a few percent under the finger, lights up at
+            // the touch point and springs back on the glass release spring. The ripple is switched off
+            // on purpose — the scale *is* the state layer here, and a Material ripple on top of a
+            // refracting panel is a second, contradicting answer.
+            if (!state.panels.showGoals) {
+                val fastAddTouch = rememberGlassTouch(reduceMotion)
+                Box(
+                    Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(RoutineSpacing.lg)
+                        .height(56.dp).testTag("fast-add")
+                        .routineGlassTouch(fastAddTouch, RoutineShapes.Pill)
+                        .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control, RoutineColors.Amber, hue = true)
+                        .clip(RoutineShapes.Pill)
+                        .clickable(interactionSource = fastAddTouch.source, indication = null, role = Role.Button) {
+                            onAction(TimelineAction.OpenAdd)
+                        }
+                        .padding(horizontal = RoutineSpacing.lg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+                        Icon(Icons.Default.Add, null, tint = RoutineColors.Background)
+                        RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Background)
+                    }
                 }
             }
             // The Scaffold used to keep the snackbar clear of the button; in a plain stack that has to

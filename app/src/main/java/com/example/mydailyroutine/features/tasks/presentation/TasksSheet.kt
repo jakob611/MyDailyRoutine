@@ -197,7 +197,7 @@ fun TasksSheet(
                     val doneChevron by animateFloatAsState(if (showDone) 180f else 0f, spatialSpec<Float>(LocalReduceMotion.current), label = "done-chevron")
                     Row(
                     Modifier.fillMaxWidth().animateItem(placementSpec = taskListSpec())
-                        .clickable(enabled = !busy) { haptics.tap(); showDone = !showDone },
+                        .clickable(enabled = !busy) { haptics.toggle(!showDone); showDone = !showDone },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                 ) {

@@ -162,6 +162,9 @@ class TimelineUiTest {
     @Test fun systemBackClosesGoalsAndWalksOutOfTheDay() {
         awaitText(R.string.day_heading)
         click(R.string.nav_week); awaitText(R.string.week_heading)
+        // The heading lands before the grid does: the day columns are a lazily composed item, so
+        // waiting for them is what keeps this from indexing an empty collection mid-transition.
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("week-day-column").fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodesWithTag("week-day-column")[0].performClick()
         awaitText(R.string.day_heading)
         compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()

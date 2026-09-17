@@ -17,6 +17,24 @@ if [ "$status" -ne 0 ]; then
   adb logcat -d -v threadtime > ci-device-logcat.log 2>&1 || true
   esc() { printf '%s' "$1" | tr -d '\r' | sed 's/%/%25/g' | cut -c1-400; }
   emit() { echo "::error title=device-test failure::$(esc "$1")"; }
+  # The failing test name and its assertion go out first: log ZIP downloads are blocked in some
+  # sandboxes, the annotation budget per step is small, and "1 test failed" without a name is
+  # worthless. Parsed straight out of the XML Gradle wrote.
+  python3 - > /tmp/testfail.txt 2>&1 <<'PY' || true
+import pathlib
+import xml.etree.ElementTree as ET
+for report in pathlib.Path('app/build').rglob('TEST-*.xml'):
+    try:
+        tree = ET.parse(report)
+    except ET.ParseError:
+        continue
+    for case in tree.iter('testcase'):
+        for error in list(case.findall('failure')) + list(case.findall('error')):
+            detail = (error.attrib.get('message', '') + ' | ' + (error.text or ''))[:1500]
+            print('%s.%s :: %s' % (case.attrib.get('classname', ''), case.attrib.get('name', ''),
+                                   ' '.join(detail.split())))
+PY
+  while IFS= read -r line; do [ -n "$line" ] && echo "::error title=failing test::$(esc "$line")"; done < /tmp/testfail.txt
   grep -nE "FATAL EXCEPTION|Fatal signal|Process crashed|SIGSEGV|SIGABRT|Caused by:|> Task .*FAILED|There w(as|ere) [0-9]+ failure|Test failed|FAILED$|Instrumentation run failed|Unable to find instrumentation" \
     ci-device.log 2>/dev/null | head -30 | while IFS= read -r line; do emit "gradle: $line"; done
   grep -nE "FATAL EXCEPTION|Fatal signal|Process crashed|SIGSEGV|SIGABRT|AndroidRuntime:|backdrop|kyant|compose" \

@@ -131,7 +131,7 @@ fun SettingsSheet(
                     entries = SettingsTab.entries.toList(),
                     selected = tab,
                     label = { entry -> settingsTabLabel(entry) },
-                    onSelect = { entry -> haptics.tap(); tab = entry },
+                    onSelect = { entry -> haptics.selection(); tab = entry },
                     tagPrefix = "settings-tab",
                     enabled = !busy,
                 )

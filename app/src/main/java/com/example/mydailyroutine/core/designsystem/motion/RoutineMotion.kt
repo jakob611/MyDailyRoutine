@@ -11,6 +11,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
+import kotlin.math.PI
+import kotlin.math.pow
 
 /**
  * The app's motion, in one place.
@@ -58,3 +60,76 @@ fun <T> spatialSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
 /** Colour and opacity: a short tween that cannot overshoot, or nothing at all. */
 fun <T> effectSpec(reduceMotion: Boolean, millis: Int = TransitionMillis): FiniteAnimationSpec<T> =
     if (reduceMotion) snap<T>() else tween<T>(millis)
+
+/**
+ * Apple's spring vocabulary, converted exactly rather than approximated.
+ *
+ * WWDC23 *Animate with springs* defines Apple's two parameters in terms of the classical ones:
+ *
+ * ```
+ * mass      = 1
+ * stiffness = (2π ÷ duration)²
+ * damping   = (1 − bounce) × 4π ÷ duration        (bounce ≥ 0)
+ * ```
+ *
+ * Compose spells the same physics as `stiffness` at unit mass plus a **damping ratio**
+ * ζ = damping ÷ (2·√(stiffness·mass)), and substituting Apple's expressions cancels cleanly to
+ * **ζ = 1 − bounce**. So an Apple spring is a Compose spring with
+ *
+ * ```
+ * stiffness = (2π ÷ duration)²        dampingRatio = 1 − bounce
+ * ```
+ *
+ * Apple's `duration` is the *perceptual* duration, not the settling time, which is why their numbers
+ * look slow next to Material's: `.smooth`, `.snappy` and `.bouncy` all default to 0.5 s
+ * (stiffness 158), `.bouncy(duration: 0.4)` is stiffness 247, and the drag-release spring in Apple's
+ * own Liquid Glass samples (`response: 0.3, dampingFraction: 0.6`) is stiffness 439 at ζ 0.6.
+ * Compose's `StiffnessMedium` (1500) is a 0.16 s spring — about three times quicker. Both are right
+ * for their platform; the mistake is mixing them inside a single interaction, so the two families
+ * are kept apart here: [spatialSpec] moves *content* the Material way, and the glass specs below
+ * move *chrome* the Apple way.
+ */
+fun <T> appleSpring(duration: Float, bounce: Float): FiniteAnimationSpec<T> = spring<T>(
+    dampingRatio = 1f - bounce,
+    stiffness = (2f * PI.toFloat() / duration).pow(2),
+)
+
+/**
+ * The numbers behind [appleSpring], kept in one place with their provenance so nobody has to guess
+ * whether a value was invented or read.
+ */
+object AppleMotion {
+    /** `.smooth` / `.snappy` / `.bouncy` all default to half a second of perceptual duration. */
+    const val PresetDuration = 0.5f
+
+    /** `.snappy`: brisk with a long tail rather than a bounce. */
+    const val SnappyBounce = 0.15f
+
+    /** `.bouncy`: visibly springy. Apple's own guidance stops at 0.4 — beyond that a UI element
+     *  reads as exaggerated rather than as fluid. */
+    const val BouncyBounce = 0.3f
+
+    /** The drag-release spring in Apple's Liquid Glass samples: `response 0.3, dampingFraction 0.6`. */
+    const val GlassTouchDuration = 0.3f
+    const val GlassTouchBounce = 0.4f
+
+    /** `.bouncy(duration: 0.4)`, which the same samples use when a glass cluster morphs open. */
+    const val GlassMorphDuration = 0.4f
+
+    /** How far an interactive glass control shrinks under the finger. Apple does not publish the
+     *  value; measurements of `.glassEffect(.regular.interactive())` put it a few percent below 1. */
+    const val PressScale = 0.96f
+
+    /** Apple's draggable-glass sample lifts the element to 1.1 while it is being dragged. */
+    const val DragLiftScale = 1.1f
+}
+
+/** Touch response for glass: Apple's own release spring, with its slight overshoot. */
+fun <T> glassTouchSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
+    if (reduceMotion) snap<T>()
+    else appleSpring<T>(AppleMotion.GlassTouchDuration, AppleMotion.GlassTouchBounce)
+
+/** Morphing and expansion of glass: SwiftUI `.bouncy(duration: 0.4)`. */
+fun <T> glassMorphSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
+    if (reduceMotion) snap<T>()
+    else appleSpring<T>(AppleMotion.GlassMorphDuration, AppleMotion.BouncyBounce)

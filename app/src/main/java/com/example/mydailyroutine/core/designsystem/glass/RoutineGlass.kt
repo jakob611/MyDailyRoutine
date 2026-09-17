@@ -1,16 +1,27 @@
 package com.example.mydailyroutine.core.designsystem.glass
 
 import android.os.Build
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -18,8 +29,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.core.designsystem.motion.AppleMotion
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
+import com.example.mydailyroutine.core.designsystem.motion.glassTouchSpec
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -214,6 +229,90 @@ fun RoutineGlassSurface(
     val backdrop = LocalRoutineBackdrop.current
     Box(modifier.routineGlass(backdrop, shape, role, tint, hue).clip(shape)) { content() }
 }
+
+/**
+ * What Apple's `.interactive()` glass does under a finger, in Compose terms.
+ *
+ * `glassEffect(.regular.interactive())` gives a control four behaviours. Two are worth having here
+ * and two are not, and the reasoning matters more than the result:
+ *
+ * * **Scale on press** — yes, on Apple's own release spring (`response 0.3, dampingFraction 0.6`),
+ *   which overshoots by a few percent on the way back. That overshoot is the "gel" in liquid glass:
+ *   a critically damped return reads as a widget, an underdamped one reads as a material.
+ * * **Touch-point illumination** — yes, as a soft highlight that appears where the finger went down
+ *   and fades on release. Apple radiates it into neighbouring glass; this app has one interactive
+ *   control on screen at a time, so the highlight stays local.
+ * * **Shimmer** — no. It is a continuous animation on a surface that already refracts and blurs
+ *   every frame, and Apple's own guidance is to let glass rest in steady states.
+ * * **Morphing between controls** (`GlassEffectContainer` + `glassEffectID`) — no. Morphing needs one
+ *   shared sampling region for several glass elements; kyant0's backdrop gives each layer its own,
+ *   and glass sampling glass is the one thing that library documents as fatal.
+ */
+@Immutable
+class GlassTouch internal constructor(
+    /** Hand this to `clickable(interactionSource = …, indication = null)`: the scale *is* the
+     *  feedback, so a Material ripple on top of it would be a second, contradicting answer. */
+    val source: MutableInteractionSource,
+    /** The control's scale right now: [AppleMotion.PressScale] while pressed, 1 at rest. */
+    val press: Float,
+    /** 0..1 strength of the touch-point highlight. */
+    val glow: Float,
+    /** Where the finger went down, in the control's own coordinates; null once it lifts. */
+    val point: Offset?,
+)
+
+/** Owns the press animation for one interactive glass control. */
+@Composable
+fun rememberGlassTouch(reduceMotion: Boolean, scale: Float = AppleMotion.PressScale): GlassTouch {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    // Movement on the glass spring (it may overshoot); the highlight on an effect tween (it may not).
+    val fraction by animateFloatAsState(if (pressed) 1f else 0f, glassTouchSpec<Float>(reduceMotion),
+        label = "glass-press")
+    val glow by animateFloatAsState(if (pressed) 1f else 0f, effectSpec<Float>(reduceMotion, 120),
+        label = "glass-glow")
+    var point by remember { mutableStateOf<Offset?>(null) }
+    LaunchedEffect(source) {
+        source.interactions.collect { interaction ->
+            when (interaction) {
+                is PressInteraction.Press -> point = interaction.pressPosition
+                is PressInteraction.Release -> point = null
+                is PressInteraction.Cancel -> point = null
+            }
+        }
+    }
+    return GlassTouch(source, 1f - (1f - scale) * fraction, glow, point)
+}
+
+/**
+ * Applies [GlassTouch] to a glass control. Non-composable on purpose (see the note at the top of the
+ * file): the animation lives in [rememberGlassTouch], this only reads it. Put it **first** in the
+ * modifier chain, before [routineGlass], so the scale wraps the whole panel — glass, rim and content
+ * together — instead of fighting the panel's own clip.
+ */
+fun Modifier.routineGlassTouch(touch: GlassTouch, shape: CornerBasedShape): Modifier = this
+    .graphicsLayer {
+        scaleX = touch.press
+        scaleY = touch.press
+    }
+    .drawWithContent {
+        drawContent()
+        val point = touch.point ?: return@drawWithContent
+        if (touch.glow <= 0f) return@drawWithContent
+        // Filled through the outline rather than drawn as a circle, because this modifier sits
+        // outside the panel's clip: a raw circle would spill past the rounded corners.
+        drawOutline(
+            outline = shape.createOutline(size, layoutDirection, this),
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    RoutineColors.GlassRim.copy(alpha = RoutineColors.GlassTouchGlow * touch.glow),
+                    Color.Transparent,
+                ),
+                center = point,
+                radius = (size.minDimension * 1.15f).coerceAtLeast(1f),
+            ),
+        )
+    }
 
 /**
  * The ambient wash behind every screen: a vertical graphite ramp plus one indigo glow at the top and

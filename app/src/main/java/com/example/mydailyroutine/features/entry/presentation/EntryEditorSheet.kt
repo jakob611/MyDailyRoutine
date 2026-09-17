@@ -113,7 +113,7 @@ fun EntryEditorSheet(
     val standardPresets = remember { PresetFactory.standard() }
 
     fun applyPreset(preset: QuickAddPreset) {
-        haptics.tap()
+        haptics.selection()
         // A preset may only overwrite a title that is still empty or belongs to another preset — never hand-typed text.
         if (title.isBlank() || (subjectPresets + standardPresets).any { it.key != preset.key && it.title(context) == title }) title = preset.title(context)
         if (preset.category == RoutineCategory.SCHOOL) notifications = false
@@ -203,7 +203,7 @@ fun EntryEditorSheet(
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     val choices = if (editing == null) EntryKind.entries else listOf(EntryKind.DEADLINE, EntryKind.EXAM)
                     choices.forEachIndexed { index, choice ->
-                        SegmentedButton(selected = kind == choice, enabled = !busy, onClick = { haptics.tap(); kind = choice; error = null }, shape = SegmentedButtonDefaults.itemShape(index, choices.size)) {
+                        SegmentedButton(selected = kind == choice, enabled = !busy, onClick = { haptics.selection(); kind = choice; error = null }, shape = SegmentedButtonDefaults.itemShape(index, choices.size)) {
                             RoutineLabel(
                                 text = stringResource(when (choice) { EntryKind.BLOCK -> R.string.entry_block; EntryKind.DEADLINE -> R.string.entry_deadline; EntryKind.EXAM -> R.string.entry_exam }),
                                 style = MaterialTheme.typography.labelLarge,
@@ -214,18 +214,20 @@ fun EntryEditorSheet(
                 RoutineText(stringResource(R.string.saved_subjects), style = MaterialTheme.typography.titleSmall,
                     maxLines = RoutineTextDefaults.Body)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(subjectId == null, onClick = { subjectId = null; haptics.tap() }, enabled = !busy,
+                    FilterChip(subjectId == null, onClick = { subjectId = null; haptics.selection() }, enabled = !busy,
                         label = { RoutineLabel(stringResource(R.string.subject_all)) }, shape = RoutineShapes.Chip)
                     subjects.forEach { subject ->
                         FilterChip(selected = subjectId == subject.id, enabled = !busy, shape = RoutineShapes.Chip,
-                            modifier = Modifier.pointerInput(subject.id) { detectTapGestures(onLongPress = { haptics.tap(); onEditSubject(subject) }) },
+                            modifier = Modifier.pointerInput(subject.id) { // No local haptic: EditSubject goes through the action wrapper, which is the single place
+                            // that decides what an action feels like.
+                            detectTapGestures(onLongPress = { onEditSubject(subject) }) },
                             colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(subject.colorHex.toInt()).copy(alpha = 0.2f)),
                             onClick = {
                                 subjectId = subject.id
                                 if (editing != null || kind == EntryKind.DEADLINE) {
                                     // Associating a subject must not turn an EE/IA deadline into an exam,
                                     // or overwrite a title/date/time in an existing milestone editor.
-                                    haptics.tap()
+                                    haptics.selection()
                                 } else {
                                     val desired = if (kind == EntryKind.BLOCK) PresetKind.SUBJECT_LESSON else PresetKind.SUBJECT_TEST
                                     subjectPresets.firstOrNull { it.subjectId == subject.id && it.kind == desired }?.let(::applyPreset)
@@ -262,7 +264,7 @@ fun EntryEditorSheet(
                     SettingRow(
                         title = stringResource(R.string.entry_all_day),
                         control = {
-                            Checkbox(allDay, { allDay = it; haptics.tap() }, enabled = !busy,
+                            Checkbox(allDay, { allDay = it; haptics.toggle(it) }, enabled = !busy,
                                 modifier = Modifier.size(RoutineMetrics.ActionMinWidth))
                         },
                     )
@@ -285,7 +287,7 @@ fun EntryEditorSheet(
                     RoutineText(stringResource(R.string.duration_follows_start, times.durationMinutes), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(30,45,60,90,times.durationMinutes).distinct().sorted().forEach { minutes ->
-                            FilterChip(selected=times.durationMinutes==minutes, onClick={ times=times.withDuration(minutes); haptics.tap(); error=null },
+                            FilterChip(selected=times.durationMinutes==minutes, onClick={ times=times.withDuration(minutes); haptics.selection(); error=null },
                                 enabled=!busy, shape=RoutineShapes.Chip,
                                 label={ RoutineLabel(stringResource(R.string.duration_minutes,minutes)) })
                         }
@@ -294,7 +296,7 @@ fun EntryEditorSheet(
                         color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         RoutineCategory.entries.forEach { option -> FilterChip(category == option, {
-                            category = option; haptics.tap()
+                            category = option; haptics.selection()
                             if (option == RoutineCategory.SCHOOL) { times = times.withDuration(subjects.firstOrNull { it.id == subjectId }?.defaultDurationMinutes ?: defaults.lessonDurationMinutes); notifications = false }
                         }, enabled = !busy,
                             label = { RoutineLabel(option.label()) },
@@ -307,7 +309,7 @@ fun EntryEditorSheet(
                             control = {
                                 Row(verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                                    Checkbox(includeBreak, { includeBreak = it; haptics.tap() }, enabled = !busy,
+                                    Checkbox(includeBreak, { includeBreak = it; haptics.toggle(it) }, enabled = !busy,
                                         modifier = Modifier.size(RoutineMetrics.ActionMinWidth).testTag("lesson-break-toggle"))
                                     if (includeBreak) {
                                         OutlinedTextField(breakMinutes, { breakMinutes = it.filter(Char::isDigit).take(2) },
@@ -375,7 +377,7 @@ fun EntryEditorSheet(
                         title = stringResource(R.string.entry_repeat),
                         description = stringResource(if (weekly) R.string.entry_repeat_hint else R.string.entry_once_hint),
                         control = {
-                            Switch(weekly, { weekly = it; haptics.tap() }, enabled = !busy, modifier = Modifier.testTag("repeat-weekly"))
+                            Switch(weekly, { weekly = it; haptics.toggle(it) }, enabled = !busy, modifier = Modifier.testTag("repeat-weekly"))
                         },
                     )
                     if (weekly) {
@@ -386,7 +388,7 @@ fun EntryEditorSheet(
                     SettingRow(
                         title = stringResource(R.string.entry_reminder),
                         description = stringResource(if (category == RoutineCategory.REST_BUFFER) R.string.reminder_at_recovery else R.string.reminder_before),
-                        control = { Switch(notifications, { notifications = it; haptics.tap() }, enabled = !busy) },
+                        control = { Switch(notifications, { notifications = it; haptics.toggle(it) }, enabled = !busy) },
                     )
                 } else {
                     RoutineText(stringResource(R.string.marker_hint), style = MaterialTheme.typography.bodySmall,

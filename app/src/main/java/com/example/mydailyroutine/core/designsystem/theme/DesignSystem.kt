@@ -108,6 +108,10 @@ object RoutineColors {
      * the top-left through the waist to the tail. */
     val GlassRimWaist = 0.28f
     val GlassRimTail = 0.04f
+    /** Peak alpha of the touch-point highlight Apple's interactive glass puts under the finger. It is
+     * the same cool white as the rim, so a pressed control reads as the same material lit harder,
+     * not as a different surface. */
+    val GlassTouchGlow = 0.22f
 
     val School = CategoryStyle(Cobalt, Color(0xFF16203A), Color(0xFFDCE7FF))
     val Focus = CategoryStyle(Amber, Color(0xFF33260F), Color(0xFFFFE6BC))

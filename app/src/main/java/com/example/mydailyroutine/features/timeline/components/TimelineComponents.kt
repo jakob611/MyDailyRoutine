@@ -173,10 +173,23 @@ fun TimelineBlockCard(
                     .animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
                     .pointerInput(block.key, block.startsAt, block.endsAt, busy) {
                         if (!busy && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
+                            // One tick per detent the drag passes, the way an iOS picker rail feels:
+                            // the finger hears the fifteen-minute steps it cannot see on a dense day.
+                            var detent = 0
                             detectDragGesturesAfterLongPress(
-                                onDragStart = { dragging = true; haptics.dragStart() },
-                                onDrag = { change, amount -> change.consume(); dragY += amount.y },
-                                onDragCancel = { dragY = 0f; dragging = false },
+                                onDragStart = { dragging = true; detent = 0; haptics.dragStart() },
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    dragY += amount.y
+                                    val step = (dragY / dragStepPx).roundToInt()
+                                    if (step != detent) {
+                                        detent = step
+                                        haptics.dragThreshold()
+                                    }
+                                },
+                                // Cancelling commits nothing, so the release haptic belongs here; a
+                                // completed drop is answered by the wrapper's success haptic instead.
+                                onDragCancel = { dragY = 0f; dragging = false; haptics.dragEnd() },
                                 onDragEnd = {
                                     val start = block.startsAt.toLocalTime().toSecondOfDay() / 60
                                     val delta = ((dragY / dragStepPx).roundToInt() * 15).coerceIn(-start, 1439 - start)

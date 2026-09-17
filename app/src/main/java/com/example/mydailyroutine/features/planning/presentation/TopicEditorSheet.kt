@@ -150,7 +150,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
                     state.content.subjects.forEach { item ->
                         FilterChip(
                             selected = subject == item.id,
-                            onClick = { subject = item.id; haptics.tap() },
+                            onClick = { subject = item.id; haptics.selection() },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
                             label = { RoutineLabel(item.name) },
@@ -169,7 +169,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
                         FilterChip(
                             selected = milestone == item.id,
                             onClick = {
-                                haptics.tap()
+                                haptics.selection()
                                 milestone = item.id
                                 subject = item.subjectId
                                 finalText = item.dueDate.minusDays(if (item.isExam || item.isTerminalExam) 1 else 0).toString()

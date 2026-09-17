@@ -120,7 +120,7 @@ fun SubjectEditorDialog(
                                 )
                                 .padding(5.dp)
                                 .background(Color(value.toInt()), CircleShape)
-                                .clickable(enabled = !busy) { color = value; haptics.tap() }
+                                .clickable(enabled = !busy) { color = value; haptics.selection() }
                                 .semantics { contentDescription = description },
                         )
                     }

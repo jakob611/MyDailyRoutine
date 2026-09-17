@@ -43,16 +43,17 @@ fun WeekdayPicker(mask: Int, enabled: Boolean, onChange: (Int) -> Unit) {
                     enabled = enabled,
                     shape = RoutineShapes.Chip,
                     modifier = Modifier.testTag("weekday-${day.value}"),
-                    onClick = { haptics.tap(); onChange(mask xor bit) },
+                    // A day chip is a switch, so it gets the on/off pair rather than a generic tick.
+                    onClick = { haptics.toggle((mask and bit) == 0); onChange(mask xor bit) },
                     label = { RoutineLabel(day.getDisplayName(TextStyle.SHORT_STANDALONE, Slovenian)) },
                 )
             }
         }
         ActionRow {
-            TextButton(enabled = enabled, onClick = { haptics.tap(); onChange(Weekdays.WORKDAYS) }) {
+            TextButton(enabled = enabled, onClick = { haptics.selection(); onChange(Weekdays.WORKDAYS) }) {
                 RoutineLabel(stringResource(R.string.weekdays_workdays), style = MaterialTheme.typography.labelLarge)
             }
-            TextButton(enabled = enabled, onClick = { haptics.tap(); onChange(Weekdays.ALL) }) {
+            TextButton(enabled = enabled, onClick = { haptics.selection(); onChange(Weekdays.ALL) }) {
                 RoutineLabel(stringResource(R.string.weekdays_every_day), style = MaterialTheme.typography.labelLarge)
             }
         }

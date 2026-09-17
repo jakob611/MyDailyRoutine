@@ -63,7 +63,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         SettingRow(
             title = stringResource(R.string.sleep_enable),
-            control = { Switch(enabled, { enabled = it; haptics.tap() }, enabled = !busy) },
+            control = { Switch(enabled, { enabled = it; haptics.toggle(it) }, enabled = !busy) },
         )
         Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
             OutlinedTextField(
@@ -97,7 +97,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
         }
         SettingRow(
             title = stringResource(R.string.sleep_weekend_mode),
-            control = { Switch(weekend, { weekend = it; haptics.tap() }, enabled = !busy) },
+            control = { Switch(weekend, { weekend = it; haptics.toggle(it) }, enabled = !busy) },
         )
         if (weekend) {
             Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
@@ -125,7 +125,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
         ActionRow {
             TextButton(
                 enabled = !busy,
-                onClick = { haptics.tap(); days = Weekdays.shifted(Weekdays.WORKDAYS, -1) },
+                onClick = { haptics.selection(); days = Weekdays.shifted(Weekdays.WORKDAYS, -1) },
             ) {
                 RoutineLabel(stringResource(R.string.sleep_before_workdays), style = MaterialTheme.typography.labelLarge)
             }

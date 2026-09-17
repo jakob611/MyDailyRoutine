@@ -141,7 +141,9 @@ fun TimetableImportSheet(
                     SheetPrimaryButton(
                         label = pluralStringResource(R.plurals.timetable_import_create, rows.size, rows.size),
                         enabled = !busy,
-                        onClick = { haptics.complete(); onImport(rows) },
+                        // The import action reaches the wrapper, which fires the success haptic for every committed
+                        // change. A second one here would just blur it.
+                        onClick = { onImport(rows) },
                     )
                 }
             },
@@ -159,8 +161,11 @@ fun TimetableImportSheet(
                 label = stringResource(R.string.timetable_import_preview),
                 enabled = text.isNotBlank(),
                 onClick = {
-                    haptics.complete()
-                    preview = TimetablePasteParser.parse(text)
+                    val parsed = TimetablePasteParser.parse(text)
+                    preview = parsed
+                    // Apple's notification family, used the way it is meant to be: success when the
+                    // paste yielded rows, warning when it did not.
+                    if (parsed.isNullOrEmpty()) haptics.warning() else haptics.confirm()
                 },
             )
             if (rows != null) {

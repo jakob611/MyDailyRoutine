@@ -8,6 +8,18 @@ def escape(value):
     return str(value).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
 
 count = 0
+# Test failures go out first: the annotation budget per step is small, and a name plus an assertion
+# is worth more than any number of Gradle summary lines.
+for folder in ('app/build', 'core/build'):
+    for report in Path(folder).rglob('TEST-*.xml'):
+        try: tree = ET.parse(report)
+        except ET.ParseError: continue
+        for case in tree.iter('testcase'):
+            for error in list(case.findall('failure')) + list(case.findall('error')):
+                detail = (error.attrib.get('message', '') + '\n' + (error.text or ''))[:3500]
+                title = case.attrib.get('classname', '') + '.' + case.attrib.get('name', '')
+                print(f'::error title={escape(title)}::{escape(detail)}')
+                count += 1
 # A crashed app produces no TEST-*.xml and no compiler error, so the fatal trace itself has to be
 # recognised: without these patterns an instrumentation crash looks like a silent, empty failure.
 CRASH = re.compile(r'FATAL EXCEPTION|Fatal signal|Process crashed|SIGSEGV|SIGABRT|Caused by:|'
@@ -27,16 +39,6 @@ for log in Path('.').glob('ci-*.log'):
             count += 1
             if count > 200:
                 break
-for folder in ('app/build', 'core/build'):
-    for report in Path(folder).rglob('TEST-*.xml'):
-        try: tree = ET.parse(report)
-        except ET.ParseError: continue
-        for case in tree.iter('testcase'):
-            for error in list(case.findall('failure')) + list(case.findall('error')):
-                detail = (error.attrib.get('message', '') + '\n' + (error.text or ''))[:3500]
-                title = case.attrib.get('classname', '') + '.' + case.attrib.get('name', '')
-                print(f'::error title={escape(title)}::{escape(detail)}')
-                count += 1
 print(f'Published {count} compiler/test failure annotations.')
 
 for report in Path('app/build/reports').glob('lint-results*.xml'):
