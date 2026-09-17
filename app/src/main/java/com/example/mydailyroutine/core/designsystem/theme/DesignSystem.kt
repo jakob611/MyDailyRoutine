@@ -115,6 +115,7 @@ object RoutineColors {
     val GlassSpecular = 1.9f
     val GlassSpecularFall = 0.18f
     val GlassTouchGlow = 0.22f
+    val GlassTiltGlow = 0.10f
 
     val WarningContainer = Color(0xFF37351D)
     val School = CategoryStyle(Cobalt, Color(0xFF2E384E), Color(0xFFC5D0FD))
@@ -125,6 +126,18 @@ object RoutineColors {
     val Personal = CategoryStyle(Neutral, Color(0xFF35393E), Color(0xFFD1D1DA))
     val subjectSwatches = listOf(0xFF87A9FFL, 0xFF69BD71L, 0xFFFBA73DL, 0xFFFF8A77L, 0xFFD194ECL, 0xFF42B7E3L)
 }
+
+data class CategoryStyle(val accent: Color, val container: Color, val content: Color)
+
+fun categoryStyle(category: RoutineCategory, subjectColor: Long? = null): CategoryStyle = when (category) {
+    RoutineCategory.SCHOOL -> RoutineColors.School.let { style -> subjectColor?.let { style.copy(accent = Color(it.toInt())) } ?: style }
+    RoutineCategory.FOCUS_ANALYTICAL -> RoutineColors.Focus
+    RoutineCategory.EMERGENCY_RESERVE -> RoutineColors.Recovery
+    RoutineCategory.REST_BUFFER -> RoutineColors.Recovery
+    RoutineCategory.FOCUS_SYNTHESIZING -> RoutineColors.Project
+    RoutineCategory.ADMIN -> RoutineColors.Personal
+}
+
 object RoutineShapes {
     val Card = RoundedCornerShape(16.dp)
     val Chip = RoundedCornerShape(8.dp)
