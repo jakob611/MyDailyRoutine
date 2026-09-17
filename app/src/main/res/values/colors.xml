@@ -23,9 +23,9 @@
     <color name="routine_text_secondary">#FFC6CEDC</color>
     <color name="routine_text_muted">#FFAAB3C3</color>
     <color name="routine_spine">#FF2C3542</color>
-    <color name="routine_border">#1FFFFFFF</color>
-    <color name="routine_border_strong">#33FFFFFF</color>
-    <color name="routine_card_border">#1AFFFFFF</color>
+    <color name="routine_border">#24FFFFFF</color>
+    <color name="routine_border_strong">#3DFFFFFF</color>
+    <color name="routine_card_border">#1FFFFFFF</color>
     <color name="routine_cobalt">#FF85B1F9</color>
     <color name="routine_amber">#FFE5A746</color>
     <color name="routine_sage">#FF69CFA4</color>

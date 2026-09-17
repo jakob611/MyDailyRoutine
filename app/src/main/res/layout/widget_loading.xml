@@ -3,7 +3,7 @@
     android:layout_width="match_parent" android:layout_height="match_parent"
     android:orientation="vertical" android:padding="20dp" android:background="@drawable/widget_background">
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="@string/widget_name" android:textColor="@color/routine_text_primary" android:fontFamily="@font/roboto_flex" android:fontFeatureSettings="tnum" android:textSize="20sp" android:textStyle="bold" />
+        android:text="@string/widget_name" android:textColor="@color/routine_text_primary" android:fontFamily="@font/roboto_flex" android:fontFeatureSettings="tnum" android:fontVariationSettings="'opsz' 20" android:textSize="20sp" android:textStyle="bold" />
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"
         android:text="@string/widget_description" android:textColor="@color/routine_text_secondary" android:fontFamily="@font/roboto_flex" android:fontFeatureSettings="tnum" android:textSize="14sp" />
 </LinearLayout>

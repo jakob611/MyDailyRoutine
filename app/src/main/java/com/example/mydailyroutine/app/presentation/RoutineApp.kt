@@ -289,6 +289,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     },
                 shape = RoutineShapes.GlassTopBar,
                 role = GlassRole.Bar,
+                // Its top edge is the screen edge, under the status bar: a specular hairline there has
+                // nothing above it to catch and reads as a stray bright pixel.
+                specular = false,
             ) {
                 Column {
                     TopAppBar(

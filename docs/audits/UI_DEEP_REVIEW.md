@@ -301,7 +301,19 @@ prek implicitnega sprejemnika ni kandidat. Vse tri so zdaj zapisane tudi v komen
 8. **Interaktivno steklo je na enem kontrolniku** (plavajoči »Dodaj«). Apple interaktivnost uporablja
    tam, kjer je pritisk res dogodek; deset hkrati animiranih steklenih plasti bi bilo nasprotno od
    tistega, kar steklo počne — miruje v ustaljenih stanjih.
-9. **Sklad nazaj ima dve plasti, ne poljubno globok seznam.** Merilo in cilji sta edini plasti, ki
+9. **Koti niso »continuous« (superelipsa).** Appleovi zaobljeni koti niso krožni loki, ampak
+   zvezna superelipsa (`RoundedRectangle(style: .continuous)`), in to je del tistega, kar iOS 26 dela
+   mehkejšega na pogled. Compose ima za to `GenericShape`, a kyant0-jev `lens()` zahteva
+   `CornerBasedShape`, torej krožne loke — superelipsa bi izklopila lom in s tem steklo. Koncentričnost
+   je delno pokrita: lestvica Card 16 → Chip 8 ob 8 dp odmika **je** koncentrična (16 − 8 = 8), kar je
+   Appleovo pravilo (notranji polmer = zunanji − odmik); listi v pladnju z 16 dp odmika pa ostanejo pri
+   16 dp, ker bi 8 dp na Androidu delovalo zastarelo.
+10. **Adaptivne sence in »Reduce Transparency«/»Increase Contrast« ostanejo nedosegljivi.** Appleove
+   sene se prilagajajo vsebini pod steklom, kar zahteva vzorčenje svetlosti ozadja — kyant0-jev backdrop
+   tega ne izpostavlja. Sistemskih nastavitev za prosojnost in kontrast na Androidu ni; naš odgovor je,
+   da je tint že na Appleovi ravni »zmanjšane prosojnosti« (0,74/0,80) in da kontrastni gate meri
+   najslabši primer čez steklo.
+11. **Sklad nazaj ima dve plasti, ne poljubno globok seznam.** Merilo in cilji sta edini plasti, ki
    živita znotraj activity-ja; če bi kdaj pribil tretji celozaslonski pogled, bi ga bilo treba
    dodati v vrstni red sestavljanja v `RoutineApp.kt` (globina = vrstni red). Splošnejša rešitev bi
    bil Navigation 3 z `NavDisplay`, kar je prevelik poseg za to vejo.
@@ -533,6 +545,106 @@ dokler se prehod ne usede — vozel, ki je na počasnem emulatorju metal naklju�
 XML — prej so grep-i po dnevniku porabili budget annotacij, »1 test failed« brez imena pa je
 neuporaben.
 
+### 6.6 Četrti krog (2026-09-17): tipografija po Appleu, lasje, spekularni rob
+
+Naročilo je bilo: preuči, kako je iOS 26 narejen — efekti, dizajn, steklo, barvne palete — in doseži
+ta nivo; posebej berljivost, kontrast, pisava, debelina, velikost. Raziskava je pokazala, da največja
+razlika med tem programom in iPhoneom ni v steklu (to je bilo urejeno v prejšnjih krogih), ampak v
+**tipografiji**: aplikacija je bila sestavljena iz Materialovih *label* slogov — 12 do 14 sp, Medium
+debelina, pozitiven tracking — medtem ko Apple bere pri 15-17 pt, telo postavlja v Regular, poudarek v
+Semibold in tracking z velikostjo zmanjšuje.
+
+#### 6.6.1 Kaj pravi Apple (Dynamic Type, privzeta velikost »Large«)
+
+| slog | debelina | velikost | vrstica | sledenje |
+|---|---|---|---|---|
+| Large Title | Regular¹ | 34 | 41 | −0,026 em |
+| Title 1 | Regular | 28 | 34 | −0,022 em |
+| Title 2 | Regular | 22 | 28 | −0,020 em |
+| Title 3 | Regular | 20 | 25 | −0,018 em |
+| Headline | **Semibold** | 17 | 22 | −0,016 em |
+| Body | Regular | 17 | 22 | −0,012 em |
+| Callout | Regular | 16 | 21 | −0,014 em |
+| Subhead | Regular | 15 | 20 | −0,008 em |
+| Footnote | Regular | 13 | 18 | −0,002 em |
+| Caption 1 | Regular | 12 | 16 | +0,006 em |
+| Caption 2 | Regular | 11 | 13 | +0,010 em |
+
+¹ V HIG je Large Title Regular; UIKitov veliki naslov v navigacijski vrstici je Bold, zato je
+`displaySmall` tu Bold — to je tisti naslov, ki ga bralec vidi ob vstopu v zaslon.
+
+Tri pravila, ki jih je bilo vredno prevzeti, ne le številk:
+
+* **Telo je Regular, poudarek je Semibold.** Material postavlja `bodySmall` in vse `label*` v Medium;
+  pri 12-13 sp na OLED to zapre odprtine črk (counters) in gosto vrstico zmaže v eno piko. Apple pri
+  isti velikosti uporabi Regular in šele poudarek dvigne v Semibold — zato Semibold nekaj pomeni.
+* **Tracking pada z velikostjo.** SF Pro ima spremenljivo sledenje: nad 15 pt negativno in vse bolj
+  negativno, pri 13 pt približno nič, pri 11-12 pt rahlo pozitivno. Materialova privzeta vrednost je
+  obrnjena (pozitivna na telesnem besedilu), kar je drugi razlog, da M3 tipografija deluje razlezano
+  poleg iOS.
+* **Vrstica je 1,21-1,38 velikosti**, ne Materialovih 1,43-1,50. Ista beseda, manj zraka, več strukture.
+
+#### 6.6.2 Kaj je bilo narejeno (`core/designsystem/theme/Type.kt`)
+
+Celotna lestvica je prepisana; imena vlog ostajajo Materialova, ker jih uporablja več kot 300 mest, in
+prav zato se sprememba zgodi **povsod naenkrat**:
+
+| vloga | uporaba | Apple | velikost/vrstica | debelina | sledenje |
+|---|---|---|---|---|---|
+| `displaySmall` | 2 | Large Title | 34/41 | Bold | −0,026 em |
+| `headlineMedium` | 1 | Title 1 | 28/34 | SemiBold | −0,022 em |
+| `headlineSmall` | 14 | Title 2 | 22/28 | SemiBold | −0,020 em |
+| `titleLarge` | 17 | Title 3 | 20/25 | SemiBold | −0,018 em |
+| `titleMedium` | 16 | Headline | 17/22 | SemiBold | −0,016 em |
+| `titleSmall` | 19 | Callout poudarjen | 16/21 | SemiBold | −0,014 em |
+| `bodyLarge` | 2 | Body | 17/22 | Regular | −0,012 em |
+| `bodyMedium` | 13 | Subhead | 15/20 | Regular | −0,008 em |
+| `bodySmall` | 80 | Footnote | 13/18 | Regular | −0,002 em |
+| `labelLarge` | 94 | gumb/čip | 15/20 | SemiBold | −0,008 em |
+| `labelMedium` | 22 | Caption 1 | 12/16 | Medium | +0,006 em |
+| `labelSmall` | 39 | Caption 1 poudarjen | 12/16 | SemiBold | +0,010 em |
+
+**Optična velikost.** Roboto Flex je spremenljiva pisava z osjo `opsz` 8-144 s privzeto vrednostjo 14
+— ista zamisel kot SF Pro-jeva dinamična optična velikost: majhna besedila so risana robustneje in
+ohlapneje, velika tanjše in tesneje. Ker os ni bila nikoli nastavljena, je bil **vsak slog v
+aplikaciji, tudi 34 sp naslov, risan z optiko za 14 pt**. Zdaj vsak slog nastavi svojo vrednost prek
+`FontVariation.opticalSizing(velikost.sp)`, ki velikost pomnoži z uporabnikovim merilom pisave: bralec,
+ki pisavo poveča, dobi tudi optiko za povečano pisavo — os sledi tistemu, kar je na zaslonu, ne tistemu,
+kar je bilo narisano. Debeline tu ni treba nastavljati, ker Compose `fontWeight` sam zlije v os `wght`.
+Podrobnost, preverjena v izvorni kodi `FontVariation.kt`: `Setting` je zapečaten vmesnik s tovarniškimi
+funkcijami, zato `Setting("opsz", 17f)` sicer obstaja, a `opticalSizing` je tisti, ki zna sp in merilo.
+Na API 24-25, kjer spremenljivih pisav ni, se nastavitev preprosto ignorira. Isti popravek je šel tudi
+v widget, ki se riše prek `TextView` (`android:fontVariationSettings="'opsz' 12"` itd.).
+
+**Dva zavestna odmika od dobesednega prenosa**, oba zaradi gostote in ne okusa: `titleSmall` je Callout
+in `bodyMedium` Subhead (ne Body 17), ker se načrtovalnik bere na pogled in v stolpcih — Apple to v
+svojih koledarjih počne enako; in `labelSmall` ostaja 12 sp namesto Appleovih 11, ker je 11 sp v
+tedenski mreži in urnem žlebu pod tistim, kar OLED zdrži na bralni razdalji (11 sp je bilo že enkrat
+poskušeno in ni šlo).
+
+#### 6.6.3 Lasje in spekularni rob
+
+* **Robovi** (`Border` 0,12 → 0,14, `BorderStrong` 0,20 → 0,24, `CardBorder` 0,10 → 0,12): Appleov
+  separator v temnem načinu je `rgba(84, 84, 88, 0,6)`, kar na njegovem sekundarnem ozadju znese
+  približno `#3D3D41` oziroma **1,47:1**. Naš bel las pri 0,10 je meril 1,34:1 — nad lastnim pragom
+  gate-a (1,25), a vidno šibkejši od iPhoneovega. Rob, ki ga mora bralec iskati, ni rob. Ogledalo v
+  `res/values/colors.xml` je posodobljeno, gate preverja ujemanje.
+* **Spekularni rob** (`RoutineGlass.drawSpecular`): plošča, osvetljena od zgoraj, ujame ob zgornjem
+  robu bistveno več svetlobe kot ob stranicah, in prav ta en las je tisto, kar loči steklo od
+  obarvane folije — isti blur, isti tint, in panel nenadoma dobi debelino. Appleov lastni vrh je še
+  svetlejši (približno 0,85 alfa pri 1,5 px), kar bi bilo na OLED zaslonu, polnem skoraj belega
+  besedila, najglasnejša stvar na ekranu, zato je vrh pri 1,9-kratniku moči roba materiala: ~0,57 na
+  kromu in ~0,72 na amber kontrolniku, in umre na 18 % vrednosti do 60 % širine. Zgornja vrstica ga
+  **nima**: njen zgornji rob je rob zaslona pod statusno vrstico in tam ni ničesar, kar bi lahko ujelo
+  svetlobo.
+
+#### 6.6.4 Kaj je ostalo pri Appleu, česar tu ni (in zakaj)
+
+SF Pro (licenca ga ne dovoljuje v Android aplikaciji — zato Roboto Flex z Appleovo *disciplino*, ne z
+Appleovo pisavo); zvezna superelipsa za kote (glej §5.9); adaptivne sene, ki se odzivajo na vsebino pod
+steklom (glej §5.10); drsni stekleni palec v segmentiranem kontrolniku (prepis komponente, ne
+parametra); `Reduce Transparency` in `Increase Contrast` kot sistemski stikali (na Androidu ju ni).
+
 ---
 
 ## 7. Viri
@@ -603,6 +715,36 @@ API 30 <https://developer.android.com/reference/android/os/Vibrator>; `HapticFee
 pri 0,9) iz <https://github.com/mkuczera/react-native-haptic-feedback>; AHAP intenziteta/ostrina
 (soft 0,4/0,4; strong 1,0/0,8; naravna frekvenca Taptic Engine 100–250 Hz)
 <https://developer.apple.com/documentation/corehaptics>.
+
+**Četrti krog — iOS 26 tipografija in materiali:** Apple HIG, Typography (Dynamic Type za iOS:
+velikost in vrstica za vsak slog od xSmall do AX5, privzeto »Large«: Large Title 34/41, Title 1 28/34,
+Title 2 22/28, Title 3 20/25, Headline 17/22 Semibold, Body 17/22, Callout 16/21, Subhead 15/20,
+Footnote 13/18, Caption 1 12/16, Caption 2 11/13)
+<https://developers.apple.com/design/human-interface-guidelines/typography>; lastnosti SF Pro (devet
+debelin, spremenljivo sledenje glede na velikost, dinamična optična velikost, Text < 20 pt in
+Display ≥ 20 pt) <https://developers.apple.com/design/human-interface-guidelines/typography#Specifications>;
+preslikava slogov v sledenje (Large Title −1,05 px, Title 1 −0,8 px, Headline/Body −0,43 px, Callout
+−0,32 px, Subhead 0, Footnote +0,03 px, Caption 1 +0,12 px, Caption 2 +0,15 px) in pravilo »višina
+vrstice vsaj 1,3× velikosti, optimalna dolžina vrstice 35-50 znakov, vedno levo poravnano«;
+Appleove temne sistemske barve in separator (`rgba(84,84,88,0.6)`, neprosojen `#38383A`, ozadja
+`#000000`/`#1C1C1E`/`#2C2C2E`/`#3A3A3C`, oznake `#FFFFFF` in `#EBEBF5` pri 60/30/18 %, accenti v
+temnem `#0A84FF`, `#30D158`, `#FF453A`, `#FF9F0A`, `#FFD60A`, `#BF5AF2`, `#64D2FF`, `#5E5CE6`) —
+Apple objavlja **prilagodljive** vloge, ne zagotovljenih šestnajstiških vrednosti, zato so te izmerjene
+v skupnosti in uporabljene kot primerjava, ne kot cilj; iOS 26 liquid glass: leča (upogibanje in
+zgoščevanje svetlobe v realnem času, za razliko od blur-a, ki svetlobo razprši), spekularni poudarki,
+adaptivne sene, interaktivnost (scale, bounce, shimmer, osvetlitev v točki dotika), materializacija,
+morphing, plasti (vsebina → steklo → vibrancy), pravilo »steklo sodi v navigacijsko plast, nikoli na
+vsebino«, koncentrični koti (`containerConcentric`, `ConcentricRectangle`, notranji polmer = zunanji −
+odmik, `style: .continuous`), dostopnost (Reduce Transparency, Increase Contrast, Reduce Motion,
+iOS 26.1+ Tinted mode) in anti-vzorci (glass-on-glass, steklo na vsebinski plasti, tintiranje vsega,
+lomljenje koncentričnosti) <https://www.conor.fyi/writing/liquid-glass-reference>,
+<https://github.com/conorluddy/LiquidGlassReference>, <https://nilcoalescing.com/blog/ConcentricRectangleInSwiftUI/>;
+spekularni rob kot najvišja vrednost za malo denarja (`inset 0 1.5px 0 rgba(255,255,255,.85)` — en
+svetel zgornji rob naredi panel steklo namesto folije), omejitev CSS (nobena od desetih funkcij
+`backdrop-filter` ne premakne piksla, zato loma ni mogoče ponarediti) in pravila za zmogljivost (eno
+steklo na zaslon, ne animirati blur radija) <https://theplusaddons.com/blog/liquid-glass-ui/>;
+44 × 44 pt najmanjša ciljna površina, 8 pt mreža s 4 pt podkoraki (konvencija, ne Appleovo pravilo),
+rob 12 pt za vnosna polja <https://superdesign.dev/blog/apple-design-system>.
 
 **Izmerjeno v tem repozitoriju:** `tools/check_contrast.py` (141 parov, nivojski minimumi, worst-case
 stekla čez `TextPrimary`, halacijski varoval, koraki rampe, ogledalo palete),

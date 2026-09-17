@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <TextView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_text"
     android:layout_width="match_parent" android:layout_height="wrap_content"
-    android:fontFamily="@font/roboto_flex" android:fontFeatureSettings="tnum" android:textStyle="bold"
+    android:fontFamily="@font/roboto_flex" android:fontFeatureSettings="tnum"
+    android:fontVariationSettings="'opsz' 15" android:textStyle="bold"
     android:includeFontPadding="false" android:maxLines="3" android:ellipsize="end"
     android:textColor="@color/routine_text_primary" android:textSize="15sp" />

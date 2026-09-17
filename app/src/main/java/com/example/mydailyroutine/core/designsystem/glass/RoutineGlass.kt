@@ -142,6 +142,28 @@ fun Modifier.routineBackdropLayer(backdrop: Backdrop?): Modifier {
  * how a lit pane of glass actually reads. One gradient for both the effect path and the fallback path
  * so a device without `RenderEffect` still gets the same edge.
  */
+/**
+ * Apple's specular edge: one hairline along the top of the pane, brightest at the leading corner and
+ * gone by the trailing one, because a lit edge is never evenly lit. The diagonal [rimBrush] gives the
+ * panel its rim; this gives it a light source. Panels whose top edge is the screen edge (the folding
+ * top bar) opt out — there is nothing above them to catch the light, and a bright line under the
+ * status bar reads as a rendering defect.
+ */
+private fun DrawScope.drawSpecular(role: GlassRole) {
+    val peak = RoutineColors.GlassSpecular * role.rim
+    val width = RimWidth.toPx()
+    drawLine(
+        brush = Brush.horizontalGradient(
+            0f to RoutineColors.GlassRim.copy(alpha = peak),
+            0.6f to RoutineColors.GlassRim.copy(alpha = peak * RoutineColors.GlassSpecularFall),
+            1f to Color.Transparent,
+        ),
+        start = Offset(0f, width / 2f),
+        end = Offset(size.width, width / 2f),
+        strokeWidth = width,
+    )
+}
+
 private fun rimBrush(strength: Float, start: Offset = Offset.Zero, end: Offset = Offset.Unspecified) =
     Brush.linearGradient(
         0f to RoutineColors.GlassRim.copy(alpha = strength),
@@ -165,6 +187,7 @@ fun Modifier.routineGlass(
     role: GlassRole = GlassRole.Bar,
     tint: Color = RoutineColors.GlassTint,
     hue: Boolean = false,
+    specular: Boolean = true,
 ): Modifier {
     if (backdrop == null || !glassSupported) {
         val fallback = if (hue) tint else role.fallback
@@ -172,6 +195,7 @@ fun Modifier.routineGlass(
         // panel is a surface and not a stain on the background.
         return this.clip(shape).background(fallback)
             .border(RimWidth / 2f, rimBrush(role.rim), shape)
+            .then(if (specular) Modifier.drawWithContent { drawContent(); drawSpecular(role) } else Modifier)
     }
     // A coloured control is tinted the way the library documents: hue-blend first so the refracted
     // backdrop keeps its own shading, then a translucent wash of the accent on top. Neutral chrome
@@ -196,6 +220,7 @@ fun Modifier.routineGlass(
             brush = rimBrush(role.rim, Offset.Zero, Offset(size.width, size.height)),
             style = Stroke(width = RimWidth.toPx()),
         )
+        if (specular) drawSpecular(role)
     }
     return this.drawBackdrop(
         backdrop = backdrop,
@@ -224,10 +249,11 @@ fun RoutineGlassSurface(
     role: GlassRole = GlassRole.Bar,
     tint: Color = RoutineColors.GlassTint,
     hue: Boolean = false,
+    specular: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val backdrop = LocalRoutineBackdrop.current
-    Box(modifier.routineGlass(backdrop, shape, role, tint, hue).clip(shape)) { content() }
+    Box(modifier.routineGlass(backdrop, shape, role, tint, hue, specular).clip(shape)) { content() }
 }
 
 /**

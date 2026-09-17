@@ -56,9 +56,15 @@ object RoutineColors {
     val Surface4 = Color(0xFF2B3342)
     /** Bottom sheets sit above the dim scrim; slightly darker than Surface1 so glass reads on them. */
     val SheetSurface = Color(0xFF101419)
-    val Border = Color.White.copy(alpha = 0.12f)
-    val BorderStrong = Color.White.copy(alpha = 0.20f)
-    val CardBorder = Color.White.copy(alpha = 0.10f)
+    /**
+     * Hairlines. Apple's dark separator is `rgba(84, 84, 88, 0.6)`, which over its secondary
+     * background lands near `#3D3D41` — about 1.47:1, and visibly more present than the 1.34:1 a
+     * 10 % white hairline measured here. The three steps below are tuned to that level rather than to
+     * the 1.25:1 floor of the contrast gate: a border the reader has to look for is not a border.
+     */
+    val Border = Color.White.copy(alpha = 0.14f)
+    val BorderStrong = Color.White.copy(alpha = 0.24f)
+    val CardBorder = Color.White.copy(alpha = 0.12f)
     val TextPrimary = Color(0xFFF4F7FC)
     val TextSecondary = Color(0xFFC6CEDC)
     val TextMuted = Color(0xFFAAB3C3)
@@ -108,6 +114,18 @@ object RoutineColors {
      * the top-left through the waist to the tail. */
     val GlassRimWaist = 0.28f
     val GlassRimTail = 0.04f
+    /**
+     * The specular edge, as a multiple of each material's rim strength.
+     *
+     * A pane lit from above catches far more light along its top than along its sides, and that one
+     * bright hairline is the detail that separates glass from tinted film: same blur, same tint, and
+     * the panel suddenly has thickness. Apple's own top edge is brighter still (roughly 0.85 alpha at
+     * 1.5 px), which would be the loudest thing on an OLED screen full of near-white text, so the peak
+     * here lands near 0.57 on chrome and 0.72 on the amber control — lit, not glaring.
+     */
+    val GlassSpecular = 1.9f
+    /** How fast the specular edge dies along the width: 18 % of the peak by 60 %, nothing at the end. */
+    val GlassSpecularFall = 0.18f
     /** Peak alpha of the touch-point highlight Apple's interactive glass puts under the finger. It is
      * the same cool white as the rim, so a pressed control reads as the same material lit harder,
      * not as a different surface. */
