@@ -57,6 +57,10 @@ class RoutineHaptics internal constructor(private val view: View, private val en
     private val context = view.context.applicationContext
     private val vibrator: Vibrator = systemVibrator(context)
 
+    /** Which of this class's primitives the motor can actually render; empty below API 31. */
+    private val primitiveSupport: Set<Int> =
+        if (Build.VERSION.SDK_INT >= 31) queryPrimitives() else emptySet()
+
     private fun allowed(): Boolean = enabled.value && Settings.System.getInt(context.contentResolver,
         Settings.System.HAPTIC_FEEDBACK_ENABLED, 1) != 0
 
@@ -65,7 +69,7 @@ class RoutineHaptics internal constructor(private val view: View, private val en
     /** A control was touched. Apple: `UIImpactFeedbackGenerator(style: .light)`. */
     fun tap() {
         if (!allowed()) return
-        if (Build.VERSION.SDK_INT >= 31 && primitivesSupported()) {
+        if (Build.VERSION.SDK_INT >= 31 && renders(VibrationEffect.Composition.PRIMITIVE_TICK)) {
             vibrate(primitive(VibrationEffect.Composition.PRIMITIVE_TICK, 0.55f))
         } else if (Build.VERSION.SDK_INT >= 29) {
             vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
@@ -81,7 +85,7 @@ class RoutineHaptics internal constructor(private val view: View, private val en
      */
     fun press() {
         if (!allowed()) return
-        if (Build.VERSION.SDK_INT >= 31 && primitivesSupported()) {
+        if (Build.VERSION.SDK_INT >= 31 && renders(VibrationEffect.Composition.PRIMITIVE_CLICK)) {
             vibrate(primitive(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.8f))
         } else if (Build.VERSION.SDK_INT >= 29) {
             vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
@@ -96,7 +100,7 @@ class RoutineHaptics internal constructor(private val view: View, private val en
      */
     fun impact() {
         if (!allowed()) return
-        if (Build.VERSION.SDK_INT >= 31 && primitivesSupported()) {
+        if (Build.VERSION.SDK_INT >= 31 && renders(VibrationEffect.Composition.PRIMITIVE_THUD)) {
             vibrate(primitive(VibrationEffect.Composition.PRIMITIVE_THUD, 1f))
         } else if (Build.VERSION.SDK_INT >= 29) {
             vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK))
@@ -114,7 +118,7 @@ class RoutineHaptics internal constructor(private val view: View, private val en
      */
     fun selection() {
         if (!allowed()) return
-        if (Build.VERSION.SDK_INT >= 31 && primitivesSupported()) {
+        if (Build.VERSION.SDK_INT >= 31 && renders(VibrationEffect.Composition.PRIMITIVE_LOW_TICK)) {
             vibrate(primitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, 0.5f))
         } else if (Build.VERSION.SDK_INT >= 29) {
             vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
@@ -126,7 +130,7 @@ class RoutineHaptics internal constructor(private val view: View, private val en
     /** A drag crossed into a new state — a detent, a snap point, a threshold. */
     fun dragThreshold() {
         if (!allowed()) return
-        if (Build.VERSION.SDK_INT >= 31 && primitivesSupported()) {
+        if (Build.VERSION.SDK_INT >= 31 && renders(VibrationEffect.Composition.PRIMITIVE_TICK)) {
             vibrate(primitive(VibrationEffect.Composition.PRIMITIVE_TICK, 0.7f))
         } else {
             view.performHapticFeedback(
@@ -143,7 +147,8 @@ class RoutineHaptics internal constructor(private val view: View, private val en
      */
     fun confirm() {
         if (!allowed()) return
-        if (Build.VERSION.SDK_INT >= 31 && primitivesSupported()) {
+        if (Build.VERSION.SDK_INT >= 31 && renders(VibrationEffect.Composition.PRIMITIVE_TICK,
+                VibrationEffect.Composition.PRIMITIVE_CLICK)) {
             vibrate(pattern(VibrationEffect.Composition.PRIMITIVE_TICK to 0.5f,
                 VibrationEffect.Composition.PRIMITIVE_CLICK to 0.85f))
         } else if (Build.VERSION.SDK_INT >= 29) {
@@ -159,7 +164,8 @@ class RoutineHaptics internal constructor(private val view: View, private val en
      */
     fun reject() {
         if (!allowed()) return
-        if (Build.VERSION.SDK_INT >= 31 && primitivesSupported()) {
+        if (Build.VERSION.SDK_INT >= 31 && renders(VibrationEffect.Composition.PRIMITIVE_TICK,
+                VibrationEffect.Composition.PRIMITIVE_CLICK, VibrationEffect.Composition.PRIMITIVE_THUD)) {
             vibrate(pattern(VibrationEffect.Composition.PRIMITIVE_TICK to 0.4f,
                 VibrationEffect.Composition.PRIMITIVE_CLICK to 0.7f,
                 VibrationEffect.Composition.PRIMITIVE_THUD to 1f))
@@ -177,7 +183,7 @@ class RoutineHaptics internal constructor(private val view: View, private val en
      */
     fun warning() {
         if (!allowed()) return
-        if (Build.VERSION.SDK_INT >= 31 && primitivesSupported()) {
+        if (Build.VERSION.SDK_INT >= 31 && renders(VibrationEffect.Composition.PRIMITIVE_CLICK)) {
             vibrate(primitive(VibrationEffect.Composition.PRIMITIVE_CLICK, 1f))
         } else if (Build.VERSION.SDK_INT >= 29) {
             vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
@@ -219,12 +225,33 @@ class RoutineHaptics internal constructor(private val view: View, private val en
     // ---- tiers -----------------------------------------------------------------------------------
 
     /**
-     * Primitives exist from API 30 but are optional hardware: a motor that cannot render them says
-     * so, and the caller drops a tier. The version check is duplicated at every call site on purpose
-     * — that is what lint reads to prove the API is guarded.
+     * Primitives exist from API 30 but are optional hardware, and `arePrimitivesSupported` answers
+     * **per primitive**: it takes the ids you intend to use and returns one flag each, in order. That
+     * matters, because motors genuinely differ — plenty render `TICK` and `CLICK` but not `THUD`, and
+     * an all-or-nothing check would throw away the good half. Asking once, for the four primitives
+     * this class composes with, lets every method degrade on its own.
+     *
+     * The version check is repeated at every call site on purpose: that is what lint reads as proof
+     * the API is guarded.
      */
-    private fun primitivesSupported(): Boolean =
-        Build.VERSION.SDK_INT >= 31 && runCatching { vibrator.arePrimitivesSupported() }.getOrDefault(false)
+    private fun renders(vararg primitives: Int): Boolean = primitives.all { primitiveSupport.contains(it) }
+
+    @RequiresApi(31)
+    private fun queryPrimitives(): Set<Int> {
+        val tick = VibrationEffect.Composition.PRIMITIVE_TICK
+        val click = VibrationEffect.Composition.PRIMITIVE_CLICK
+        val thud = VibrationEffect.Composition.PRIMITIVE_THUD
+        val lowTick = VibrationEffect.Composition.PRIMITIVE_LOW_TICK
+        // Four separate arguments rather than one array: the parameter is a Java vararg, and passing
+        // the ids one by one is the form that compiles against either reading of it.
+        val flags: BooleanArray = runCatching {
+            vibrator.arePrimitivesSupported(tick, click, thud, lowTick)
+        }.getOrNull() ?: return emptySet()
+        val ids = intArrayOf(tick, click, thud, lowTick)
+        val supported = HashSet<Int>(ids.size)
+        for (index in ids.indices) if (flags.getOrElse(index) { false }) supported.add(ids[index])
+        return supported
+    }
 
     @RequiresApi(31)
     private fun primitive(id: Int, scale: Float): VibrationEffect =
