@@ -6,11 +6,11 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.scaleIn
-import androidx.compose.animation.core.scaleOut
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -90,6 +90,7 @@ import com.example.mydailyroutine.core.designsystem.glass.RoutineGlassSurface
 import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
 import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.glass.routineBackdropLayer
+import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.features.tasks.presentation.TasksSheet
 import com.example.mydailyroutine.features.goals.presentation.GoalsScreen
@@ -294,6 +295,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     },
                 shape = RoutineShapes.GlassTopBar,
                 role = GlassRole.Bar,
+                tilt = LocalGlassTilt.current,
                 // Its top edge is the screen edge, under the status bar: a specular hairline there has
                 // nothing above it to catch and reads as a stray bright pixel.
                 specular = false,

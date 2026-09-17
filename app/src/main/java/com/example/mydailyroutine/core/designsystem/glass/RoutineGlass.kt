@@ -237,6 +237,7 @@ fun Modifier.routineGlass(
     tint: Color = RoutineColors.GlassTint,
     hue: Boolean = false,
     specular: Boolean = true,
+    tilt: GlassTilt = GlassTilt(),
 ): Modifier {
     if (backdrop == null || !glassSupported) {
         val fallback = if (hue) tint else role.fallback
@@ -261,7 +262,6 @@ fun Modifier.routineGlass(
     } else {
         null
     }
-    val tilt = LocalGlassTilt.current
     val surface: DrawScope.() -> Unit = {
         wash?.invoke(this)
         if (specular && (tilt.x != 0f || tilt.y != 0f)) {

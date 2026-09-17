@@ -5,7 +5,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -135,15 +135,16 @@ fun TimelineBlockCard(
     var expanded by rememberSaveable(block.key) { mutableStateOf(false) }
     var dragY by remember(block.key) { mutableFloatStateOf(0f) }
     val dragScope = rememberCoroutineScope()
+    var dragging by remember(block.key) { mutableStateOf(false) }
     // Release springs the card home. A bare `dragY = 0f` teleports it in one frame, and the eye
     // reads that teleport as the card jumping, even when the commit itself reflows correctly.
     val settleDrag: () -> Unit = {
         dragging = false
+        val from = dragY
         dragScope.launch {
-            animate(dragY, 0f, spring(dampingRatio = 0.55f, stiffness = 320f)) { value, _ -> dragY = value }
+            Animatable(from).animateTo(0f, spring(dampingRatio = 0.55f, stiffness = 320f)) { dragY = value }
         }
     }
-    var dragging by remember(block.key) { mutableStateOf(false) }
     val currentAction by rememberUpdatedState(onAction)
     val haptics = LocalRoutineHaptics.current
     val context = LocalContext.current

@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
+import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -358,7 +359,8 @@ private fun SheetHeader(
     backdrop: LayerBackdrop,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet)) {
+    Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet,
+        tilt = LocalGlassTilt.current)) {
         Row(
             Modifier.fillMaxWidth().padding(start = RoutineSpacing.xl, end = RoutineSpacing.md,
                 top = RoutineSpacing.md, bottom = RoutineSpacing.md),
@@ -386,7 +388,8 @@ private fun ColumnScope.SheetFooter(footer: (@Composable ColumnScope.() -> Unit)
     if (footer == null) return
     Column(
         Modifier.fillMaxWidth().padding(RoutineSpacing.md)
-            .routineGlass(backdrop, RoutineShapes.GlassSheetFooter, GlassRole.Sheet)
+            .routineGlass(backdrop, RoutineShapes.GlassSheetFooter, GlassRole.Sheet,
+            tilt = LocalGlassTilt.current)
             .padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.md),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) { footer() }
