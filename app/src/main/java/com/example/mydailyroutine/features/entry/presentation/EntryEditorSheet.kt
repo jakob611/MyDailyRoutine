@@ -221,7 +221,10 @@ fun EntryEditorSheet(
                             modifier = Modifier.pointerInput(subject.id) { // No local haptic: EditSubject goes through the action wrapper, which is the single place
                             // that decides what an action feels like.
                             detectTapGestures(onLongPress = { onEditSubject(subject) }) },
-                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(subject.colorHex.toInt()).copy(alpha = 0.2f)),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(subject.colorHex.toInt()).copy(alpha = 0.2f),
+                                selectedLabelColor = RoutineColors.TextPrimary,
+                            ),
                             onClick = {
                                 subjectId = subject.id
                                 if (editing != null || kind == EntryKind.DEADLINE) {

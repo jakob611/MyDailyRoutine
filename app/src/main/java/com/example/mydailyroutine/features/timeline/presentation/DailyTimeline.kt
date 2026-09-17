@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Spa
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -191,7 +192,8 @@ fun DailyTimeline(
                     }
                 }
                 execution?.let { active ->
-                    Surface(color = RoutineColors.Focus.container, shape = RoutineShapes.Card, modifier = Modifier.fillMaxWidth()) {
+                    Surface(color = RoutineColors.Focus.container, contentColor = RoutineColors.Focus.content,
+                        shape = RoutineShapes.Card, modifier = Modifier.fillMaxWidth()) {
                         Column(
                             Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
@@ -207,10 +209,13 @@ fun DailyTimeline(
                             RoutineLabel(
                                 text = stringResource(R.string.execution_elapsed_label),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = RoutineColors.TextSecondary,
                             )
                             ActionRow {
-                                TextButton(enabled = !busy, onClick = { onAction(TimelineAction.FinishExecution) }) {
+                                TextButton(
+                                    enabled = !busy,
+                                    onClick = { onAction(TimelineAction.FinishExecution) },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = RoutineColors.Focus.content),
+                                ) {
                                     RoutineLabel(stringResource(R.string.execution_finish), style = MaterialTheme.typography.labelLarge)
                                 }
                                 TextButton(enabled = !busy, onClick = { onAction(TimelineAction.RequestCancelExecution) }) {

@@ -139,6 +139,7 @@ fun CalendarNoticeCard(entries: List<CalendarEntry>) {
     val style = if (off) RoutineColors.Recovery else RoutineColors.School
     Surface(
         color = style.container,
+        contentColor = style.content,
         shape = RoutineShapes.Card,
         border = BorderStroke(1.dp, RoutineColors.Border),
         modifier = Modifier.fillMaxWidth(),
@@ -154,7 +155,7 @@ fun CalendarNoticeCard(entries: List<CalendarEntry>) {
                     maxLines = RoutineTextDefaults.Body)
                 entries.forEach {
                     RoutineText(it.title, style = MaterialTheme.typography.bodySmall,
-                        maxLines = RoutineTextDefaults.Body)
+                        color = style.content, maxLines = RoutineTextDefaults.Body)
                 }
                 if (off) {
                     RoutineText(stringResource(R.string.calendar_school_inactive),

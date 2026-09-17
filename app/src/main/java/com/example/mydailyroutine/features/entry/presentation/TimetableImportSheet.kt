@@ -192,7 +192,7 @@ fun TimetableImportSheet(
                                     text = row.day.getDisplayName(java.time.format.TextStyle.SHORT, Slovenian),
                                     modifier = Modifier.widthIn(min = 40.dp),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = RoutineColors.TextMuted,
+                                    color = if (matchesSubject) RoutineColors.School.content else RoutineColors.TextMuted,
                                 )
                                 RoutineLabel(
                                     text = "%02d:%02d – %02d:%02d".format(
@@ -200,7 +200,7 @@ fun TimetableImportSheet(
                                         row.endMinute / 60, row.endMinute % 60,
                                     ),
                                     style = MaterialTheme.typography.labelLarge,
-                                    color = RoutineColors.School.content,
+                                    color = if (matchesSubject) RoutineColors.School.content else RoutineColors.TextSecondary,
                                 )
                                 RoutineText(row.title, style = MaterialTheme.typography.bodySmall, maxLines = RoutineTextDefaults.Title,
                                     modifier = Modifier.weight(1f))
