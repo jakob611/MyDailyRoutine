@@ -2,6 +2,7 @@ package com.example.mydailyroutine.core.designsystem.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
@@ -52,7 +53,9 @@ fun RoutineTimeField(
             supportingText = supporting?.let {
                 { RoutineText(it, style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning) }
             },
-            modifier = Modifier.matchParentSize(),
+            // The field, not the tap layer, measures the box: two matchParentSize children would
+            // collapse it to zero height and leave the wheel unreachable.
+            modifier = Modifier.fillMaxWidth(),
         )
         // The read-only field consumes nothing, so one transparent layer owns the whole tap target.
         Box(
