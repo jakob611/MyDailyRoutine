@@ -222,15 +222,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         // Changing scale is navigation, so it belongs on the back stack: week to month to year and
         // back out again, one press per step, instead of back leaving the app from wherever you
         // stand. Transitions caused by popping the stack are flagged so they do not push again.
-        var modeHistory by rememberSaveable { mutableStateOf(listOf<TimelineMode>()) }
-        var suppressPush by remember { mutableStateOf(false) }
-        var previousMode by rememberSaveable { mutableStateOf(data.mode) }
-        LaunchedEffect(data.mode) {
-            if (data.mode != previousMode) {
-                if (suppressPush) suppressPush = false else modeHistory = modeHistory + previousMode
-                previousMode = data.mode
-            }
-        }
+
         // Full-bleed stack instead of a Scaffold: a Scaffold body starts below its top bar, which
         // would leave nothing for the glass to refract. Here the content fills the window and the
         // floating chrome sits on top of it — as siblings of the layer, never inside it, or a panel
@@ -447,13 +439,11 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         // Composed outermost-first: Compose answers with the last enabled callback, so the order of
         // these three blocks is the depth of the stack — scale, then Goals, then (in their own
         // windows, and therefore ahead of both) the sheets and dialogs.
-        BackHandler(enabled = modeHistory.isNotEmpty() && !state.panels.showGoals && !state.panels.showSettings &&
-            !state.panels.showTasks && !state.panels.showPlanning && !state.panels.showAdd && state.panels.editingBlock == null,
+        BackHandler(enabled = state.panels.modeBackStack.isNotEmpty() && !state.panels.showGoals &&
+            !state.panels.showSettings && !state.panels.showTasks && !state.panels.showPlanning &&
+            !state.panels.showAdd && state.panels.editingBlock == null,
         ) {
-            suppressPush = true
-            val target = modeHistory.last()
-            modeHistory = modeHistory.dropLast(1)
-            onAction(TimelineAction.SelectMode(target))
+            onAction(TimelineAction.PopMode)
         }
         // Panels here are plain state, so the stack is derived rather than remembered: each layer on
         // screen contributes one callback and Compose answers with the innermost enabled one. Dialogs

@@ -71,6 +71,8 @@ data class TimelinePanels(
     val exportJson: String? = null,
     val showTasks: Boolean = false,
     val showGoals: Boolean = false,
+    /** Scales already visited on this visit: back walks them in reverse instead of leaving. */
+    val modeBackStack: List<TimelineMode> = emptyList(),
     val entryPrefillTitle: String? = null,
     // A task captured via the system share sheet pre-fills the Tasks quick-add; cleared on save or close.
     val sharedTaskTitle: String? = null,
@@ -123,6 +125,7 @@ data class TimetableRow(val day: java.time.DayOfWeek, val startMinute: Int, val 
 sealed interface TimelineAction {
     data class SelectDate(val date: LocalDate, val openDay: Boolean = false) : TimelineAction
     data class SelectMode(val mode: TimelineMode) : TimelineAction
+    data object PopMode : TimelineAction
     data class Shift(val direction: Long) : TimelineAction
     data object Today : TimelineAction
     data object Retry : TimelineAction

@@ -140,12 +140,14 @@ class RoutineViewModel(
             is TimelineAction.SelectDate -> {
                 savedState["date"] = action.date.coerceIn(ScheduleValidation.firstUiDate, ScheduleValidation.lastUiDate).toEpochDay()
                 if (action.openDay) {
+                    pushMode(TimelineMode.DAY)
                     savedState["mode"] = TimelineMode.DAY.name
                     panels.update { it.copy(showAdd = false, showSettings = false, editingBlock = null,
                         editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false, showTopicEditor = false, completionTarget = null, showTasks = false, entryPrefillTitle = null) }
                 }
             }
-            is TimelineAction.SelectMode -> savedState.set("mode", action.mode.name)
+            is TimelineAction.SelectMode -> { pushMode(action.mode); savedState.set("mode", action.mode.name) }
+            is TimelineAction.PopMode -> popMode()?.let { savedState.set("mode", it.name) }
             is TimelineAction.Shift -> {
                 val current = LocalDate.ofEpochDay(selectedDate.value)
                 val target = when (TimelineMode.valueOf(selectedMode.value)) {
@@ -525,6 +527,19 @@ class RoutineViewModel(
      * succession used to race a `tryLock` and the loser was discarded without a word, which reads
      * exactly like "the settings did not save". A queued mutex keeps every tap's write.
      */
+    /** Changing scale is navigation: the scale left behind goes on a stack back can unwind. */
+    private fun pushMode(target: TimelineMode) {
+        val current = TimelineMode.valueOf(selectedMode.value)
+        if (current != target) panels.update { it.copy(modeBackStack = it.modeBackStack + current) }
+    }
+
+    private fun popMode(): TimelineMode? {
+        val stack = panels.value.modeBackStack
+        val target = stack.lastOrNull() ?: return null
+        panels.update { it.copy(modeBackStack = stack.dropLast(1)) }
+        return target
+    }
+
     private fun perform(operation: suspend () -> Unit) {
         viewModelScope.launch {
             operationLock.withLock {

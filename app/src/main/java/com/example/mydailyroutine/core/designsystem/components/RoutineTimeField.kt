@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 
@@ -38,7 +39,13 @@ fun RoutineTimeField(
     var picking by remember { mutableStateOf(false) }
     // One merged semantics node: the tag, the label and the shown time travel together, so tests
     // and TalkBack read the field as a single value instead of a box with loose children.
-    Box(modifier.semantics(mergeDescendants = true) {}) {
+    Box(
+        modifier.semantics(mergeDescendants = true) {
+            // A read-only field keeps its value out of EditableText, so the node states the time
+            // itself: tests and TalkBack read one merged value instead of an empty box.
+            text = AnnotatedString(value)
+        },
+    ) {
         OutlinedTextField(
             value = value,
             onValueChange = {},
