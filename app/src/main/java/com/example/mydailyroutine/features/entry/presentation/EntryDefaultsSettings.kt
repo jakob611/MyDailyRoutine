@@ -25,6 +25,7 @@ import com.example.mydailyroutine.core.designsystem.components.SheetSecondaryBut
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.domain.routines.EntryDefaults
 
 /** Default lesson length and break, used by every new school block. */

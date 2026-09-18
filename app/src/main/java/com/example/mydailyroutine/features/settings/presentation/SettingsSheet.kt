@@ -321,7 +321,7 @@ private fun LazyListScope.remindersTab(
                     },
                     label = stringResource(R.string.quiet_from),
                     enabled = !busy,
-                    isError = error,
+                    supporting = if (error) stringResource(R.string.error_time_range) else null,
                     modifier = Modifier.weight(1f),
                     wheelTag = "quiet-start",
                 )
@@ -336,17 +336,13 @@ private fun LazyListScope.remindersTab(
                     },
                     label = stringResource(R.string.quiet_until),
                     enabled = !busy,
-                    isError = error,
+                    supporting = if (error) stringResource(R.string.error_time_range) else null,
                     modifier = Modifier.weight(1f),
                     wheelTag = "quiet-end",
                 )
             }
             RoutineText(stringResource(R.string.quiet_hint), style = MaterialTheme.typography.bodySmall,
                 color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
-            if (error) {
-                RoutineText(stringResource(R.string.error_time_range), style = MaterialTheme.typography.bodySmall,
-                    color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
-            }
         }
     }
 }
