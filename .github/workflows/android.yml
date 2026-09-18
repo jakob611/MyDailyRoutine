@@ -63,6 +63,19 @@ jobs:
       - name: Publish compiler and test diagnostics
         if: always()
         run: python3 tools/report_ci_failures.py
+      - name: Unit test summary
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          total = failed = 0
+          for path in sorted(glob.glob('core/build/test-results/*/TEST-*.xml') + glob.glob('app/build/test-results/*/TEST-*.xml')):
+              root = ET.parse(path).getroot()
+              tests = int(root.get('tests', 0)); bad = int(root.get('failures', 0)) + int(root.get('errors', 0))
+              total += tests; failed += bad
+              print(f"{root.get('name')}: {tests} tests, {bad} failed")
+          print(f"UNIT TESTS TOTAL: {total} tests, {failed} failed")
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:

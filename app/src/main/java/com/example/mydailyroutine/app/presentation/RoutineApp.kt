@@ -216,12 +216,17 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         // Drilling from a wider scale into a day pushes the scale it came from, so back walks out of
         // the day again instead of leaving the app — the stack a calendar reader expects. One entry
         // deep, because a day view never drills any further.
-        var drilledFrom by rememberSaveable { mutableStateOf<TimelineMode?>(null) }
+        // Changing scale is navigation, so it belongs on the back stack: week to month to year and
+        // back out again, one press per step, instead of back leaving the app from wherever you
+        // stand. Transitions caused by popping the stack are flagged so they do not push again.
+        var modeHistory by rememberSaveable { mutableStateOf(listOf<TimelineMode>()) }
+        var suppressPush by remember { mutableStateOf(false) }
         var previousMode by rememberSaveable { mutableStateOf(data.mode) }
         LaunchedEffect(data.mode) {
-            if (data.mode == TimelineMode.DAY && previousMode != TimelineMode.DAY) drilledFrom = previousMode
-            else if (data.mode != TimelineMode.DAY) drilledFrom = null
-            previousMode = data.mode
+            if (data.mode != previousMode) {
+                if (suppressPush) suppressPush = false else modeHistory = modeHistory + previousMode
+                previousMode = data.mode
+            }
         }
         // Full-bleed stack instead of a Scaffold: a Scaffold body starts below its top bar, which
         // would leave nothing for the glass to refract. Here the content fills the window and the
@@ -367,7 +372,21 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     ) {
                         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
                             TimelineMode.entries.forEachIndexed { index, mode ->
-                                SegmentedButton(selected = data.mode == mode, onClick = { onAction(TimelineAction.SelectMode(mode)) }, shape = SegmentedButtonDefaults.itemShape(index, TimelineMode.entries.size)) {
+                                SegmentedButton(selected = data.mode == mode, onClick = { onAction(TimelineAction.SelectMode(mode)) },
+                                    // On glass the selected cell is a wash of accent at Apple's
+                                    // 18 %, never a solid patch: a filled rectangle under the bar's
+                                    // tint reads as a colour fighting the material instead of a
+                                    // state of it.
+                                    colors = SegmentedButtonDefaults.colors(
+                                        selectedContainerColor = RoutineColors.Cobalt.copy(alpha = 0.18f),
+                                        selectedBorderColor = RoutineColors.Cobalt.copy(alpha = 0.55f),
+                                        selectedContentColor = RoutineColors.TextPrimary,
+                                        unselectedContainerColor = Color.Transparent,
+                                        unselectedBorderColor = RoutineColors.CardBorder,
+                                        unselectedContentColor = RoutineColors.TextSecondary,
+                                        activeIndicatorColor = Color.Transparent,
+                                    ),
+                                    shape = SegmentedButtonDefaults.itemShape(index, TimelineMode.entries.size)) {
                                     RoutineLabel(
                                         text = stringResource(when (mode) { TimelineMode.DAY -> R.string.nav_day; TimelineMode.WEEK -> R.string.nav_week; TimelineMode.MONTH -> R.string.nav_month; TimelineMode.YEAR -> R.string.nav_year }),
                                         style = MaterialTheme.typography.labelLarge,
@@ -416,9 +435,12 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         // Composed outermost-first: Compose answers with the last enabled callback, so the order of
         // these three blocks is the depth of the stack — scale, then Goals, then (in their own
         // windows, and therefore ahead of both) the sheets and dialogs.
-        BackHandler(enabled = drilledFrom != null && data.mode == TimelineMode.DAY && !state.panels.showGoals) {
-            val target = drilledFrom ?: return@BackHandler
-            drilledFrom = null
+        BackHandler(enabled = modeHistory.isNotEmpty() && !state.panels.showGoals && !state.panels.showSettings &&
+            !state.panels.showTasks && !state.panels.showPlanning && !state.panels.showAdd && state.panels.editingBlock == null,
+        ) {
+            suppressPush = true
+            val target = modeHistory.last()
+            modeHistory = modeHistory.dropLast(1)
             onAction(TimelineAction.SelectMode(target))
         }
         // Panels here are plain state, so the stack is derived rather than remembered: each layer on

@@ -281,11 +281,11 @@ fun EntryEditorSheet(
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         RoutineTimeField(startText, { times = times.withStart(it); error = null },
                             label = stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due),
-                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-start"),
+                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-start"), wheelTag = "entry-start",
                             supporting = if (showError && parsedStart == null) stringResource(R.string.error_time) else null)
                         if (kind == EntryKind.BLOCK) RoutineTimeField(endText, { times = times.withEnd(it); error = null },
                             label = stringResource(R.string.entry_end),
-                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-end"),
+                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-end"), wheelTag = "entry-end",
                             supporting = if (showError && (parsedEnd == null || parsedEnd == parsedStart)) stringResource(R.string.error_time_range) else null)
                     }
                 }

@@ -3,14 +3,11 @@ package com.example.mydailyroutine.features.routines.presentation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bedtime
-import androidx.compose.material.icons.outlined.WbSunny
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
+import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
@@ -31,6 +29,7 @@ import com.example.mydailyroutine.core.designsystem.components.SheetSecondaryBut
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.clockLabel
@@ -66,23 +65,21 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             control = { Switch(enabled, { enabled = it; haptics.toggle(it) }, enabled = !busy) },
         )
         Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-            OutlinedTextField(
+            RoutineTimeField(
                 value = bed,
-                onValueChange = { bed = it; invalid = false },
-                label = { RoutineText(stringResource(R.string.sleep_bedtime)) },
-                leadingIcon = { Icon(Icons.Outlined.Bedtime, null) },
-                singleLine = true,
+                onPick = { bed = it; invalid = false },
+                label = stringResource(R.string.sleep_bedtime),
                 enabled = !busy,
                 modifier = Modifier.weight(1f),
+                wheelTag = "sleep-bed",
             )
-            OutlinedTextField(
+            RoutineTimeField(
                 value = wake,
-                onValueChange = { wake = it; invalid = false },
-                label = { RoutineText(stringResource(R.string.sleep_wake)) },
-                leadingIcon = { Icon(Icons.Outlined.WbSunny, null) },
-                singleLine = true,
+                onPick = { wake = it; invalid = false },
+                label = stringResource(R.string.sleep_wake),
                 enabled = !busy,
                 modifier = Modifier.weight(1f),
+                wheelTag = "sleep-wake",
             )
         }
         val start = ScheduleValidation.parseTime(bed)
@@ -101,21 +98,21 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
         )
         if (weekend) {
             Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                OutlinedTextField(
+                RoutineTimeField(
                     value = weekendBed,
-                    onValueChange = { weekendBed = it; invalid = false },
-                    label = { RoutineText(stringResource(R.string.sleep_weekend_bedtime)) },
-                    singleLine = true,
+                    onPick = { weekendBed = it; invalid = false },
+                    label = stringResource(R.string.sleep_weekend_bedtime),
                     enabled = !busy,
                     modifier = Modifier.weight(1f),
+                    wheelTag = "sleep-weekend-bed",
                 )
-                OutlinedTextField(
+                RoutineTimeField(
                     value = weekendWake,
-                    onValueChange = { weekendWake = it; invalid = false },
-                    label = { RoutineText(stringResource(R.string.sleep_weekend_wake)) },
-                    singleLine = true,
+                    onPick = { weekendWake = it; invalid = false },
+                    label = stringResource(R.string.sleep_weekend_wake),
                     enabled = !busy,
                     modifier = Modifier.weight(1f),
+                    wheelTag = "sleep-weekend-wake",
                 )
             }
         }
@@ -132,14 +129,17 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
         }
         RoutineText(stringResource(R.string.sleep_days_hint), style = MaterialTheme.typography.bodySmall,
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
-        OutlinedTextField(
-            value = morning,
-            onValueChange = { morning = it.filter(Char::isDigit).take(3) },
-            label = { RoutineText(stringResource(R.string.sleep_morning)) },
-            singleLine = true,
-            enabled = !busy,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+            listOf(0, 15, 30, 45, 60, 90).forEach { minutes ->
+                FilterChip(
+                    selected = morning == minutes.toString(),
+                    onClick = { morning = minutes.toString(); invalid = false; haptics.selection() },
+                    enabled = !busy,
+                    label = { RoutineLabel(stringResource(R.string.sleep_minutes_format, minutes)) },
+                    shape = RoutineShapes.Chip,
+                )
+            }
+        }
         RoutineText(stringResource(R.string.sleep_morning_hint), style = MaterialTheme.typography.bodySmall,
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         if (invalid) {

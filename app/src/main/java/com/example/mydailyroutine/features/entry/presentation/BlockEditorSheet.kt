@@ -126,6 +126,7 @@ fun BlockEditorSheet(
                 label = stringResource(R.string.entry_start),
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
+                wheelTag = "editor-start",
             )
             RoutineTimeField(
                 value = end,
@@ -133,6 +134,7 @@ fun BlockEditorSheet(
                 label = stringResource(R.string.entry_end),
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
+                wheelTag = "editor-end",
             )
             RoutineText(stringResource(R.string.edit_times_hint), style = MaterialTheme.typography.bodySmall,
                 color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)

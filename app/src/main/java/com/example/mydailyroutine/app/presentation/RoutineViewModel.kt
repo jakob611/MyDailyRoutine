@@ -519,25 +519,30 @@ class RoutineViewModel(
         messages.send(TimelineEffect.Message(if (draft.existingMilestoneId == 0L) R.string.message_added else R.string.message_milestone_saved))
     }
 
+    /**
+     * Saves run one at a time, in order, and never silently dropped: two switches flipped in quick
+     * succession used to race a `tryLock` and the loser was discarded without a word, which reads
+     * exactly like "the settings did not save". A queued mutex keeps every tap's write.
+     */
     private fun perform(operation: suspend () -> Unit) {
-        if (!operationLock.tryLock()) return
-        panels.update { it.copy(isSaving = true) }
         viewModelScope.launch {
-            try { operation() }
-            catch (error: CancellationException) { throw error }
-            catch (conflict: ScheduleConflict) {
-                messages.send(TimelineEffect.Message(when(conflict.reason) {
-                    ScheduleConflictReason.ACTIVE_EXECUTION -> R.string.execution_finish_first
-                    ScheduleConflictReason.PREVIOUS_STAGE -> R.string.stage_finish_first
-                    ScheduleConflictReason.PROTECTED_TIME -> R.string.execution_protected_time
-                    ScheduleConflictReason.CLOCK_CHANGED -> R.string.execution_clock_changed
-                }))
-            }
-            catch (_: IllegalArgumentException) { messages.send(TimelineEffect.Message(R.string.error_values)) }
-            catch (_: Exception) { messages.send(TimelineEffect.Message(R.string.error_save)) }
-            finally {
-                panels.update { it.copy(isSaving = false) }
-                operationLock.unlock()
+            operationLock.withLock {
+                panels.update { it.copy(isSaving = true) }
+                try { operation() }
+                catch (error: CancellationException) { throw error }
+                catch (conflict: ScheduleConflict) {
+                    messages.send(TimelineEffect.Message(when(conflict.reason) {
+                        ScheduleConflictReason.ACTIVE_EXECUTION -> R.string.execution_finish_first
+                        ScheduleConflictReason.PREVIOUS_STAGE -> R.string.stage_finish_first
+                        ScheduleConflictReason.PROTECTED_TIME -> R.string.execution_protected_time
+                        ScheduleConflictReason.CLOCK_CHANGED -> R.string.execution_clock_changed
+                    }))
+                }
+                catch (_: IllegalArgumentException) { messages.send(TimelineEffect.Message(R.string.error_values)) }
+                catch (_: Exception) { messages.send(TimelineEffect.Message(R.string.error_save)) }
+                finally {
+                    panels.update { it.copy(isSaving = false) }
+                }
             }
         }
     }

@@ -14,6 +14,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.annotation.StringRes
 import androidx.compose.ui.test.*
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -105,14 +106,23 @@ class TimelineUiTest {
         assertFalse("android.permission.INTERNET" in permissions)
         assertFalse("android.permission.ACCESS_NETWORK_STATE" in permissions)
     }
+    /** Spins an iOS-style time drum to an exact value: open the wheel, centre both rows, confirm. */
+    private fun setWheel(tag: String, hour: Int, minute: Int) {
+        compose.onNodeWithTag(tag).performScrollTo().performClick()
+        compose.onNodeWithTag("$tag-hour").performScrollToNode(hasTestTag("$tag-hour-$hour"))
+        compose.onNodeWithTag("$tag-hour-$hour").performClick()
+        compose.onNodeWithTag("$tag-minute").performScrollToNode(hasTestTag("$tag-minute-$minute"))
+        compose.onNodeWithTag("$tag-minute-$minute").performClick()
+        compose.onNodeWithTag("$tag-confirm").performClick()
+    }
     @Test fun changingSchoolStartAutomaticallyMaintainsItsDuration() {
         compose.onNodeWithTag("fast-add").performClick()
         awaitText(R.string.fast_add_title)
         compose.onNodeWithText(text(R.string.category_school)).performScrollTo().performClick()
-        compose.onNodeWithTag("entry-start").performScrollTo().performTextReplacement("08:00")
+        setWheel("entry-start", 8, 0)
         compose.onNodeWithTag("entry-end").assertTextContains("08:45")
-        compose.onNodeWithTag("entry-end").performTextReplacement("08:50")
-        compose.onNodeWithTag("entry-start").performTextReplacement("09:00")
+        setWheel("entry-end", 8, 50)
+        setWheel("entry-start", 9, 0)
         compose.onNodeWithTag("entry-end").assertTextContains("09:50")
     }
     @Test fun multipleWeekdaysAndLessonBreakAreSelectable() {
