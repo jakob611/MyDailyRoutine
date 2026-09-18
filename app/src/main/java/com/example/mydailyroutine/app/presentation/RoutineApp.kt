@@ -404,7 +404,11 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     }
                 }
             }
-            // Amber glass: hue-blended, so the refracted content keeps its shading under the accent.
+            // Neutral glass with an amber wash laid *over* the refracted layer and an amber glyph on
+            // top. Hue-blending the accent into the refraction looked tempting and read as a bug: the
+            // button's colour then depended on whatever card happened to scroll underneath it. A wash
+            // above the surface keeps the accent constant, exactly as Apple tints controls with a
+            // fill over the material rather than by recolouring what the material shows.
             // Interactive in Apple's sense: it shrinks a few percent under the finger, lights up at
             // the touch point and springs back on the glass release spring. The ripple is switched off
             // on purpose — the scale *is* the state layer here, and a Material ripple on top of a
@@ -415,8 +419,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(RoutineSpacing.lg)
                         .height(56.dp).testTag("fast-add")
                         .routineGlassTouch(fastAddTouch, RoutineShapes.Pill)
-                        .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control, RoutineColors.Amber, hue = true,
+                        .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control,
                             tilt = LocalGlassTilt.current)
+                        .background(RoutineColors.Amber.copy(alpha = 0.16f), RoutineShapes.Pill)
                         .clip(RoutineShapes.Pill)
                         .clickable(interactionSource = fastAddTouch.source, indication = null, role = Role.Button) {
                             onAction(TimelineAction.OpenAdd)
@@ -425,8 +430,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                        Icon(Icons.Default.Add, null, tint = RoutineColors.InkOnPrimary)
-                        RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge, color = RoutineColors.InkOnPrimary)
+                        Icon(Icons.Default.Add, null, tint = RoutineColors.Amber)
+                        RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Amber)
                     }
                 }
             }
