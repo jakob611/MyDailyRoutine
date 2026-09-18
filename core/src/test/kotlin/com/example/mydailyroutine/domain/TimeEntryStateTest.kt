@@ -45,10 +45,13 @@ class TimeEntryStateTest {
         assertEquals(45, state.durationMinutes)
     }
 
-    @Test fun anUnparsableStartMovesNothing() {
+    @Test fun anUnparsableStartKeepsTheEndAndShowsWhatWasTyped() {
+        // The field keeps the raw text so the reader sees and can fix exactly what they wrote;
+        // only the derived end refuses to move on a start it cannot parse.
         val state = TimeEntryState.at(LocalTime.of(8, 0), 45).withStart("neveljavno")
-        assertEquals("08:00", state.startText)
+        assertEquals("neveljavno", state.startText)
         assertEquals("08:45", state.endText)
+        assertEquals(45, state.durationMinutes)
     }
 
     @Test fun withDurationRestatesTheEnd() {
