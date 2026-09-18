@@ -63,6 +63,9 @@ import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -370,26 +373,30 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
                         exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                     ) {
-                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
                             TimelineMode.entries.forEachIndexed { index, mode ->
-                                SegmentedButton(selected = data.mode == mode, onClick = { onAction(TimelineAction.SelectMode(mode)) },
-                                    // On glass the selected cell is a wash of accent at Apple's
-                                    // 18 %, never a solid patch: a filled rectangle under the bar's
-                                    // tint reads as a colour fighting the material instead of a
-                                    // state of it.
-                                    colors = SegmentedButtonDefaults.colors(
-                                        selectedContainerColor = RoutineColors.Cobalt.copy(alpha = 0.18f),
-                                        selectedBorderColor = RoutineColors.Cobalt.copy(alpha = 0.55f),
-                                        selectedContentColor = RoutineColors.TextPrimary,
-                                        unselectedContainerColor = Color.Transparent,
-                                        unselectedBorderColor = RoutineColors.CardBorder,
-                                        unselectedContentColor = RoutineColors.TextSecondary,
-                                        activeIndicatorColor = Color.Transparent,
-                                    ),
-                                    shape = SegmentedButtonDefaults.itemShape(index, TimelineMode.entries.size)) {
+                                val selected = data.mode == mode
+                                Box(
+                                    Modifier.weight(1f).height(40.dp)
+                                        // On glass the selected cell is a wash of accent at Apple's
+                                        // 18 %, never a solid patch: a filled rectangle under the
+                                        // bar's tint reads as a colour fighting the material.
+                                        .background(
+                                            if (selected) RoutineColors.Cobalt.copy(alpha = 0.18f) else Color.Transparent,
+                                            shape = modeTabShape(index, TimelineMode.entries.size),
+                                        )
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (selected) RoutineColors.Cobalt.copy(alpha = 0.55f) else RoutineColors.CardBorder,
+                                            shape = modeTabShape(index, TimelineMode.entries.size),
+                                        )
+                                        .clickable(role = Role.Tab) { onAction(TimelineAction.SelectMode(mode)) },
+                                    contentAlignment = Alignment.Center,
+                                ) {
                                     RoutineLabel(
                                         text = stringResource(when (mode) { TimelineMode.DAY -> R.string.nav_day; TimelineMode.WEEK -> R.string.nav_week; TimelineMode.MONTH -> R.string.nav_month; TimelineMode.YEAR -> R.string.nav_year }),
                                         style = MaterialTheme.typography.labelLarge,
+                                        color = if (selected) RoutineColors.TextPrimary else RoutineColors.TextSecondary,
                                     )
                                 }
                             }
@@ -544,4 +551,11 @@ private fun minuteClock(): State<ZonedDateTime> {
             while (true) { value = ZonedDateTime.now(); delay(60_000L - System.currentTimeMillis() % 60_000L) }
         }
     }
+}
+
+/** Rounded on the outer ends of the tab row, square where two tabs meet: one pill, four states. */
+private fun modeTabShape(index: Int, count: Int): CornerBasedShape = when (index) {
+    0 -> RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
+    count - 1 -> RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp)
+    else -> RoundedCornerShape(0.dp)
 }

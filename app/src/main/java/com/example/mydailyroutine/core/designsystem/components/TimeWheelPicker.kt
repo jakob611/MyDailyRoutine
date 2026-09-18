@@ -79,7 +79,7 @@ private fun WheelDrum(
             items(count, key = { it }) { index ->
                 Box(
                     Modifier.fillMaxWidth().height(WheelItem).testTag("$tag-$index")
-                        .clickable { haptics.tap(); scope.launch { state.animateScrollToIndex(index) } },
+                        .clickable { haptics.tap(); scope.launch { state.animateScrollToItem(index) } },
                     contentAlignment = Alignment.Center,
                 ) {
                     RoutineLabel("%02d".format(index), style = MaterialTheme.typography.titleMedium)
@@ -97,16 +97,12 @@ private fun WheelDrum(
     }
 }
 
-private fun centerIndexOf(state: LazyListState): Int {
-    val info = state.layoutInfo
-    val center = info.viewportStartOffset + (info.viewportEndOffset - info.viewportStartOffset) / 2
-    return wheelCenterIndex(
-        offsets = info.visibleInfos.map { it.offset },
-        sizes = info.visibleInfos.map { it.size },
-        indices = info.visibleInfos.map { it.index },
-        viewportCenter = center,
-    ) ?: info.firstVisibleItemIndex
-}
+/**
+ * The row in the selection window. The snap fling only ever rests on a row boundary and the drum
+ * pads two rows top and bottom, so at rest the first visible row *is* the centred one; confirm
+ * always happens at rest, because a finger cannot press the button mid-fling and keep it pressed.
+ */
+private fun centerIndexOf(state: LazyListState): Int = state.firstVisibleItemIndex
 
 /**
  * The picker: two drums, hours and minutes, on one dark panel. Confirm reads the rows that are
