@@ -55,6 +55,31 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
     var invalid by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val haptics = LocalRoutineHaptics.current
+    // Every control commits the whole rhythm at once: a wheel confirmation, a chip or a switch is
+    // the save. A separate button after already-confirmed wheels only taught doubt.
+    fun commit() {
+        val value = runCatching {
+            SleepSchedule(
+                enabled,
+                requireNotNull(ScheduleValidation.parseTime(bed)),
+                requireNotNull(ScheduleValidation.parseTime(wake)),
+                days, morning.toIntOrNull() ?: 30, weekend,
+                requireNotNull(ScheduleValidation.parseTime(weekendBed)),
+                requireNotNull(ScheduleValidation.parseTime(weekendWake)),
+            )
+        }.getOrNull()
+        invalid = value == null
+        if (invalid) haptics.warning()
+        value?.let {
+            onAction(
+                TimelineAction.SaveSleep(
+                    it,
+                    context.getString(R.string.sleep_title),
+                    context.getString(R.string.sleep_morning_title),
+                ),
+            )
+        }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
         RoutineText(stringResource(R.string.sleep_heading), style = MaterialTheme.typography.titleLarge,
             maxLines = RoutineTextDefaults.Body)
@@ -62,12 +87,12 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         SettingRow(
             title = stringResource(R.string.sleep_enable),
-            control = { Switch(enabled, { enabled = it; haptics.toggle(it) }, enabled = !busy) },
+            control = { Switch(enabled, { enabled = it; haptics.toggle(it); commit() }, enabled = !busy) },
         )
         Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
             RoutineTimeField(
                 value = bed,
-                onPick = { bed = it; invalid = false },
+                onPick = { bed = it; invalid = false; commit() },
                 label = stringResource(R.string.sleep_bedtime),
                 enabled = !busy,
                 modifier = Modifier.weight(1f),
@@ -75,7 +100,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             )
             RoutineTimeField(
                 value = wake,
-                onPick = { wake = it; invalid = false },
+                onPick = { wake = it; invalid = false; commit() },
                 label = stringResource(R.string.sleep_wake),
                 enabled = !busy,
                 modifier = Modifier.weight(1f),
@@ -94,13 +119,13 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
         }
         SettingRow(
             title = stringResource(R.string.sleep_weekend_mode),
-            control = { Switch(weekend, { weekend = it; haptics.toggle(it) }, enabled = !busy) },
+            control = { Switch(weekend, { weekend = it; haptics.toggle(it); commit() }, enabled = !busy) },
         )
         if (weekend) {
             Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                 RoutineTimeField(
                     value = weekendBed,
-                    onPick = { weekendBed = it; invalid = false },
+                    onPick = { weekendBed = it; invalid = false; commit() },
                     label = stringResource(R.string.sleep_weekend_bedtime),
                     enabled = !busy,
                     modifier = Modifier.weight(1f),
@@ -108,7 +133,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
                 )
                 RoutineTimeField(
                     value = weekendWake,
-                    onPick = { weekendWake = it; invalid = false },
+                    onPick = { weekendWake = it; invalid = false; commit() },
                     label = stringResource(R.string.sleep_weekend_wake),
                     enabled = !busy,
                     modifier = Modifier.weight(1f),
@@ -118,7 +143,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
         }
         RoutineText(stringResource(R.string.sleep_days), style = MaterialTheme.typography.titleSmall,
             maxLines = RoutineTextDefaults.Body)
-        WeekdayPicker(days, !busy) { days = it }
+        WeekdayPicker(days, !busy) { days = it; commit() }
         ActionRow {
             TextButton(
                 enabled = !busy,
@@ -133,7 +158,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             listOf(0, 15, 30, 45, 60, 90).forEach { minutes ->
                 FilterChip(
                     selected = morning == minutes.toString(),
-                    onClick = { morning = minutes.toString(); invalid = false; haptics.selection() },
+                    onClick = { morning = minutes.toString(); invalid = false; haptics.selection(); commit() },
                     enabled = !busy,
                     label = { RoutineLabel(stringResource(R.string.sleep_minutes_format, minutes)) },
                     shape = RoutineShapes.Chip,
@@ -146,30 +171,5 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             RoutineText(stringResource(R.string.sleep_invalid), style = MaterialTheme.typography.bodySmall,
                 color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
         }
-        SheetSecondaryButton(
-            label = stringResource(R.string.sleep_save),
-            enabled = !busy,
-            onClick = {
-                val weekendStart = if (weekend) ScheduleValidation.parseTime(weekendBed) else LocalTime.of(0, 30)
-                val weekendEnd = if (weekend) ScheduleValidation.parseTime(weekendWake) else LocalTime.of(9, 30)
-                val value = runCatching {
-                    SleepSchedule(
-                        enabled, requireNotNull(start), requireNotNull(end), days, morning.toInt(), weekend,
-                        requireNotNull(weekendStart), requireNotNull(weekendEnd),
-                    )
-                }.getOrNull()
-                invalid = value == null
-                if (invalid) haptics.warning()
-                value?.let {
-                    onAction(
-                        TimelineAction.SaveSleep(
-                            it,
-                            context.getString(R.string.sleep_title),
-                            context.getString(R.string.sleep_morning_title),
-                        ),
-                    )
-                }
-            },
-        )
     }
 }

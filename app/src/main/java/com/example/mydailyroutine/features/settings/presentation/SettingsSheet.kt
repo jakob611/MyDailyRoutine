@@ -51,6 +51,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.CategoryTabs
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
@@ -309,23 +310,35 @@ private fun LazyListScope.remindersTab(
                 },
             )
             Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                OutlinedTextField(
+                RoutineTimeField(
                     value = start,
-                    onValueChange = onStart,
-                    label = { RoutineText(stringResource(R.string.quiet_from)) },
-                    singleLine = true,
+                    onPick = { v ->
+                        onStart(v)
+                        val from = ScheduleValidation.parseTime(v)
+                        val until = ScheduleValidation.parseTime(end)
+                        if (from == null || until == null || from == until) onError(true)
+                        else { onError(false); onSaveWindow(from, until) }
+                    },
+                    label = stringResource(R.string.quiet_from),
                     enabled = !busy,
                     isError = error,
                     modifier = Modifier.weight(1f),
+                    wheelTag = "quiet-start",
                 )
-                OutlinedTextField(
+                RoutineTimeField(
                     value = end,
-                    onValueChange = onEnd,
-                    label = { RoutineText(stringResource(R.string.quiet_until)) },
-                    singleLine = true,
+                    onPick = { v ->
+                        onEnd(v)
+                        val from = ScheduleValidation.parseTime(start)
+                        val until = ScheduleValidation.parseTime(v)
+                        if (from == null || until == null || from == until) onError(true)
+                        else { onError(false); onSaveWindow(from, until) }
+                    },
+                    label = stringResource(R.string.quiet_until),
                     enabled = !busy,
                     isError = error,
                     modifier = Modifier.weight(1f),
+                    wheelTag = "quiet-end",
                 )
             }
             RoutineText(stringResource(R.string.quiet_hint), style = MaterialTheme.typography.bodySmall,
@@ -334,20 +347,6 @@ private fun LazyListScope.remindersTab(
                 RoutineText(stringResource(R.string.error_time_range), style = MaterialTheme.typography.bodySmall,
                     color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
             }
-            SheetSecondaryButton(
-                label = stringResource(R.string.save_quiet),
-                enabled = !busy,
-                onClick = {
-                    val from = ScheduleValidation.parseTime(start)
-                    val until = ScheduleValidation.parseTime(end)
-                    if (from == null || until == null || from == until) {
-                        onError(true)
-                    } else {
-                        onError(false)
-                        onSaveWindow(from, until)
-                    }
-                },
-            )
         }
     }
 }
@@ -564,6 +563,22 @@ private fun AdvancedHealthSettings(config: HealthConfig, busy: Boolean, onSave: 
     fun toggle(type: WarningType, value: Boolean) {
         flags = if (value) flags or (1 shl type.ordinal) else flags and (1 shl type.ordinal).inv()
     }
+    // Thresholds commit themselves once the reader stops typing: a debounced save keeps the sheet
+    // free of a second truth ("edited" vs "saved") while never firing on half-typed digits.
+    LaunchedEffect(focus, cognitive, transition, daily, sedentary, gapMin, gapMax, flags) {
+        kotlinx.coroutines.delay(600)
+        val parsed = runCatching {
+            HealthConfig(
+                focus.toInt(), cognitive.toInt(), transition.toInt(), daily.toInt(), sedentary.toInt(),
+                gapMin.toInt(), gapMax.toInt(),
+                enabled(WarningType.CONCENTRATION_LIMIT), enabled(WarningType.HIGH_COGNITIVE_LOAD),
+                enabled(WarningType.INSUFFICIENT_TRANSITION), enabled(WarningType.BURNOUT_RISK),
+                enabled(WarningType.PHYSICAL_RESET), enabled(WarningType.FRAGMENTED_TIME),
+            )
+        }.getOrNull()
+        invalid = parsed == null
+        parsed?.let(onSave)
+    }
     Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md)) {
         RoutineText(stringResource(R.string.advanced_hint), style = MaterialTheme.typography.bodySmall,
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
@@ -594,24 +609,6 @@ private fun AdvancedHealthSettings(config: HealthConfig, busy: Boolean, onSave: 
             RoutineText(stringResource(R.string.error_thresholds), style = MaterialTheme.typography.bodySmall,
                 color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
         }
-        SheetSecondaryButton(
-            label = stringResource(R.string.save_thresholds),
-            enabled = !busy,
-            onClick = {
-                val parsed = runCatching {
-                    HealthConfig(
-                        focus.toInt(), cognitive.toInt(), transition.toInt(), daily.toInt(), sedentary.toInt(),
-                        gapMin.toInt(), gapMax.toInt(),
-                        enabled(WarningType.CONCENTRATION_LIMIT), enabled(WarningType.HIGH_COGNITIVE_LOAD),
-                        enabled(WarningType.INSUFFICIENT_TRANSITION), enabled(WarningType.BURNOUT_RISK),
-                        enabled(WarningType.PHYSICAL_RESET), enabled(WarningType.FRAGMENTED_TIME),
-                    )
-                }.getOrNull()
-                invalid = parsed == null
-                if (invalid) haptics.warning()
-                parsed?.let(onSave)
-            },
-        )
         TextButton(enabled = !busy, onClick = { invalid = false; onSave(HealthConfig()) }) {
             RoutineLabel(stringResource(R.string.reset_thresholds), style = MaterialTheme.typography.labelLarge,
                 color = RoutineColors.Crimson)
@@ -689,25 +686,27 @@ private fun PeriodicBreakSettings(
             control = { Switch(enabled, { enabled = it; push() }, enabled = !busy) },
         )
         if (enabled) {
-            Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                OutlinedTextField(
-                    value = every,
-                    onValueChange = { every = it.filter(Char::isDigit).take(3); push() },
-                    label = { RoutineText(stringResource(R.string.periodic_break_every)) },
-                    singleLine = true,
-                    enabled = !busy,
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
-                OutlinedTextField(
-                    value = len,
-                    onValueChange = { len = it.filter(Char::isDigit).take(2); push() },
-                    label = { RoutineText(stringResource(R.string.periodic_break_len)) },
-                    singleLine = true,
-                    enabled = !busy,
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+                RoutineText(stringResource(R.string.periodic_break_every), style = MaterialTheme.typography.titleSmall,
+                    maxLines = RoutineTextDefaults.Body)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+                    listOf(45, 60, 90, 120).forEach { minutes ->
+                        FilterChip(selected = config.everyMinutes == minutes,
+                            onClick = { every = minutes.toString(); push() }, enabled = !busy,
+                            label = { RoutineLabel(stringResource(R.string.sleep_minutes_format, minutes)) },
+                            shape = RoutineShapes.Chip)
+                    }
+                }
+                RoutineText(stringResource(R.string.periodic_break_len), style = MaterialTheme.typography.titleSmall,
+                    maxLines = RoutineTextDefaults.Body)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+                    listOf(5, 10, 15).forEach { minutes ->
+                        FilterChip(selected = config.breakMinutes == minutes,
+                            onClick = { len = minutes.toString(); push() }, enabled = !busy,
+                            label = { RoutineLabel(stringResource(R.string.sleep_minutes_format, minutes)) },
+                            shape = RoutineShapes.Chip)
+                    }
+                }
             }
             RoutineText(stringResource(R.string.periodic_break_hint), style = MaterialTheme.typography.bodySmall,
                 color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)

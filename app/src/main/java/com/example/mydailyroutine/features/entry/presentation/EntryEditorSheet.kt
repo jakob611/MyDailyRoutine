@@ -58,6 +58,10 @@ import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.*
 import androidx.compose.ui.draw.rotate
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.core.presentation.*
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -70,6 +74,7 @@ fun EntryEditorSheet(
     editing: ResolvedTimelineItem.Milestone?, busy: Boolean, sheetState: SheetState,
     onDismiss: () -> Unit, onSave: (EntryDraft) -> Unit, onNewSubject: () -> Unit, onEditSubject: (Subject) -> Unit = {},
     defaults: EntryDefaults = EntryDefaults(), continuation: EntryContinuation? = null, prefillTitle: String? = null,
+    occurrence: ResolvedTimelineItem.Block? = null, onSaveBlock: (TimelineAction.SaveBlockEdit) -> Unit = {},
 ) {
     val initial = remember(selectedDate, editing?.key, continuation?.start) {
         val now = LocalDateTime.now()
@@ -172,6 +177,14 @@ fun EntryEditorSheet(
                 minimumValue, elasticityValue ?: 1.0, priorityValue ?: 3.0, fixed, calibrate, effortValue ?: 0.0, terminal && chosenKind == EntryKind.EXAM,
                 repeatDays, afterBreak ?: 0, context.getString(R.string.lesson_break_title), keepOpen))
         }
+    }
+
+    // One editor, two languages: a draft speaks categories and patterns, an occurrence speaks only
+    // title, times and the scope of the change - but both live in this one sheet, so the fields,
+    // the footer and the way out never change meaning between them.
+    if (occurrence != null) {
+        OccurrenceEditor(occurrence, busy, sheetState, onDismiss, onSaveBlock)
+        return
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState,
@@ -434,4 +447,114 @@ fun AppDatePicker(date: LocalDate, onDismiss: () -> Unit, onDate: (LocalDate) ->
         }) { RoutineLabel(stringResource(R.string.choose), style = MaterialTheme.typography.labelLarge) } },
         dismissButton = { TextButton(onClick = onDismiss) { RoutineLabel(stringResource(R.string.cancel), style = MaterialTheme.typography.labelLarge) } },
     ) { DatePicker(state) }
+}
+
+/** The occurrence half of the unified block editor: title, times, and how far the change reaches. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OccurrenceEditor(
+    block: ResolvedTimelineItem.Block,
+    busy: Boolean,
+    sheetState: SheetState,
+    onDismiss: () -> Unit,
+    onSave: (TimelineAction.SaveBlockEdit) -> Unit,
+) {
+    var title by rememberSaveable(block.key) { mutableStateOf(block.title) }
+    var times by rememberSaveable(block.key, stateSaver = TimeEntrySaver) {
+        mutableStateOf(
+            TimeEntryState.at(
+                block.startsAt.toLocalTime(),
+                nominalMinutes(block.startsAt.toLocalTime(), block.endsAt.toLocalTime()).coerceIn(1, 1439),
+            ),
+        )
+    }
+    var whole by rememberSaveable(block.key) { mutableStateOf(false) }
+    var allDays by rememberSaveable(block.key) { mutableStateOf(true) }
+    var error by rememberSaveable { mutableStateOf<Int?>(null) }
+    val haptic = LocalRoutineHaptics.current
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState,
+        shape = RoutineShapes.Sheet, containerColor = RoutineColors.SheetSurface, tonalElevation = 0.dp) {
+        RoutineSheetScaffold(
+            title = stringResource(R.string.edit_block_title),
+            subtitle = stringResource(R.string.edit_occurrence, RoutineDate.spoken(block.occurrenceDate)),
+            closeLabel = stringResource(R.string.close),
+            onClose = onDismiss,
+            modifier = Modifier.testTag("block-editor"),
+            footer = {
+                error?.let {
+                    RoutineText(stringResource(it), style = MaterialTheme.typography.bodySmall,
+                        color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
+                }
+                SheetPrimaryButton(
+                    label = stringResource(if (busy) R.string.saving else R.string.save_changes),
+                    enabled = !busy,
+                    onClick = {
+                        val parsedStart = ScheduleValidation.parseTime(times.startText)
+                        val parsedEnd = ScheduleValidation.parseTime(times.endText)
+                        if (title.isBlank() || parsedStart == null || parsedEnd == null || parsedStart == parsedEnd) {
+                            haptic.warning()
+                            error = R.string.error_block_edit
+                        } else {
+                            onSave(
+                                TimelineAction.SaveBlockEdit(
+                                    block, title.trim(), parsedStart, parsedEnd, whole,
+                                    allDays && block.seriesKey != null,
+                                ),
+                            )
+                        }
+                    },
+                )
+                SheetSecondaryButton(label = stringResource(R.string.cancel), enabled = !busy, onClick = onDismiss)
+            },
+        ) {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it.take(120); error = null },
+                label = { RoutineText(stringResource(R.string.entry_title)) },
+                singleLine = true,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            RoutineTimeField(
+                value = times.startText,
+                onPick = { times = times.withStart(it); error = null },
+                label = stringResource(R.string.entry_start),
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+                wheelTag = "editor-start",
+            )
+            RoutineTimeField(
+                value = times.endText,
+                onPick = { times = times.withEnd(it); error = null },
+                label = stringResource(R.string.entry_end),
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+                wheelTag = "editor-end",
+            )
+            RoutineText(stringResource(R.string.edit_times_hint), style = MaterialTheme.typography.bodySmall,
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+            if (!block.isOneOff) {
+                SettingRow(
+                    title = stringResource(R.string.edit_whole_template),
+                    description = stringResource(if (whole) R.string.edit_whole_hint else R.string.edit_once_hint),
+                    control = {
+                        Checkbox(whole, { whole = it; haptic.tap() }, enabled = !busy,
+                            modifier = Modifier.size(RoutineMetrics.ActionMinWidth))
+                    },
+                )
+                if (whole && block.seriesKey != null && block.seriesDays.size > 1) {
+                    SettingRow(
+                        title = stringResource(R.string.edit_all_repeat_days),
+                        control = {
+                            Checkbox(allDays, { allDays = it; haptic.tap() }, enabled = !busy,
+                                modifier = Modifier.size(RoutineMetrics.ActionMinWidth))
+                        },
+                    )
+                }
+            } else {
+                RoutineText(stringResource(R.string.edit_once_hint), style = MaterialTheme.typography.bodySmall,
+                    color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+            }
+        }
+    }
 }

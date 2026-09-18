@@ -476,7 +476,16 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         RoutineSheet(state.panels.showTimetableImport) { sheetState -> TimetableImportSheet(data.subjects, state.panels.isSaving, sheetState, onDismiss = { onAction(TimelineAction.CloseTimetableImport) }, onImport = { rows -> onAction(TimelineAction.ImportTimetable(rows)) }) }
         RoutineSheet(state.panels.showTopicEditor) { sheetState -> TopicEditorSheet(state, onAction, sheetState = sheetState) }
         state.panels.completionTarget?.let { ActualCompletionDialog(it, state.panels.isSaving, onAction) }
-        state.panels.editingBlock?.let { BlockEditorSheet(it, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseEditor) }, onSave = onAction) }
+        RoutineSheet(state.panels.editingBlock != null) { sheetState ->
+            EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, null,
+                state.panels.isSaving, sheetState,
+                onDismiss = { onAction(TimelineAction.CloseEditor) },
+                onSave = { onAction(TimelineAction.SaveEntry(it)) },
+                onNewSubject = { onAction(TimelineAction.EditSubject()) },
+                occurrence = state.panels.editingBlock,
+                onSaveBlock = { onAction(it) },
+            )
+        }
         state.panels.editingSubject?.let { editing -> SubjectEditorDialog(editing, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) },
             onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) },
             onDelete = if (editing.id == 0L) null else { { onAction(TimelineAction.DeleteSubject(editing.id)); onAction(TimelineAction.CloseSubjectEditor) } }) }
