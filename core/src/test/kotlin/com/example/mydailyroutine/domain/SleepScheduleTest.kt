@@ -4,9 +4,9 @@ import com.example.mydailyroutine.domain.routines.SleepSchedule
 import java.time.DayOfWeek
 import com.example.mydailyroutine.domain.routines.Weekdays
 import java.time.LocalTime
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
+import org.junit.Test
 
 /**
  * The sleep rhythm the settings sheet edits and the patterns repository encodes as managed blocks.
@@ -36,21 +36,21 @@ class SleepScheduleTest {
     }
 
     @Test fun bedAndWakeMustDiffer() {
-        assertFailsWith<IllegalArgumentException> {
+        assertThrows(IllegalArgumentException::class.java) {
             SleepSchedule(bedtime = LocalTime.of(23, 0), wakeTime = LocalTime.of(23, 0))
         }
     }
 
     @Test fun anInvalidWeekendVariantFailsOnlyWhenEnabled() {
-        assertFailsWith<IllegalArgumentException> {
+        assertThrows(IllegalArgumentException::class.java) {
             SleepSchedule(weekendEnabled = true, weekendBedtime = LocalTime.of(9, 0), weekendWakeTime = LocalTime.of(9, 0))
         }
         SleepSchedule(weekendEnabled = false, weekendBedtime = LocalTime.of(9, 0), weekendWakeTime = LocalTime.of(9, 0))
     }
 
     @Test fun weekdayMaskAndBufferStayInsideBounds() {
-        assertFailsWith<IllegalArgumentException> { SleepSchedule(weekdaysMask = 0) }
-        assertFailsWith<IllegalArgumentException> { SleepSchedule(morningBufferMinutes = 121) }
+        assertThrows(IllegalArgumentException::class.java) { SleepSchedule(weekdaysMask = 0) }
+        assertThrows(IllegalArgumentException::class.java) { SleepSchedule(morningBufferMinutes = 121) }
         assertEquals(Weekdays.ALL, SleepSchedule(weekdaysMask = Weekdays.ALL).weekdaysMask)
     }
 

@@ -3,10 +3,10 @@ package com.example.mydailyroutine.domain
 import com.example.mydailyroutine.domain.routines.EntryDefaults
 import com.example.mydailyroutine.domain.routines.TimeEntryState
 import java.time.LocalTime
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
+import org.junit.Test
 
 /**
  * The time pair behind every add-block and edit-block sheet. Its contract is the one the device
@@ -58,15 +58,15 @@ class TimeEntryStateTest {
     }
 
     @Test fun zeroAndDayLongDurationsAreRejected() {
-        assertFailsWith<IllegalArgumentException> { TimeEntryState("08:00", "08:45", 0) }
-        assertFailsWith<IllegalArgumentException> { TimeEntryState("08:00", "08:45", 1440) }
-        assertFailsWith<IllegalArgumentException> { TimeEntryState.at(LocalTime.of(8, 0), 45).withDuration(0) }
+        assertThrows(IllegalArgumentException::class.java) { TimeEntryState("08:00", "08:45", 0) }
+        assertThrows(IllegalArgumentException::class.java) { TimeEntryState("08:00", "08:45", 1440) }
+        assertThrows(IllegalArgumentException::class.java) { TimeEntryState.at(LocalTime.of(8, 0), 45).withDuration(0) }
     }
 
     @Test fun entryDefaultsStayInsideSchoolReality() {
         assertEquals(45, EntryDefaults().lessonDurationMinutes)
-        assertFailsWith<IllegalArgumentException> { EntryDefaults(lessonDurationMinutes = 241) }
-        assertFailsWith<IllegalArgumentException> { EntryDefaults(lessonBreakMinutes = 0) }
+        assertThrows(IllegalArgumentException::class.java) { EntryDefaults(lessonDurationMinutes = 241) }
+        assertThrows(IllegalArgumentException::class.java) { EntryDefaults(lessonBreakMinutes = 0) }
     }
 
     @Test fun parseTimeAcceptsOnlyMinutePrecisionClockText() {

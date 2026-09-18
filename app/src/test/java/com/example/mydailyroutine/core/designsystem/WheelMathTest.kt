@@ -1,9 +1,9 @@
 package com.example.mydailyroutine.core.designsystem
 
 import com.example.mydailyroutine.core.designsystem.components.wheelCenterIndex
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNull
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
 
 /**
  * Geometry of the iOS-style time drum: five 44 px rows in a 220 px viewport, so the selection row is
