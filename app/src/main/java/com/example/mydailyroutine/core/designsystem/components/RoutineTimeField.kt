@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 
@@ -35,7 +36,9 @@ fun RoutineTimeField(
     wheelTag: String = "",
 ) {
     var picking by remember { mutableStateOf(false) }
-    Box(modifier) {
+    // One merged semantics node: the tag, the label and the shown time travel together, so tests
+    // and TalkBack read the field as a single value instead of a box with loose children.
+    Box(modifier.semantics(mergeDescendants = true) {}) {
         OutlinedTextField(
             value = value,
             onValueChange = {},
