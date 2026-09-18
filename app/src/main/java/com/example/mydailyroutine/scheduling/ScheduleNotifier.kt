@@ -95,6 +95,10 @@ class ScheduleNotifier(private val context: Context) {
             .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
             .setSortKey(window.start.toString())
             .setExtras(android.os.Bundle().apply { putBoolean(EXTRA_QUIET, quiet) })
+            // Two answers from the shade, because a reminder without a reply is just noise:
+            // start measuring, or record how long it actually took without opening the app.
+            .addAction(notifyAction(context, 1, R.string.notify_start, "start", alarm.block.routineBlockId, alarm.block.occurrenceDate))
+            .addAction(notifyAction(context, 2, R.string.notify_actual, "actual", alarm.block.routineBlockId, alarm.block.occurrenceDate))
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
@@ -206,4 +210,24 @@ class ScheduleNotifier(private val context: Context) {
         const val NORMAL_CHANNEL = "routine_reminders_v1"
         const val QUIET_CHANNEL = "routine_school_quiet_v1"
     }
+
+    private fun notifyAction(
+        context: Context,
+        request: Int,
+        label: Int,
+        kind: String,
+        id: Long,
+        date: java.time.LocalDate,
+    ): androidx.core.app.NotificationCompat.Action =
+        androidx.core.app.NotificationCompat.Action.Builder(
+            R.drawable.ic_notification,
+            context.getString(label),
+            android.app.PendingIntent.getActivity(
+                context,
+                request * 1000000 + (id % 999999L).toInt(),
+                MainActivity.notifyActionIntent(context, kind, id, date),
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+            ),
+        ).build()
+
 }

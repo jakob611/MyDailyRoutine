@@ -132,6 +132,9 @@ sealed interface TimelineAction {
     data object OpenAdd : TimelineAction
     data object OpenPlanning : TimelineAction
     data class StartExecution(val block: ResolvedTimelineItem.Block) : TimelineAction
+    data class StartExecutionById(val id: Long, val date: LocalDate) : TimelineAction
+    data class RequestActual(val item: ResolvedTimelineItem.Block) : TimelineAction
+    data class RequestActualById(val id: Long) : TimelineAction
     data object FinishExecution : TimelineAction
     data object CancelExecution : TimelineAction
     data object RequestCancelExecution : TimelineAction

@@ -390,6 +390,15 @@ fun TimelineBlockCard(
                                     style = MaterialTheme.typography.bodySmall,
                                     maxLines = RoutineTextDefaults.Body,
                                 )
+                                // Actual minutes without a live execution: the reminder said the
+                                // lesson happened, the reader knows how long it took - one button,
+                                // no execution session required.
+                                if (block.actualTiming == null && !block.isSuppressed) {
+                                    TextButton(onClick = { onAction(TimelineAction.RequestActual(block)) }, enabled = !busy) {
+                                        RoutineLabel(stringResource(R.string.record_actual),
+                                            style = MaterialTheme.typography.labelLarge)
+                                    }
+                                }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
                                         RoutineText(

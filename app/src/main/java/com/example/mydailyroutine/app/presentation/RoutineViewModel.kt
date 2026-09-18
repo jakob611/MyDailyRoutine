@@ -163,6 +163,25 @@ class RoutineViewModel(
             is TimelineAction.StartExecution -> perform {
                 executionRepository.start(action.block.routineBlockId, action.block.occurrenceDate, state.value.preferences.planning, state.value.preferences.automaticHealingEnabled)
             }
+            // From a notification action: the day may not be loaded yet, so start goes straight to
+            // the repository with the id and date the intent carries, and the actual-minutes dialog
+            // waits a moment for the timeline to arrive instead of opening onto nothing.
+            is TimelineAction.StartExecutionById -> perform {
+                executionRepository.start(action.id, action.date, state.value.preferences.planning, state.value.preferences.automaticHealingEnabled)
+            }
+            is TimelineAction.RequestActual -> panels.update { it.copy(completionTarget = action.item) }
+            is TimelineAction.RequestActualById -> viewModelScope.launch {
+                repeat(20) {
+                    val block = state.value.content.days.values.flatMap { day -> day.items }
+                        .filterIsInstance<ResolvedTimelineItem.Block>()
+                        .firstOrNull { it.routineBlockId == action.id }
+                    if (block != null) {
+                        panels.update { it.copy(completionTarget = block) }
+                        return@launch
+                    }
+                    kotlinx.coroutines.delay(250)
+                }
+            }
             TimelineAction.FinishExecution -> perform {
                 executionRepository.finish(state.value.preferences.planning, state.value.preferences.automaticHealingEnabled)
                 messages.send(TimelineEffect.Completed)

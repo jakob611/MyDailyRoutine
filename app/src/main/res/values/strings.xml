@@ -546,6 +546,9 @@
     <string name="sleep_days">Dnevi odhoda v posteljo</string>
     <string name="sleep_days_hint">Če je zbujanje prej na uri kot odhod v posteljo, pomeni naslednji dan. Npr. nedelja 23:00 → ponedeljek 07:00.</string>
     <string name="sleep_minutes_format">%d min</string>
+    <string name="notify_start">Začni izvedbo</string>
+    <string name="notify_actual">Zabeleži minute</string>
+    <string name="record_actual">Zabeleži dejanske minute</string>
     <string name="sleep_morning">Jutranji prehod (min)</string>
     <string name="sleep_morning_hint">Neobvezni miren začetek po zbujanju. 0 pomeni brez dodatnega bloka.</string>
     <string name="sleep_save">Shrani ritem spanja</string>

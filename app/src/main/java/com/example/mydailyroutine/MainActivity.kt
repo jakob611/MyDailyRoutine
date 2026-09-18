@@ -115,6 +115,10 @@ class MainActivity : ComponentActivity() {
         val date = intent.getStringExtra(EXTRA_DATE)?.let(ScheduleValidation::parseDate) ?: LocalDate.now()
         viewModel.onAction(TimelineAction.SelectDate(date, openDay = true))
         if (intent.action == ACTION_FAST_ADD) viewModel.onAction(TimelineAction.OpenAdd)
+        when (intent.getStringExtra(EXTRA_NOTIFY_ACTION)) {
+            "start" -> viewModel.onAction(TimelineAction.StartExecutionById(intent.getLongExtra(EXTRA_NOTIFY_ID, 0L), date))
+            "actual" -> viewModel.onAction(TimelineAction.RequestActualById(intent.getLongExtra(EXTRA_NOTIFY_ID, 0L)))
+        }
     }
 
     private fun refreshAccess() {
@@ -139,6 +143,16 @@ class MainActivity : ComponentActivity() {
         const val ACTION_OPEN_DAY = "com.example.mydailyroutine.OPEN_DAY"
         const val ACTION_FAST_ADD = "com.example.mydailyroutine.FAST_ADD"
         const val EXTRA_DATE = "selected_date"
+
+        const val EXTRA_NOTIFY_ACTION = "notify_action"
+        const val EXTRA_NOTIFY_ID = "notify_block"
+
+        fun notifyActionIntent(context: Context, kind: String, id: Long, date: LocalDate): Intent =
+            Intent(context, MainActivity::class.java)
+                .setAction(ACTION_OPEN_DAY)
+                .putExtra(EXTRA_DATE, date.toString())
+                .putExtra(EXTRA_NOTIFY_ACTION, kind)
+                .putExtra(EXTRA_NOTIFY_ID, id)
 
         fun openDayIntent(context: Context, date: LocalDate): Intent = Intent(context, MainActivity::class.java)
             .setAction(ACTION_OPEN_DAY).setData(Uri.parse("mydailyroutine://day/$date"))
