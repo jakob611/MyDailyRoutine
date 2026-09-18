@@ -59,6 +59,14 @@ Koda se do potrditve tega načrta ne spreminja.
 - Device-testi: nov test za obvestilne akcije in za en urejevalnik; obstoječi ostanejo zeleni.
 - Uporabniška potrditev: isti vprašanji kot pri prenovi (kje je kaj čudno / kaj ne dela).
 
-## 5. Vrstni red izvedbe
+## 5. Status izvedbe
+- **P0 izveden in zelen** (commiti `940d009`, `f9d13fa`, `8621dc9`; CI build + device-testi zeleni):
+  en urejevalnik blokov (occurrence-način v EntryEditorSheet, BlockEditorSheet ukinjen),
+  shranjevanje brez gumbov Shrani (spanje/kolo/čipi/debounced pragovi), obvestila z akcijama
+  »Začni izvedbo« / »Zabeleži minute« ter gumb za dejanske minute v razširjeni kartici.
+- P1 odprt: predloge ponavljanja v hitrih vnosih, »v čakalnik« iz brisanja, predlogi prostih rež,
+  spanje na tednu.
+
+## 6. Vrstni red izvedbe
 P0.1 → P0.2 → P0.3 → P1.4 → P1.5 → P1.6 → P1.7 → P2 po potrditvi. Vsak korak: commit + CI + kratek
 chat povzetek; noben korak ne sme zlomiti gateov (contrast, presentation, derive, device-testi).
