@@ -1,15 +1,22 @@
 package com.example.mydailyroutine
 
+import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import java.io.File
 import androidx.lifecycle.Lifecycle
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.annotation.StringRes
 import androidx.compose.ui.test.*
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
 import org.junit.Rule
@@ -35,12 +42,46 @@ class TimelineUiTest {
         compose.onNodeWithText(text(R.string.elasticity)).assertDoesNotExist()
         capture("05-quick-add",true)
     }
-    @Test fun settingsExposeAdvancedRulesAndOptInDemo() {
+    @Test fun settingsTabsExposeRulesAndOptInDemo() {
         compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
         awaitText(R.string.settings_title)
-        compose.onNodeWithText(text(R.string.advanced_settings)).performScrollTo().performClick()
+        // The landing tab is rhythm: sleep and lesson defaults, not a 40-item scroll.
+        compose.onNodeWithText(text(R.string.sleep_heading)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.demo_heading)).assertDoesNotExist()
+        compose.onNodeWithTag("settings-tab-rules").performClick()
+        // Health thresholds are no longer hidden behind an "advanced" expander.
         compose.onNodeWithText(text(R.string.threshold_focus)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("settings-tab-data").performClick()
         compose.onNodeWithText(text(R.string.demo_heading)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.threshold_focus)).assertDoesNotExist()
+        captureTag("06-settings-data", "settings-sheet")
+    }
+    @Test fun menusAreSplitIntoTabsInsteadOfOneLongScroll() {
+        compose.onNodeWithContentDescription(text(R.string.planning_open)).performClick()
+        awaitText(R.string.planning_title)
+        compose.onNodeWithText(text(R.string.add_reserve)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.new_topic)).assertDoesNotExist()
+        compose.onNodeWithTag("planning-tab-topics").performClick()
+        compose.onNodeWithText(text(R.string.new_topic)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.add_reserve)).assertDoesNotExist()
+        compose.onNodeWithTag("planning-tab-markers").performClick()
+        compose.onNodeWithText(text(R.string.new_topic)).assertDoesNotExist()
+        captureTag("07-planning-tabs", "planning-sheet")
+    }
+    @Test fun longSlovenianButtonLabelsStayOnOneLine() {
+        compose.onNodeWithTag("fast-add").performClick()
+        awaitText(R.string.fast_add_title)
+        compose.onNodeWithText(text(R.string.category_school)).performScrollTo().performClick()
+        compose.onNodeWithTag("repeat-weekly").performScrollTo().performClick()
+        compose.onNodeWithTag("save-next-lesson").assertIsDisplayed()
+        // A 52dp pill whose label wrapped would grow past one text line; catch that regression here.
+        // boundsInRoot is in pixels, so the limits are scaled by the device density.
+        val density = compose.activity.resources.displayMetrics.density
+        val sticky = compose.onNodeWithTag("save-next-lesson").fetchSemanticsNode().boundsInRoot
+        assertTrue("sticky footer button grew to ${'$'}{sticky.height}px", sticky.height <= 56f * density)
+        val label = compose.onNodeWithText(text(R.string.save_next_lesson), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("button label wrapped onto ${'$'}{label.height}px", label.height <= 32f * density)
     }
     @Test fun warmWidgetQuickAddDismissesSettingsAndOpensOneFreshSheet() {
         val activity = compose.activity
@@ -65,14 +106,23 @@ class TimelineUiTest {
         assertFalse("android.permission.INTERNET" in permissions)
         assertFalse("android.permission.ACCESS_NETWORK_STATE" in permissions)
     }
+    /** Spins an iOS-style time drum to an exact value: open the wheel, centre both rows, confirm. */
+    private fun setWheel(tag: String, hour: Int, minute: Int) {
+        compose.onNodeWithTag(tag).performScrollTo().performClick()
+        compose.onNodeWithTag("$tag-hour").performScrollToNode(hasTestTag("$tag-hour-$hour"))
+        compose.onNodeWithTag("$tag-hour-$hour").performClick()
+        compose.onNodeWithTag("$tag-minute").performScrollToNode(hasTestTag("$tag-minute-$minute"))
+        compose.onNodeWithTag("$tag-minute-$minute").performClick()
+        compose.onNodeWithTag("$tag-confirm").performClick()
+    }
     @Test fun changingSchoolStartAutomaticallyMaintainsItsDuration() {
         compose.onNodeWithTag("fast-add").performClick()
         awaitText(R.string.fast_add_title)
         compose.onNodeWithText(text(R.string.category_school)).performScrollTo().performClick()
-        compose.onNodeWithTag("entry-start").performScrollTo().performTextReplacement("08:00")
+        setWheel("entry-start", 8, 0)
         compose.onNodeWithTag("entry-end").assertTextContains("08:45")
-        compose.onNodeWithTag("entry-end").performTextReplacement("08:50")
-        compose.onNodeWithTag("entry-start").performTextReplacement("09:00")
+        setWheel("entry-end", 8, 50)
+        setWheel("entry-start", 9, 0)
         compose.onNodeWithTag("entry-end").assertTextContains("09:50")
     }
     @Test fun multipleWeekdaysAndLessonBreakAreSelectable() {
@@ -87,14 +137,137 @@ class TimelineUiTest {
         compose.onNodeWithTag("weekday-6").assertIsNotSelected()
         compose.onNodeWithTag("save-next-lesson").assertIsDisplayed()
     }
+    /**
+     * The floating chrome has to overlap what it refracts. A Scaffold body starts below its top bar,
+     * so this fails the moment the window goes back to being inset instead of full-bleed.
+     */
+    @Test fun glassChromeOverlaysTheContentInsteadOfPushingItDown() {
+        awaitText(R.string.day_heading)
+        compose.onNodeWithTag("app-top-bar").assertIsDisplayed()
+        val bar = compose.onNodeWithTag("app-top-bar").fetchSemanticsNode().boundsInRoot
+        val list = compose.onNodeWithTag("day-list").fetchSemanticsNode().boundsInRoot
+        assertTrue("top bar collapsed to ${'$'}{bar.height}px", bar.height > 0f)
+        assertTrue("day list starts at ${'$'}{list.top}px, below the bar at ${'$'}{bar.bottom}px", list.top < bar.bottom)
+        capture("05-glass-day")
+    }
+    /** One project selector plus four short tabs, instead of a single thousand-dp scroll. */
+    @Test fun goalsAreSplitIntoTabsInsteadOfOneLongScroll() {
+        compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()
+        awaitText(R.string.goals_empty_body)
+        compose.onNodeWithText(text(R.string.goals_seed_cas)).performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("goal-tab-activities").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("goal-tab-activities").performClick()
+        compose.onNodeWithText(text(R.string.goals_add_activity)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.goals_gantt)).assertDoesNotExist()
+        compose.onNodeWithTag("goal-tab-progress").performClick()
+        compose.onNodeWithText(text(R.string.goals_progress_log)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.goals_add_activity)).assertDoesNotExist()
+        captureTag("09-goals-tabs", "goal-tab-body")
+    }
+    /**
+     * The system back button walks the stack the reader built, innermost layer first: Goals closes
+     * before the day does, and the day returns to the scale it was drilled into instead of leaving
+     * the app. Sheets and dialogs are not tested here — they answer from their own window.
+     */
+    @Test fun systemBackClosesGoalsAndWalksOutOfTheDay() {
+        awaitText(R.string.day_heading)
+        click(R.string.nav_week); awaitText(R.string.week_heading)
+        // The heading lands before the grid does: the day columns are a lazily composed item, so
+        // waiting for them is what keeps this from indexing an empty collection mid-transition.
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("week-day-column").fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodesWithTag("week-day-column")[0].performClick()
+        awaitText(R.string.day_heading)
+        compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()
+        // Not the empty state: `goalsAreSplitIntoTabsInsteadOfOneLongScroll` runs fourth in this
+        // class and seeds a CAS project, and the Room database outlives the activity every rule
+        // recreates, so by the time this test runs Goals has a project in it. What this test is
+        // about is the layer, not its contents — and the top bar says which layer is up either way.
+        awaitAnyText(R.string.goals_title)
+        // First back: Goals closes and the day underneath is reachable again.
+        Espresso.pressBack()
+        awaitText(R.string.day_heading)
+        // Second back: the day unwinds to the week it was drilled into, not to the launcher.
+        Espresso.pressBack()
+        awaitText(R.string.week_heading)
+        capture("11-back-stack")
+    }
+    /** The year view keeps its countdown and folds the three long panels away. */
+    @Test fun yearOverviewFoldsItsLongSections() {
+        click(R.string.nav_year); awaitText(R.string.year_big_picture)
+        compose.onNodeWithTag("year-month-grid").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("milestone-radar-chart").assertDoesNotExist()
+        compose.onNodeWithTag("year-balance-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("year-month-grid").assertDoesNotExist()
+        compose.onNodeWithTag("milestone-radar-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("milestone-radar-chart").assertIsDisplayed()
+        capture("10-year-folds")
+    }
+    /** Screenshots a tagged node; used for sheets, which live in their own window. */
+    private fun captureTag(name: String, tag: String) {
+        save(name, compose.onNodeWithTag(tag, useUnmergedTree = true).captureToImage())
+    }
     private fun capture(name: String, editor: Boolean = false) {
-        val directory = File(compose.activity.getExternalFilesDir(null), "ui-audit").apply { mkdirs() }
         val image = if (editor) compose.onNodeWithTag("entry-editor",useUnmergedTree=true).captureToImage()
             else compose.onRoot(useUnmergedTree=true).captureToImage()
-        File(directory,"$name.png").outputStream().use { image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it) }
+        save(name, image)
     }
+    /**
+     * Persists a screenshot where CI can still find it after the run.
+     *
+     * Gradle uninstalls both APKs once `connectedDebugAndroidTest` finishes, which deletes the
+     * app's `Android/data` and `files` dirs, so the primary copy goes to `Pictures/ui-audit`
+     * through MediaStore: that is public storage, survives the uninstall and needs no permission.
+     * The app-private dirs are kept as a fallback for local `adb pull` runs.
+     */
+    private fun save(name: String, image: ImageBitmap) {
+        val activity = compose.activity
+        val bitmap = image.asAndroidBitmap()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            runCatching {
+                val values = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, "$name.png")
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/ui-audit")
+                }
+                val resolver = activity.contentResolver
+                val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)) {
+                    "MediaStore refused $name.png"
+                }
+                resolver.openOutputStream(uri).use { output ->
+                    requireNotNull(output) { "no output stream for $name.png" }
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+                }
+            }.onFailure { error -> println("ui-audit: MediaStore save failed for $name: $error") }
+        }
+        val testOutput = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+        val targets = listOfNotNull(
+            testOutput?.let { File(it) },
+            activity.getExternalFilesDir(null)?.let { File(it, "ui-audit") },
+            File(activity.filesDir, "ui-audit")
+        )
+        for (directory in targets) {
+            directory.mkdirs()
+            runCatching {
+                File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            }.onFailure { error -> println("ui-audit: failed to write $name into $directory: $error") }
+        }
+    }
+    /**
+     * Waits for a string to be **on screen**, not merely composed. During a transition the node
+     * exists while it is still sliding in or fading up, and asserting `isDisplayed` the instant it
+     * appears is what made these tests flaky on a slow emulator; retrying the assertion itself until
+     * the transition settles is the honest form. Every string waited for this way is unique in the
+     * tree — for anything that legitimately repeats, use [awaitAnyText].
+     */
     private fun awaitText(@StringRes id: Int) {
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty() &&
+                runCatching { compose.onNodeWithText(text(id)).assertIsDisplayed() }.isSuccess
+        }
+    }
+
+    /** Waits for a string that may appear more than once, such as a top bar title echoed in a heading. */
+    private fun awaitAnyText(@StringRes id: Int) {
         compose.waitUntil(10000) { compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText(text(id)).assertIsDisplayed()
     }
 }

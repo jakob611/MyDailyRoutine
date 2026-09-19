@@ -15,6 +15,10 @@ datastore = "1.1.7"
 coroutines = "1.10.2"
 immutable = "0.4.0"
 desugar = "2.1.5"
+# Kyant0's Backdrop (liquid glass). 1.0.0 is the release built against Kotlin 2.2.x and
+# androidx.compose 1.9.x, which is exactly this project's toolchain; 1.0.3+ needs Kotlin 2.3 and
+# compose 1.10, and 2.x is Compose Multiplatform on Kotlin 2.4. Keep this pin when upgrading either.
+backdrop = "1.0.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -48,6 +52,7 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "immutable" }
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }
+kyant-backdrop = { module = "io.github.kyant0:backdrop", version.ref = "backdrop" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

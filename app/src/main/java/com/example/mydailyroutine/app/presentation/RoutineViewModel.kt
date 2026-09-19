@@ -38,6 +38,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -139,12 +140,14 @@ class RoutineViewModel(
             is TimelineAction.SelectDate -> {
                 savedState["date"] = action.date.coerceIn(ScheduleValidation.firstUiDate, ScheduleValidation.lastUiDate).toEpochDay()
                 if (action.openDay) {
+                    pushMode(TimelineMode.DAY)
                     savedState["mode"] = TimelineMode.DAY.name
                     panels.update { it.copy(showAdd = false, showSettings = false, editingBlock = null,
                         editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false, showTopicEditor = false, completionTarget = null, showTasks = false, entryPrefillTitle = null) }
                 }
             }
-            is TimelineAction.SelectMode -> savedState.set("mode", action.mode.name)
+            is TimelineAction.SelectMode -> { pushMode(action.mode); savedState.set("mode", action.mode.name) }
+            is TimelineAction.PopMode -> popMode()?.let { savedState.set("mode", it.name) }
             is TimelineAction.Shift -> {
                 val current = LocalDate.ofEpochDay(selectedDate.value)
                 val target = when (TimelineMode.valueOf(selectedMode.value)) {
@@ -159,6 +162,25 @@ class RoutineViewModel(
             TimelineAction.Retry -> retry.update { it + 1 }
             is TimelineAction.StartExecution -> perform {
                 executionRepository.start(action.block.routineBlockId, action.block.occurrenceDate, state.value.preferences.planning, state.value.preferences.automaticHealingEnabled)
+            }
+            // From a notification action: the day may not be loaded yet, so start goes straight to
+            // the repository with the id and date the intent carries, and the actual-minutes dialog
+            // waits a moment for the timeline to arrive instead of opening onto nothing.
+            is TimelineAction.StartExecutionById -> perform {
+                executionRepository.start(action.id, action.date, state.value.preferences.planning, state.value.preferences.automaticHealingEnabled)
+            }
+            is TimelineAction.RequestActual -> panels.update { it.copy(completionTarget = action.item) }
+            is TimelineAction.RequestActualById -> viewModelScope.launch {
+                repeat(20) {
+                    val block = state.value.content.days.values.flatMap { day -> day.items }
+                        .filterIsInstance<ResolvedTimelineItem.Block>()
+                        .firstOrNull { it.routineBlockId == action.id }
+                    if (block != null) {
+                        panels.update { it.copy(completionTarget = block) }
+                        return@launch
+                    }
+                    kotlinx.coroutines.delay(250)
+                }
             }
             TimelineAction.FinishExecution -> perform {
                 executionRepository.finish(state.value.preferences.planning, state.value.preferences.automaticHealingEnabled)
@@ -336,6 +358,7 @@ class RoutineViewModel(
                 messages.send(TimelineEffect.Message(R.string.entry_defaults_saved))
             }
             is TimelineAction.SetMute -> perform { settings.setMuteDuringSchoolHours(action.muted) }
+            is TimelineAction.SetRecoveryNotifications -> perform { settings.setRecoveryNotifications(action.enabled) }
             is TimelineAction.SetSchoolWindow -> perform {
                 settings.setSchoolWindow(action.start, action.end)
                 messages.send(TimelineEffect.Message(R.string.message_quiet_saved))
@@ -518,25 +541,43 @@ class RoutineViewModel(
         messages.send(TimelineEffect.Message(if (draft.existingMilestoneId == 0L) R.string.message_added else R.string.message_milestone_saved))
     }
 
+    /**
+     * Saves run one at a time, in order, and never silently dropped: two switches flipped in quick
+     * succession used to race a `tryLock` and the loser was discarded without a word, which reads
+     * exactly like "the settings did not save". A queued mutex keeps every tap's write.
+     */
+    /** Changing scale is navigation: the scale left behind goes on a stack back can unwind. */
+    private fun pushMode(target: TimelineMode) {
+        val current = TimelineMode.valueOf(selectedMode.value)
+        if (current != target) panels.update { it.copy(modeBackStack = it.modeBackStack + current) }
+    }
+
+    private fun popMode(): TimelineMode? {
+        val stack = panels.value.modeBackStack
+        val target = stack.lastOrNull() ?: return null
+        panels.update { it.copy(modeBackStack = stack.dropLast(1)) }
+        return target
+    }
+
     private fun perform(operation: suspend () -> Unit) {
-        if (!operationLock.tryLock()) return
-        panels.update { it.copy(isSaving = true) }
         viewModelScope.launch {
-            try { operation() }
-            catch (error: CancellationException) { throw error }
-            catch (conflict: ScheduleConflict) {
-                messages.send(TimelineEffect.Message(when(conflict.reason) {
-                    ScheduleConflictReason.ACTIVE_EXECUTION -> R.string.execution_finish_first
-                    ScheduleConflictReason.PREVIOUS_STAGE -> R.string.stage_finish_first
-                    ScheduleConflictReason.PROTECTED_TIME -> R.string.execution_protected_time
-                    ScheduleConflictReason.CLOCK_CHANGED -> R.string.execution_clock_changed
-                }))
-            }
-            catch (_: IllegalArgumentException) { messages.send(TimelineEffect.Message(R.string.error_values)) }
-            catch (_: Exception) { messages.send(TimelineEffect.Message(R.string.error_save)) }
-            finally {
-                panels.update { it.copy(isSaving = false) }
-                operationLock.unlock()
+            operationLock.withLock {
+                panels.update { it.copy(isSaving = true) }
+                try { operation() }
+                catch (error: CancellationException) { throw error }
+                catch (conflict: ScheduleConflict) {
+                    messages.send(TimelineEffect.Message(when(conflict.reason) {
+                        ScheduleConflictReason.ACTIVE_EXECUTION -> R.string.execution_finish_first
+                        ScheduleConflictReason.PREVIOUS_STAGE -> R.string.stage_finish_first
+                        ScheduleConflictReason.PROTECTED_TIME -> R.string.execution_protected_time
+                        ScheduleConflictReason.CLOCK_CHANGED -> R.string.execution_clock_changed
+                    }))
+                }
+                catch (_: IllegalArgumentException) { messages.send(TimelineEffect.Message(R.string.error_values)) }
+                catch (_: Exception) { messages.send(TimelineEffect.Message(R.string.error_save)) }
+                finally {
+                    panels.update { it.copy(isSaving = false) }
+                }
             }
         }
     }

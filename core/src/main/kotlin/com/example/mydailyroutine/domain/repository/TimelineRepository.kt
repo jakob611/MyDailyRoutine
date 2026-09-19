@@ -34,6 +34,7 @@ interface TimelineRepository {
 interface PreferencesRepository {
     val preferences: Flow<SchedulePreferences>
     suspend fun setMuteDuringSchoolHours(muted: Boolean)
+    suspend fun setRecoveryNotifications(enabled: Boolean)
     suspend fun setSchoolWindow(start: LocalTime, end: LocalTime)
     suspend fun setTeachingEndDate(date: LocalDate)
     suspend fun setHapticsEnabled(enabled: Boolean)

@@ -14,7 +14,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
+import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTilt
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.createSavedStateHandle
@@ -45,11 +49,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.BLACK))
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
+        // Edge-to-edge asks the system for a contrast scrim under the gesture bar on Android 10+,
+        // and that scrim follows the *system* theme: with the phone in light mode it paints a pale
+        // strip under an otherwise black app. The app draws its own legible backdrop, so refuse it.
+        if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
+        enforceDarkSystemBars()
         if (savedInstanceState == null) consumeIntent(intent)
         refreshAccess()
         setContent {
             MyDailyRoutineTheme {
+                CompositionLocalProvider(LocalGlassTilt provides rememberGlassTilt()) {
                 RoutineApp(viewModel, access,
                     requestNotifications = {
                         if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -60,11 +73,27 @@ class MainActivity : ComponentActivity() {
                     },
                     openNotificationSettings = ::openNotificationSettings,
                 )
+                }
             }
         }
     }
 
-    override fun onResume() { super.onResume(); refreshAccess() }
+    override fun onResume() {
+        super.onResume()
+        refreshAccess()
+        enforceDarkSystemBars()
+    }
+
+    /**
+     * Some devices reapply their own bar appearance when a window regains focus, which shows up as
+     * the navigation bar flashing white between screens. Assert ours on every resume; the theme
+     * also covers the windows this activity never sees directly (dialogs, sheets).
+     */
+    private fun enforceDarkSystemBars() {
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = false
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -86,6 +115,10 @@ class MainActivity : ComponentActivity() {
         val date = intent.getStringExtra(EXTRA_DATE)?.let(ScheduleValidation::parseDate) ?: LocalDate.now()
         viewModel.onAction(TimelineAction.SelectDate(date, openDay = true))
         if (intent.action == ACTION_FAST_ADD) viewModel.onAction(TimelineAction.OpenAdd)
+        when (intent.getStringExtra(EXTRA_NOTIFY_ACTION)) {
+            "start" -> viewModel.onAction(TimelineAction.StartExecutionById(intent.getLongExtra(EXTRA_NOTIFY_ID, 0L), date))
+            "actual" -> viewModel.onAction(TimelineAction.RequestActualById(intent.getLongExtra(EXTRA_NOTIFY_ID, 0L)))
+        }
     }
 
     private fun refreshAccess() {
@@ -110,6 +143,16 @@ class MainActivity : ComponentActivity() {
         const val ACTION_OPEN_DAY = "com.example.mydailyroutine.OPEN_DAY"
         const val ACTION_FAST_ADD = "com.example.mydailyroutine.FAST_ADD"
         const val EXTRA_DATE = "selected_date"
+
+        const val EXTRA_NOTIFY_ACTION = "notify_action"
+        const val EXTRA_NOTIFY_ID = "notify_block"
+
+        fun notifyActionIntent(context: Context, kind: String, id: Long, date: LocalDate): Intent =
+            Intent(context, MainActivity::class.java)
+                .setAction(ACTION_OPEN_DAY)
+                .putExtra(EXTRA_DATE, date.toString())
+                .putExtra(EXTRA_NOTIFY_ACTION, kind)
+                .putExtra(EXTRA_NOTIFY_ID, id)
 
         fun openDayIntent(context: Context, date: LocalDate): Intent = Intent(context, MainActivity::class.java)
             .setAction(ACTION_OPEN_DAY).setData(Uri.parse("mydailyroutine://day/$date"))

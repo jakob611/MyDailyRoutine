@@ -43,7 +43,7 @@ class ScheduleCoordinator(
         val due = if (notifier.canNotify()) database.withTransaction {
             // Re-read and claim in ONE write transaction, linearizing concurrent skip/delete/completion edits.
             val snapshot = repository.snapshot(day.minusDays(1), day.plusDays(1))
-            planner.due(snapshot, scheduledFor, now, zone).filter { alarm ->
+            planner.due(snapshot, scheduledFor, now, zone, prefs.notifyRecovery).filter { alarm ->
                 database.alarmDeliveries().claim(AlarmDeliveryEntity(
                     alarm.block.routineBlockId, alarm.block.occurrenceDate, alarm.kind.name, now.toEpochMilli(),
                 )) != -1L
@@ -60,8 +60,10 @@ class ScheduleCoordinator(
         val zone = ZoneId.systemDefault()
         val today = now.atZone(zone).toLocalDate()
         val snapshot = repository.snapshot(today, today.plusDays(370))
+        val prefs = preferences.preferences.first()
         val allowed = notifier.canNotify()
-        val next = if (allowed) planner.next(snapshot, now, zone) else null
+        if (allowed) notifier.prune(now, zone)
+        val next = if (allowed) planner.next(snapshot, now, zone, prefs.notifyRecovery) else null
         scheduler.armNotification(next)
         val widgetPresent = hasWidgets()
         val retryFutureRoutine = allowed && next == null && database.routines().hasUpcomingNotificationRoutines(today)

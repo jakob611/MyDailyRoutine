@@ -34,7 +34,7 @@ class RoomRoutinePatternsRepository(private val db: RoutineDatabase, private val
         val variant = rows.filter { it.id in variantIds }
         return SleepSchedule(base.isEnabled,start,start.plusMinutes(base.durationMinutes.toLong()),
             Weekdays.mask(rows.filterNot { it.id in variantIds }.map { it.dayOfWeek }.toSet()),morning,
-            weekendEnabled = main.isNotEmpty() && variant.isNotEmpty(),
+            weekendEnabled = variant.isNotEmpty() && (main.isNotEmpty() || variantIds.size < rows.size),
             weekendBedtime = variant.firstOrNull()?.let { LocalTime.ofSecondOfDay(it.startMinutes * 60L) } ?: LocalTime.of(0,30),
             weekendWakeTime = variant.firstOrNull()?.let { LocalTime.ofSecondOfDay(it.startMinutes * 60L).plusMinutes(it.durationMinutes.toLong()) } ?: LocalTime.of(9,30))
     }

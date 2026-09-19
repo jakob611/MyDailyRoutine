@@ -17,10 +17,15 @@ class AlarmPlannerTest {
 
     @Test fun `focus pre alert is five minutes before but recovery is at start`() {
         val focus = planner.forOccurrence(block(480, 540), utc)!!
-        val rest = planner.forOccurrence(block(480, 540, RoutineCategory.REST_BUFFER), utc)!!
+        val rest = planner.forOccurrence(block(480, 540, RoutineCategory.REST_BUFFER), utc, recoveryAlerts = true)!!
         assertEquals(monday.atTime(7, 55).toInstant(ZoneOffset.UTC), focus.triggerAt)
         assertEquals(monday.atTime(8, 0).toInstant(ZoneOffset.UTC), rest.triggerAt)
         assertEquals(AlarmKind.RECOVERY_START, rest.kind)
+    }
+
+    @Test fun `break starts stay silent unless the user opts in`() {
+        assertNull(planner.forOccurrence(block(480, 540, RoutineCategory.REST_BUFFER), utc))
+        assertEquals(1, planner.forOccurrence(block(480, 540, RoutineCategory.REST_BUFFER), utc, recoveryAlerts = true)?.let { 1 } ?: 0)
     }
 
     @Test fun `earliest next day pre alert is found across midnight`() {

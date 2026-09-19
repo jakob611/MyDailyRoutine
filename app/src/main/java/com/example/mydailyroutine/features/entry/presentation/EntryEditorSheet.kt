@@ -1,7 +1,14 @@
 package com.example.mydailyroutine.features.entry.presentation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -13,6 +20,17 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Close
+import com.example.mydailyroutine.core.designsystem.components.ActionRow
+import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
+import com.example.mydailyroutine.core.designsystem.components.RoutineSheetScaffold
+import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
+import com.example.mydailyroutine.core.designsystem.components.RoutineText
+import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
+import com.example.mydailyroutine.core.designsystem.components.SettingRow
+import com.example.mydailyroutine.core.designsystem.components.LiquidSlider
+import com.example.mydailyroutine.core.designsystem.components.SheetPrimaryButton
+import com.example.mydailyroutine.core.designsystem.components.SheetSecondaryButton
 import com.example.mydailyroutine.core.designsystem.components.categoryIcon
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,7 +55,15 @@ import com.example.mydailyroutine.domain.learning.HistoricalVelocity
 import com.example.mydailyroutine.domain.learning.VelocityCalibrator
 import com.example.mydailyroutine.domain.model.nominalMinutes
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
+import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.*
+import androidx.compose.ui.draw.rotate
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.core.presentation.*
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -50,6 +76,7 @@ fun EntryEditorSheet(
     editing: ResolvedTimelineItem.Milestone?, busy: Boolean, sheetState: SheetState,
     onDismiss: () -> Unit, onSave: (EntryDraft) -> Unit, onNewSubject: () -> Unit, onEditSubject: (Subject) -> Unit = {},
     defaults: EntryDefaults = EntryDefaults(), continuation: EntryContinuation? = null, prefillTitle: String? = null,
+    occurrence: ResolvedTimelineItem.Block? = null, onSaveBlock: (TimelineAction.SaveBlockEdit) -> Unit = {},
 ) {
     val initial = remember(selectedDate, editing?.key, continuation?.start) {
         val now = LocalDateTime.now()
@@ -78,6 +105,9 @@ fun EntryEditorSheet(
     var error by rememberSaveable { mutableStateOf<Int?>(null) }
     var pickingDate by rememberSaveable { mutableStateOf(false) }
     var advanced by rememberSaveable { mutableStateOf(false) }
+    // One reduce-motion read for the whole sheet: every reveal below uses the same two specs.
+    val reduceMotion = LocalReduceMotion.current
+    val advancedChevron by animateFloatAsState(if (advanced) 180f else 0f, spatialSpec<Float>(reduceMotion), label = "advanced-chevron")
     var minimum by rememberSaveable { mutableStateOf("") }
     var elasticity by rememberSaveable { mutableStateOf("1.0") }
     var priority by rememberSaveable { mutableStateOf("3.0") }
@@ -89,9 +119,18 @@ fun EntryEditorSheet(
     val haptics = LocalRoutineHaptics.current
     val context = LocalContext.current
     val standardPresets = remember { PresetFactory.standard() }
+    // One rail instead of two: standard presets always, the selected subject's own beside them.
+    val quickPresets = if (editing == null) {
+        standardPresets + subjectPresets.filter { subjectId == null || it.subjectId == subjectId }
+    } else {
+        subjectPresets.filter { it.isExam && (subjectId == null || it.subjectId == subjectId) }
+    }
+    var showError by rememberSaveable { mutableStateOf(false) }
+    val parsedStart = ScheduleValidation.parseTime(startText)
+    val parsedEnd = ScheduleValidation.parseTime(endText)
 
     fun applyPreset(preset: QuickAddPreset) {
-        haptics.tap()
+        haptics.selection()
         // A preset may only overwrite a title that is still empty or belongs to another preset — never hand-typed text.
         if (title.isBlank() || (subjectPresets + standardPresets).any { it.key != preset.key && it.title(context) == title }) title = preset.title(context)
         if (preset.category == RoutineCategory.SCHOOL) notifications = false
@@ -119,6 +158,7 @@ fun EntryEditorSheet(
         val priorityValue = priority.replace(',', '.').toDoubleOrNull()
         val effortValue = if (effort.isBlank()) 0.0 else effort.replace(',', '.').toDoubleOrNull()
         val raw = if (start != null && end != null) nominalMinutes(start, end) else 0
+        showError = true
         error = when {
             chosenTitle.isBlank() -> R.string.error_title
             date == null -> R.string.error_date
@@ -141,183 +181,260 @@ fun EntryEditorSheet(
         }
     }
 
+    // One editor, two languages: a draft speaks categories and patterns, an occurrence speaks only
+    // title, times and the scope of the change - but both live in this one sheet, so the fields,
+    // the footer and the way out never change meaning between them.
+    if (occurrence != null) {
+        OccurrenceEditor(occurrence, busy, sheetState, onDismiss, onSaveBlock)
+        return
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState,
-        shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1, tonalElevation = 0.dp) {
-        Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).imePadding().testTag("entry-editor")) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(if (editing == null) R.string.fast_add_title else R.string.entry_edit_milestone), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-                IconButton(onClick = onDismiss, enabled = !busy) { Icon(Icons.Outlined.Close, stringResource(R.string.close)) }
-            }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (editing == null) LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(standardPresets, key = { it.key }) { preset ->
-                        SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip, label = { Text(preset.label(context)) })
-                    }
+        shape = RoutineShapes.Sheet, containerColor = RoutineColors.SheetSurface, tonalElevation = 0.dp) {
+        RoutineSheetScaffold(
+            title = stringResource(if (editing == null) R.string.fast_add_title else R.string.entry_edit_milestone),
+            closeLabel = stringResource(R.string.close),
+            onClose = onDismiss,
+            modifier = Modifier.fillMaxHeight(0.92f).testTag("entry-editor"),
+            footer = {
+                if (editing == null && kind == EntryKind.BLOCK && category == RoutineCategory.SCHOOL) {
+                    SheetSecondaryButton(
+                        label = stringResource(R.string.save_next_lesson),
+                        onClick = { save(keepOpen = true) },
+                        modifier = Modifier.testTag("save-next-lesson"),
+                        enabled = !busy,
+                    )
                 }
+                SheetPrimaryButton(
+                    label = stringResource(
+                        if (busy) R.string.saving
+                        else if (editing == null) R.string.entry_save
+                        else R.string.entry_save_milestone,
+                    ),
+                    onClick = { save() },
+                    enabled = !busy,
+                )
+            },
+        ) {
+                OutlinedTextField(title, { title = it.take(120); error = null }, label = { RoutineText(stringResource(R.string.entry_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
+                    isError = showError && title.isBlank(),
+                    supportingText = if (showError && title.isBlank()) {
+                        { RoutineText(stringResource(R.string.error_title), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning) }
+                    } else null)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     val choices = if (editing == null) EntryKind.entries else listOf(EntryKind.DEADLINE, EntryKind.EXAM)
                     choices.forEachIndexed { index, choice ->
-                        SegmentedButton(selected = kind == choice, enabled = !busy, onClick = { haptics.tap(); kind = choice; error = null }, shape = SegmentedButtonDefaults.itemShape(index, choices.size)) {
-                            Text(stringResource(when (choice) { EntryKind.BLOCK -> R.string.entry_block; EntryKind.DEADLINE -> R.string.entry_deadline; EntryKind.EXAM -> R.string.entry_exam }))
+                        SegmentedButton(selected = kind == choice, enabled = !busy, onClick = { haptics.selection(); kind = choice; error = null }, shape = SegmentedButtonDefaults.itemShape(index, choices.size)) {
+                            RoutineLabel(
+                                text = stringResource(when (choice) { EntryKind.BLOCK -> R.string.entry_block; EntryKind.DEADLINE -> R.string.entry_deadline; EntryKind.EXAM -> R.string.entry_exam }),
+                                style = MaterialTheme.typography.labelLarge,
+                            )
                         }
                     }
                 }
-                Text(stringResource(R.string.saved_subjects), style = MaterialTheme.typography.titleSmall)
+                if (subjects.isEmpty()) {
+                    RoutineText(stringResource(R.string.no_subjects_hint), style = MaterialTheme.typography.bodySmall,
+                        color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+                }
+                // One rail, one job: fast entries. Standard presets plus the selected subject's own,
+                // each an explicit tap that says what it will fill in.
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(quickPresets, key = { it.key }) { preset ->
+                        val color = preset.colorHex?.let { Color(it.toInt()) } ?: RoutineColors.Amber
+                        SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.45f)),
+                            label = { RoutineLabel(preset.label(context), color = color) })
+                    }
+                }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(subjectId == null, onClick = { subjectId = null; haptics.tap() }, enabled = !busy, label = { Text(stringResource(R.string.subject_all)) }, shape = RoutineShapes.Chip)
+                    FilterChip(subjectId == null, onClick = { subjectId = null; haptics.selection() }, enabled = !busy,
+                        label = { RoutineLabel(stringResource(R.string.subject_all)) }, shape = RoutineShapes.Chip)
                     subjects.forEach { subject ->
                         FilterChip(selected = subjectId == subject.id, enabled = !busy, shape = RoutineShapes.Chip,
-                            modifier = Modifier.pointerInput(subject.id) { detectTapGestures(onLongPress = { haptics.tap(); onEditSubject(subject) }) },
-                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(subject.colorHex.toInt()).copy(alpha = 0.2f)),
+                            modifier = Modifier.pointerInput(subject.id) { // No local haptic: EditSubject goes through the action wrapper, which is the single place
+                            // that decides what an action feels like.
+                            detectTapGestures(onLongPress = { onEditSubject(subject) }) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(subject.colorHex.toInt()).copy(alpha = 0.2f),
+                                selectedLabelColor = RoutineColors.TextPrimary,
+                            ),
                             onClick = {
+                                // Selecting a subject selects it. Nothing else: no silent rewrite of
+                                // the time, category or title - presets are an explicit tap below.
                                 subjectId = subject.id
-                                if (editing != null || kind == EntryKind.DEADLINE) {
-                                    // Associating a subject must not turn an EE/IA deadline into an exam,
-                                    // or overwrite a title/date/time in an existing milestone editor.
-                                    haptics.tap()
-                                } else {
-                                    val desired = if (kind == EntryKind.BLOCK) PresetKind.SUBJECT_LESSON else PresetKind.SUBJECT_TEST
-                                    subjectPresets.firstOrNull { it.subjectId == subject.id && it.kind == desired }?.let(::applyPreset)
-                                }
-                            }, label = { Text(subject.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) })
+                                haptics.selection()
+                            }, label = { RoutineLabel(subject.name, modifier = Modifier.widthIn(max = 180.dp)) })
                     }
-                    SuggestionChip(onClick = onNewSubject, enabled = !busy, label = { Text(stringResource(R.string.new_subject)) }, shape = RoutineShapes.Chip)
+                    SuggestionChip(onClick = onNewSubject, enabled = !busy, shape = RoutineShapes.Chip,
+                        label = { RoutineLabel(stringResource(R.string.new_subject)) })
                 }
-                if (subjects.isEmpty()) Text(stringResource(R.string.no_subjects_hint), style = MaterialTheme.typography.bodySmall)
-                else {
-                    Text(stringResource(R.string.subject_presets), style = MaterialTheme.typography.titleSmall)
-                    val visible = subjectPresets.filter { (subjectId == null || it.subjectId == subjectId) && (editing == null || it.isExam) }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(visible, key = { it.key }) { preset ->
-                            val color = preset.colorHex?.let { Color(it.toInt()) } ?: RoutineColors.Cobalt
-                            SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f)), label = { Text(preset.label(context), color = color) })
-                        }
-                    }
-                }
-                OutlinedTextField(title, { title = it.take(120); error = null }, label = { Text(stringResource(R.string.entry_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy)
-                OutlinedTextField(dateText, { dateText = it; error = null
-                    if (!daysTouched) ScheduleValidation.parseDate(it)?.let { date -> repeatDays = Weekdays.mask(setOf(date.dayOfWeek)) }
-                }, label = { Text(stringResource(R.string.entry_date)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
+                OutlinedTextField(dateText, { dateText = it; error = null },
+                    label = { RoutineText(stringResource(R.string.entry_date)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
+                    isError = showError && ScheduleValidation.parseDate(dateText) == null,
+                    supportingText = if (showError && ScheduleValidation.parseDate(dateText) == null) {
+                        { RoutineText(stringResource(R.string.error_date), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning) }
+                    } else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), trailingIcon = {
                         IconButton(onClick = { pickingDate = true; haptics.tap() }, enabled = !busy) { Icon(Icons.Outlined.CalendarMonth, stringResource(R.string.choose_date)) }
                     })
-                if (kind != EntryKind.BLOCK) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(allDay, { allDay = it; haptics.tap() }, enabled = !busy)
-                    Text(stringResource(R.string.entry_all_day))
+                if (kind != EntryKind.BLOCK) {
+                    SettingRow(
+                        title = stringResource(R.string.entry_all_day),
+                        control = {
+                            Checkbox(allDay, { allDay = it; haptics.toggle(it) }, enabled = !busy,
+                                modifier = Modifier.size(RoutineMetrics.ActionMinWidth))
+                        },
+                    )
                 }
-                AnimatedVisibility(kind == EntryKind.BLOCK || !allDay) {
+                // Revealing the time fields is spatial, so it springs open and obeys the system's
+                // remove-animations setting instead of always sliding.
+                AnimatedVisibility(
+                    visible = kind == EntryKind.BLOCK || !allDay,
+                    enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
+                    exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
+                ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(startText, { times = times.withStart(it); error = null }, label = { Text(stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due)) },
-                            singleLine = true, modifier = Modifier.weight(1f).testTag("entry-start"), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
-                        if (kind == EntryKind.BLOCK) OutlinedTextField(endText, { times = times.withEnd(it); error = null }, label = { Text(stringResource(R.string.entry_end)) },
-                            singleLine = true, modifier = Modifier.weight(1f).testTag("entry-end"), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
+                        RoutineTimeField(startText, { times = times.withStart(it); error = null },
+                            label = stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due),
+                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-start"), wheelTag = "entry-start",
+                            supporting = if (showError && parsedStart == null) stringResource(R.string.error_time) else null)
+                        if (kind == EntryKind.BLOCK) RoutineTimeField(endText, { times = times.withEnd(it); error = null },
+                            label = stringResource(R.string.entry_end),
+                            enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-end"), wheelTag = "entry-end",
+                            supporting = if (showError && (parsedEnd == null || parsedEnd == parsedStart)) stringResource(R.string.error_time_range) else null)
                     }
                 }
                 if (kind == EntryKind.BLOCK) {
-                    Text(stringResource(R.string.duration_follows_start, times.durationMinutes), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(30,45,60,90,times.durationMinutes).distinct().sorted().forEach { minutes ->
-                            FilterChip(selected=times.durationMinutes==minutes, onClick={ times=times.withDuration(minutes); haptics.tap(); error=null },
-                                enabled=!busy, label={ Text(stringResource(R.string.duration_minutes,minutes)) }, shape=RoutineShapes.Chip)
-                        }
-                    }
-                    Text(stringResource(R.string.entry_overnight_hint), style = MaterialTheme.typography.bodySmall)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         RoutineCategory.entries.forEach { option -> FilterChip(category == option, {
-                            category = option; haptics.tap()
-                            if (option == RoutineCategory.SCHOOL) { times = times.withDuration(subjects.firstOrNull { it.id == subjectId }?.defaultDurationMinutes ?: defaults.lessonDurationMinutes); notifications = false }
+                            category = option; haptics.selection()
+                            // A school block IS a lesson: picking the category states its standard
+                            // length once, openly; the end field still shows and edits the result.
+                            if (option == RoutineCategory.SCHOOL) {
+                                times = times.withDuration(subjects.firstOrNull { it.id == subjectId }?.defaultDurationMinutes ?: defaults.lessonDurationMinutes)
+                                notifications = false
+                            }
                         }, enabled = !busy,
-                            label = { Text(option.label()) }, leadingIcon = { Icon(categoryIcon(option), null, Modifier.size(16.dp)) }, shape = RoutineShapes.Chip) }
+                            label = { RoutineLabel(option.label()) },
+                            leadingIcon = { Icon(categoryIcon(option), null, Modifier.size(16.dp)) }, shape = RoutineShapes.Chip) }
                     }
                     if (category == RoutineCategory.SCHOOL) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(includeBreak,{ includeBreak=it;haptics.tap() },enabled=!busy,modifier=Modifier.testTag("lesson-break-toggle"))
-                            Text(stringResource(R.string.lesson_break_option),Modifier.weight(1f))
-                            if (includeBreak) OutlinedTextField(breakMinutes,{ breakMinutes=it.filter(Char::isDigit).take(2) },
-                                label={ Text(stringResource(R.string.minutes_short)) },singleLine=true,enabled=!busy,modifier=Modifier.width(82.dp),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))
-                        }
-                        if (includeBreak) Text(stringResource(R.string.lesson_break_hint),style=MaterialTheme.typography.bodySmall,color=RoutineColors.TextSecondary)
-                    }
-                    TextButton(onClick = { advanced = !advanced; haptics.tap() }) {
-                        Icon(Icons.Outlined.ExpandMore, null)
-                        Text(stringResource(R.string.entry_more_options))
-                    }
-                    AnimatedVisibility(advanced) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(stringResource(R.string.elastic_settings), style = MaterialTheme.typography.titleSmall)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(fixed || category == RoutineCategory.SCHOOL, { fixed = it }, enabled = !busy && category != RoutineCategory.SCHOOL)
-                                Text(stringResource(R.string.fixed_commitment))
-                            }
-                            Text(stringResource(R.string.fixed_hint), style = MaterialTheme.typography.bodySmall)
-                            if (!fixed && category != RoutineCategory.SCHOOL) {
-                                OutlinedTextField(minimum, { minimum = it.filter(Char::isDigit).take(4) }, label = { Text(stringResource(R.string.minimum_duration)) }, singleLine = true, enabled = !busy)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedTextField(elasticity, { elasticity = it }, label = { Text(stringResource(R.string.elasticity)) }, modifier = Modifier.weight(1f), singleLine = true, enabled = !busy)
-                                    OutlinedTextField(priority, { priority = it }, label = { Text(stringResource(R.string.priority_weight)) }, modifier = Modifier.weight(1f), singleLine = true, enabled = !busy)
+                        SettingRow(
+                            title = stringResource(R.string.lesson_break_option),
+                            description = if (includeBreak) stringResource(R.string.lesson_break_hint) else null,
+                            control = {
+                                Row(verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+                                    Checkbox(includeBreak, { includeBreak = it; haptics.toggle(it) }, enabled = !busy,
+                                        modifier = Modifier.size(RoutineMetrics.ActionMinWidth).testTag("lesson-break-toggle"))
+                                    if (includeBreak) {
+                                        OutlinedTextField(breakMinutes, { breakMinutes = it.filter(Char::isDigit).take(2) },
+                                            label = { RoutineText(stringResource(R.string.minutes_short)) }, singleLine = true,
+                                            enabled = !busy, modifier = Modifier.width(82.dp),
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                                    }
                                 }
-                                Text(stringResource(R.string.elastic_hint), style = MaterialTheme.typography.bodySmall)
+                            },
+                        )
+                    }
+                    ActionRow {
+                        TextButton(onClick = { advanced = !advanced; haptics.tap() }) {
+                            Icon(Icons.Outlined.ExpandMore, null, Modifier.size(18.dp).rotate(advancedChevron))
+                            Spacer(Modifier.width(RoutineSpacing.sm))
+                            RoutineLabel(stringResource(R.string.entry_more_options), style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                    AnimatedVisibility(
+                        visible = advanced,
+                        enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
+                        exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            RoutineText(stringResource(R.string.elastic_settings), style = MaterialTheme.typography.titleSmall,
+                                maxLines = RoutineTextDefaults.Body)
+                            SettingRow(
+                                title = stringResource(R.string.fixed_commitment),
+                                description = stringResource(R.string.fixed_hint),
+                                control = {
+                                    Checkbox(fixed || category == RoutineCategory.SCHOOL, { fixed = it },
+                                        enabled = !busy && category != RoutineCategory.SCHOOL,
+                                        modifier = Modifier.size(RoutineMetrics.ActionMinWidth))
+                                },
+                            )
+                            if (!fixed && category != RoutineCategory.SCHOOL) {
+                                OutlinedTextField(minimum, { minimum = it.filter(Char::isDigit).take(4) },
+                                    label = { RoutineText(stringResource(R.string.minimum_duration)) }, singleLine = true,
+                                    enabled = !busy, modifier = Modifier.fillMaxWidth())
+                                // The two elastic weights become liquid sliders: bounded, continuous
+                                // values that are felt, not typed. A stored value outside the slider's
+                                // 0-10 span keeps its text field — a control that silently truncates
+                                // data is worse than one that looks plainer.
+                                LiquidWeightRow(stringResource(R.string.elasticity), elasticity, !busy) { elasticity = it }
+                                LiquidWeightRow(stringResource(R.string.priority_weight), priority, !busy) { priority = it }
+                                RoutineText(stringResource(R.string.elastic_hint), style = MaterialTheme.typography.bodySmall,
+                                    color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                             }
                             if (category.isDeepWork && subjectId != null && !fixed) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(calibrate, { calibrate = it }, enabled = !busy)
-                                    Text(stringResource(R.string.calibrate_duration))
-                                }
+                                SettingRow(
+                                    title = stringResource(R.string.calibrate_duration),
+                                    control = {
+                                        Checkbox(calibrate, { calibrate = it }, enabled = !busy,
+                                            modifier = Modifier.size(RoutineMetrics.ActionMinWidth))
+                                    },
+                                )
                                 val from = ScheduleValidation.parseTime(startText)
                                 val until = ScheduleValidation.parseTime(endText)
                                 if (from != null && until != null && from != until) {
                                     val raw = nominalMinutes(from, until)
-                                    Text(stringResource(R.string.velocity_preview, raw, if (calibrate) velocity.getCalibratedDuration(raw, subjectId.toString()) else raw), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Sage)
+                                    RoutineText(stringResource(R.string.velocity_preview, raw, if (calibrate) velocity.getCalibratedDuration(raw, subjectId.toString()) else raw), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Sage, maxLines = RoutineTextDefaults.Paragraph)
                                 }
                             }
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.entry_repeat), style = MaterialTheme.typography.titleSmall)
-                            Text(stringResource(if (weekly) R.string.entry_repeat_hint else R.string.entry_once_hint), style = MaterialTheme.typography.bodySmall)
-                        }
-                        Switch(weekly, { weekly = it; haptics.tap() }, enabled = !busy, modifier = Modifier.testTag("repeat-weekly"))
-                    }
+                    SettingRow(
+                        title = stringResource(R.string.entry_repeat),
+                        description = stringResource(if (weekly) R.string.entry_repeat_hint else R.string.entry_once_hint),
+                        control = {
+                            RoutineSwitch(weekly, { weekly = it; haptics.toggle(it) }, enabled = !busy, modifier = Modifier.testTag("repeat-weekly"))
+                        },
+                    )
                     if (weekly) {
-                        Text(stringResource(R.string.repeat_days_label),style=MaterialTheme.typography.titleSmall)
+                        RoutineText(stringResource(R.string.repeat_days_label), style = MaterialTheme.typography.titleSmall,
+                            maxLines = RoutineTextDefaults.Body)
                         WeekdayPicker(repeatDays,!busy) { repeatDays=it;daysTouched=true }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.entry_reminder), style = MaterialTheme.typography.titleSmall)
-                            Text(stringResource(if (category == RoutineCategory.REST_BUFFER) R.string.reminder_at_recovery else R.string.reminder_before), style = MaterialTheme.typography.bodySmall)
-                        }
-                        Switch(notifications, { notifications = it; haptics.tap() }, enabled = !busy)
-                    }
+                    SettingRow(
+                        title = stringResource(R.string.entry_reminder),
+                        description = stringResource(if (category == RoutineCategory.REST_BUFFER) R.string.reminder_at_recovery else R.string.reminder_before),
+                        control = { RoutineSwitch(notifications, { notifications = it; haptics.toggle(it) }, enabled = !busy) },
+                    )
                 } else {
-                    Text(stringResource(R.string.marker_hint), style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(effort, { effort = it }, label = { Text(stringResource(R.string.milestone_effort)) }, singleLine = true, enabled = !busy)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(terminal, { terminal = it; if (it) kind = EntryKind.EXAM }, enabled = !busy)
-                        Text(stringResource(R.string.terminal_exam))
-                    }
-                    Text(stringResource(R.string.effort_hint), style = MaterialTheme.typography.bodySmall)
+                    RoutineText(stringResource(R.string.marker_hint), style = MaterialTheme.typography.bodySmall,
+                        color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+                    OutlinedTextField(effort, { effort = it }, label = { RoutineText(stringResource(R.string.milestone_effort)) },
+                        singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
+                    SettingRow(
+                        title = stringResource(R.string.terminal_exam),
+                        control = {
+                            Checkbox(terminal, { terminal = it; if (it) kind = EntryKind.EXAM }, enabled = !busy,
+                                modifier = Modifier.size(RoutineMetrics.ActionMinWidth))
+                        },
+                    )
+                    RoutineText(stringResource(R.string.effort_hint), style = MaterialTheme.typography.bodySmall,
+                        color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                     if (editing == null && subjects.isNotEmpty()) {
-                        Text(stringResource(R.string.scheduled_test_hint), style = MaterialTheme.typography.bodySmall)
+                        RoutineText(stringResource(R.string.scheduled_test_hint), style = MaterialTheme.typography.bodySmall,
+                            color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(subjectPresets.filter { it.kind == PresetKind.SUBJECT_TEST }, key = { it.key }) { test ->
                                 OutlinedButton(enabled = !busy, shape = RoutineShapes.Pill, onClick = { save(test) }) {
-                                    Text(stringResource(R.string.scheduled_test, test.subjectName.orEmpty()), color = RoutineColors.Exam.content)
+                                    RoutineLabel(stringResource(R.string.scheduled_test, test.subjectName.orEmpty()),
+                                        style = MaterialTheme.typography.labelLarge, color = RoutineColors.Exam.content)
                                 }
                             }
                         }
                     }
                 }
-            }
-            error?.let { Text(stringResource(it), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning) }
-            HorizontalDivider(color = RoutineColors.Border)
-            if (editing == null && kind == EntryKind.BLOCK && category == RoutineCategory.SCHOOL) TextButton(enabled=!busy,
-                modifier=Modifier.fillMaxWidth().testTag("save-next-lesson"),onClick={ save(keepOpen=true) }) { Text(stringResource(R.string.save_next_lesson)) }
-            Button(enabled = !busy, shape = RoutineShapes.Pill, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp).heightIn(min = 52.dp), onClick = { save() }) {
-                Text(stringResource(if (busy) R.string.saving else if (editing == null) R.string.entry_save else R.string.entry_save_milestone))
-            }
         }
     }
     if (pickingDate) AppDatePicker(ScheduleValidation.parseDate(dateText) ?: selectedDate,
@@ -331,7 +448,146 @@ fun AppDatePicker(date: LocalDate, onDismiss: () -> Unit, onDate: (LocalDate) ->
     DatePickerDialog(onDismissRequest = onDismiss,
         confirmButton = { TextButton(enabled = state.selectedDateMillis != null, onClick = {
             state.selectedDateMillis?.let { onDate(LocalDate.ofEpochDay(Math.floorDiv(it, 86_400_000L))) }
-        }) { Text(stringResource(R.string.choose)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        }) { RoutineLabel(stringResource(R.string.choose), style = MaterialTheme.typography.labelLarge) } },
+        dismissButton = { TextButton(onClick = onDismiss) { RoutineLabel(stringResource(R.string.cancel), style = MaterialTheme.typography.labelLarge) } },
     ) { DatePicker(state) }
+}
+
+/**
+ * One elastic weight as a [LiquidSlider] with its label and current value above the track, falling
+ * back to the plain text field whenever the stored number is not inside the slider's 0-10 span.
+ */
+@Composable
+private fun LiquidWeightRow(label: String, text: String, enabled: Boolean, onText: (String) -> Unit) {
+    val value = text.replace(',', '.').toFloatOrNull()
+    if (value == null || value !in 0f..10f) {
+        OutlinedTextField(text, onText, label = { RoutineText(label) },
+            singleLine = true, enabled = enabled, modifier = Modifier.fillMaxWidth())
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            RoutineText(label, style = MaterialTheme.typography.bodyMedium,
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
+            RoutineText(String.format(java.util.Locale.US, "%.1f", value),
+                style = MaterialTheme.typography.bodyMedium, color = RoutineColors.Amber,
+                maxLines = RoutineTextDefaults.Body)
+        }
+        LiquidSlider(
+            value = value,
+            onValueChange = { onText(String.format(java.util.Locale.US, "%.1f", it)) },
+            enabled = enabled,
+            valueRange = 0f..10f,
+        )
+    }
+}
+
+/** The occurrence half of the unified block editor: title, times, and how far the change reaches. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OccurrenceEditor(
+    block: ResolvedTimelineItem.Block,
+    busy: Boolean,
+    sheetState: SheetState,
+    onDismiss: () -> Unit,
+    onSave: (TimelineAction.SaveBlockEdit) -> Unit,
+) {
+    var title by rememberSaveable(block.key) { mutableStateOf(block.title) }
+    var times by rememberSaveable(block.key, stateSaver = TimeEntrySaver) {
+        mutableStateOf(
+            TimeEntryState.at(
+                block.startsAt.toLocalTime(),
+                nominalMinutes(block.startsAt.toLocalTime(), block.endsAt.toLocalTime()).coerceIn(1, 1439),
+            ),
+        )
+    }
+    var whole by rememberSaveable(block.key) { mutableStateOf(false) }
+    var allDays by rememberSaveable(block.key) { mutableStateOf(true) }
+    var error by rememberSaveable { mutableStateOf<Int?>(null) }
+    val haptic = LocalRoutineHaptics.current
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState,
+        shape = RoutineShapes.Sheet, containerColor = RoutineColors.SheetSurface, tonalElevation = 0.dp) {
+        RoutineSheetScaffold(
+            title = stringResource(R.string.edit_block_title),
+            subtitle = stringResource(R.string.edit_occurrence, RoutineDate.spoken(block.occurrenceDate)),
+            closeLabel = stringResource(R.string.close),
+            onClose = onDismiss,
+            modifier = Modifier.testTag("block-editor"),
+            footer = {
+                error?.let {
+                    RoutineText(stringResource(it), style = MaterialTheme.typography.bodySmall,
+                        color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
+                }
+                SheetPrimaryButton(
+                    label = stringResource(if (busy) R.string.saving else R.string.save_changes),
+                    enabled = !busy,
+                    onClick = {
+                        val parsedStart = ScheduleValidation.parseTime(times.startText)
+                        val parsedEnd = ScheduleValidation.parseTime(times.endText)
+                        if (title.isBlank() || parsedStart == null || parsedEnd == null || parsedStart == parsedEnd) {
+                            haptic.warning()
+                            error = R.string.error_block_edit
+                        } else {
+                            onSave(
+                                TimelineAction.SaveBlockEdit(
+                                    block, title.trim(), parsedStart, parsedEnd, whole,
+                                    allDays && block.seriesKey != null,
+                                ),
+                            )
+                        }
+                    },
+                )
+                SheetSecondaryButton(label = stringResource(R.string.cancel), enabled = !busy, onClick = onDismiss)
+            },
+        ) {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it.take(120); error = null },
+                label = { RoutineText(stringResource(R.string.entry_title)) },
+                singleLine = true,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            RoutineTimeField(
+                value = times.startText,
+                onPick = { times = times.withStart(it); error = null },
+                label = stringResource(R.string.entry_start),
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+                wheelTag = "editor-start",
+            )
+            RoutineTimeField(
+                value = times.endText,
+                onPick = { times = times.withEnd(it); error = null },
+                label = stringResource(R.string.entry_end),
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+                wheelTag = "editor-end",
+            )
+            RoutineText(stringResource(R.string.edit_times_hint), style = MaterialTheme.typography.bodySmall,
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+            if (!block.isOneOff) {
+                SettingRow(
+                    title = stringResource(R.string.edit_whole_template),
+                    description = stringResource(if (whole) R.string.edit_whole_hint else R.string.edit_once_hint),
+                    control = {
+                        Checkbox(whole, { whole = it; haptic.tap() }, enabled = !busy,
+                            modifier = Modifier.size(RoutineMetrics.ActionMinWidth))
+                    },
+                )
+                if (whole && block.seriesKey != null && block.seriesDays.size > 1) {
+                    SettingRow(
+                        title = stringResource(R.string.edit_all_repeat_days),
+                        control = {
+                            Checkbox(allDays, { allDays = it; haptic.tap() }, enabled = !busy,
+                                modifier = Modifier.size(RoutineMetrics.ActionMinWidth))
+                        },
+                    )
+                }
+            } else {
+                RoutineText(stringResource(R.string.edit_once_hint), style = MaterialTheme.typography.bodySmall,
+                    color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+            }
+        }
+    }
 }
