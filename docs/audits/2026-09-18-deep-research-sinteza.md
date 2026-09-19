@@ -64,6 +64,15 @@ Koda se do potrditve tega načrta ne spreminja.
   en urejevalnik blokov (occurrence-način v EntryEditorSheet, BlockEditorSheet ukinjen),
   shranjevanje brez gumbov Shrani (spanje/kolo/čipi/debounced pragovi), obvestila z akcijama
   »Začni izvedbo« / »Zabeleži minute« ter gumb za dejanske minute v razširjeni kartici.
+- **Paleta in liquid glass po briefu 2026-09-19 izvedena in zelena** (commiti `4c0973e`, `ff247ea`,
+  `9dfa36a`): Direction B — ozadje #131515, steklo #2B2C28, primarno #7DE2D1 z inkom #131515,
+  sekundarno #339989, tekst #FFFAFB/#BEEEE6; kategorije ohlajene (hue-gap ≥ 12°, ΔE ≥ 20, wells
+  AAA); gate-i zeleni (197 kontrastnih parov, derive --check, presentation). Blur po vlogah
+  16-24 dp, rim #FFFAFB 0.15-0.25, radialni pod-sij 10 % pod karticami časovnice. Kyant0 katalog
+  (knjižnica je nizkonivojska, komponente so vzorci): RoutineSwitch namesto M3 Switch na vseh 13
+  mestih (drag + snap + squash), SheetPrimaryButton s tekočinskim stiskom, drsni capsule indikator
+  segmented načina, LiquidSlider za elasticity/priority v EntryEditorju (0-10, text fallback izven
+  razpona — brez tihega prirejanja shranjenih vrednosti).
 - P1 odprt: predloge ponavljanja v hitrih vnosih, »v čakalnik« iz brisanja, predlogi prostih rež,
   spanje na tednu.
 
