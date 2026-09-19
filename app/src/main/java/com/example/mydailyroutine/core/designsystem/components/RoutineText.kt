@@ -4,7 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.ui.draw.graphicsLayer
+import androidx.compose.ui.graphics.graphicsLayer
 import com.example.mydailyroutine.core.designsystem.motion.AppleMotion
 import com.example.mydailyroutine.core.designsystem.motion.glassTouchSpec
 import androidx.compose.ui.unit.IntSize
