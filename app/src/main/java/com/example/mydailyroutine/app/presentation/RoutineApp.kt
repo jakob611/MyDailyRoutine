@@ -373,7 +373,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         // Kyant0's LiquidBottomTabs pattern at segment scale: one capsule of accent
                         // wash that slides between the cells on the spatial spring, instead of four
                         // backgrounds blinking at each other. The cells themselves stay transparent
-                        // and clickable, the label colour cross-fades as the capsule arrives.
+                        // and clickable; the label colour flips as the capsule arrives.
                         BoxWithConstraints(
                             Modifier.fillMaxWidth()
                                 .padding(horizontal = 16.dp)

@@ -522,7 +522,10 @@ private fun StatusCard(
                         Modifier.size(RoutineSpacing.sm).clip(CircleShape).background(
                             when {
                                 days < 0 -> RoutineColors.Crimson
-                                days <= 14 -> RoutineColors.Amber
+                                // The warning yellow, not the brand turquoise: this dot is the
+                                // middle step of an urgency traffic light, and the brand colour
+                                // must never double as a warning.
+                                days <= 14 -> RoutineColors.Warning
                                 else -> RoutineColors.Sage
                             },
                         ),

@@ -57,6 +57,12 @@ Derivation rules — each one is a published rule applied to a published value
    the colour itself rather than a flat near-black, which reads as a hole punched in the design.
 7. **Apple's system fills** are kept verbatim as translucent tokens (#787880 at 0.36/0.32/0.24/0.18)
    so wells, tracks and pressed states stop inventing their own alphas.
+
+
+Direction B (brief of 2026-09-19) overrides the derived chrome at the end of derive(): the
+published tokens (#131515 base, #2B2C28 glass, #7DE2D1 primary, #FFFAFB text) replace the
+Apple/Material chrome verbatim, while wells, hue-gap, Delta-E and every contrast floor stay
+computed and gated. The Direction A commentary below documents the machinery still in use.
 """
 from __future__ import annotations
 
