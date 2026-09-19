@@ -24,6 +24,11 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -64,12 +69,11 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.CornerBasedShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
@@ -365,31 +369,45 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
                         exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                     ) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
-                            TimelineMode.entries.forEachIndexed { index, mode ->
-                                val selected = data.mode == mode
-                                Box(
-                                    Modifier.weight(1f).height(40.dp)
-                                        // On glass the selected cell is a wash of accent at Apple's
-                                        // 18 %, never a solid patch: a filled rectangle under the
-                                        // bar's tint reads as a colour fighting the material.
-                                        .background(
-                                            if (selected) RoutineColors.Cobalt.copy(alpha = 0.18f) else Color.Transparent,
-                                            shape = modeTabShape(index, TimelineMode.entries.size),
+                        // Kyant0's LiquidBottomTabs pattern at segment scale: one capsule of accent
+                        // wash that slides between the cells on the spatial spring, instead of four
+                        // backgrounds blinking at each other. The cells themselves stay transparent
+                        // and clickable, the label colour cross-fades as the capsule arrives.
+                        BoxWithConstraints(
+                            Modifier.fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 8.dp)
+                                .height(40.dp),
+                        ) {
+                            val count = TimelineMode.entries.size
+                            val cell = maxWidth / count
+                            val slide by animateDpAsState(
+                                cell * data.mode.ordinal,
+                                spatialSpec<Dp>(reduceMotion),
+                                label = "mode-indicator",
+                            )
+                            Box(
+                                Modifier.width(cell).fillMaxHeight()
+                                    // Draw-phase translation, not layout offset: the capsule glides
+                                    // without re-measuring the row on every spring frame.
+                                    .graphicsLayer { translationX = slide.toPx() }
+                                    .background(RoutineColors.Cobalt.copy(alpha = 0.18f), RoutineShapes.Pill)
+                                    .border(1.dp, RoutineColors.Cobalt.copy(alpha = 0.55f), RoutineShapes.Pill),
+                            )
+                            Row(Modifier.fillMaxSize()) {
+                                TimelineMode.entries.forEach { mode ->
+                                    val selected = data.mode == mode
+                                    Box(
+                                        Modifier.weight(1f).fillMaxHeight()
+                                            .clickable(role = Role.Tab) { onAction(TimelineAction.SelectMode(mode)) },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        RoutineLabel(
+                                            text = stringResource(when (mode) { TimelineMode.DAY -> R.string.nav_day; TimelineMode.WEEK -> R.string.nav_week; TimelineMode.MONTH -> R.string.nav_month; TimelineMode.YEAR -> R.string.nav_year }),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = if (selected) RoutineColors.TextPrimary else RoutineColors.TextSecondary,
                                         )
-                                        .border(
-                                            width = 1.dp,
-                                            color = if (selected) RoutineColors.Cobalt.copy(alpha = 0.55f) else RoutineColors.CardBorder,
-                                            shape = modeTabShape(index, TimelineMode.entries.size),
-                                        )
-                                        .clickable(role = Role.Tab) { onAction(TimelineAction.SelectMode(mode)) },
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    RoutineLabel(
-                                        text = stringResource(when (mode) { TimelineMode.DAY -> R.string.nav_day; TimelineMode.WEEK -> R.string.nav_week; TimelineMode.MONTH -> R.string.nav_month; TimelineMode.YEAR -> R.string.nav_year }),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = if (selected) RoutineColors.TextPrimary else RoutineColors.TextSecondary,
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -557,9 +575,3 @@ private fun minuteClock(): State<ZonedDateTime> {
     }
 }
 
-/** Rounded on the outer ends of the tab row, square where two tabs meet: one pill, four states. */
-private fun modeTabShape(index: Int, count: Int): CornerBasedShape = when (index) {
-    0 -> RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
-    count - 1 -> RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp)
-    else -> RoundedCornerShape(0.dp)
-}

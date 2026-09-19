@@ -377,8 +377,74 @@ def derive() -> dict:
              'FillTertiary': (APPLE_FILL_BASE, APPLE_FILL_TERTIARY_ALPHA),
              'FillQuaternary': (APPLE_FILL_BASE, APPLE_FILL_QUATERNARY_ALPHA)}
 
-    warning_hue, warning_chroma, _warning_tone = accent_lch['Warning']
-    glass_tint = surfaces['Background']
+    # -----------------------------------------------------------------------------------------
+    # Direction B, "turquoise liquid glass": the design brief of 2026-09-19 publishes its own
+    # chrome tokens (deep neutral background #131515, glass surface #2B2C28, turquoise primary
+    # #7DE2D1 with the background as its ink, soft white #FFFAFB text). They replace the derived
+    # chrome verbatim; category coding, wells and the contrast floors stay derived, so the gates
+    # still prove the palette instead of assuming it.
+    BRIEF_BG = '#131515'
+    BRIEF_GLASS = '#2B2C28'
+    BRIEF_PRIMARY = '#7DE2D1'
+    BRIEF_SECONDARY = '#339989'
+    BRIEF_TEXT = '#FFFAFB'
+    BRIEF_TEXT_COOL = '#BEEEE6'
+    brief_accents = {'Cobalt': '#9CC5FF', 'Amber': BRIEF_PRIMARY, 'Sage': '#A4D98C',
+                     'Crimson': '#FF9B8A', 'Violet': '#D3B0FA', 'Teal': '#5EC4E8',
+                     'Indigo': '#A8D8FF', 'Neutral': '#BCC3BF', 'Warning': '#F5C542'}
+    surfaces = {
+        'Background': BRIEF_BG,
+        'SheetSurface': mix(BRIEF_GLASS, BRIEF_BG, 0.35),
+        'Surface1': BRIEF_GLASS,
+        'Surface2': mix(BRIEF_TEXT, BRIEF_GLASS, 0.02),
+        'Surface3': mix(BRIEF_TEXT, BRIEF_GLASS, 0.04),
+        'Surface4': mix(BRIEF_TEXT, BRIEF_GLASS, 0.06),
+    }
+    text = {
+        'TextPrimary': BRIEF_TEXT,
+        'TextSecondary': composite(BRIEF_TEXT_COOL, 0.90, BRIEF_BG),
+        'TextMuted': composite(BRIEF_TEXT_COOL, 0.78, BRIEF_BG),
+        'TextDisabled': composite(BRIEF_TEXT_COOL, 0.30, BRIEF_BG),
+    }
+    accents = dict(brief_accents)
+    accent_lch = {name: (lch(value)[2], lch(value)[1], lch(value)[0])
+                  for name, value in brief_accents.items()}
+    category_hues_b = sorted((accent_lch[CATEGORY_ACCENT[name]][0], name)
+                             for name in CATEGORY_ACCENT if accent_lch[CATEGORY_ACCENT[name]][1] > 8)
+    hue_gap = min((b[0] - a[0]) % 360 for a, b in zip(category_hues_b, category_hues_b[1:]))
+    categories = {}
+    for name, accent_name in CATEGORY_ACCENT.items():
+        container = composite(accents[accent_name], WELL_ALPHA, surfaces['Surface1'])
+        weight = 0.45
+        content = mix(BRIEF_TEXT, accents[accent_name], weight)
+        while ratio(content, container) < CATEGORY_CONTENT_FLOOR and weight < 0.95:
+            weight += 0.05
+            content = mix(BRIEF_TEXT, accents[accent_name], weight)
+        categories[name] = {'accent_name': accent_name, 'accent': accents[accent_name],
+                            'container': container, 'content': content,
+                            'content_tone': round(weight, 2)}
+    inks = {role: BRIEF_BG for role in INK_ROLE}
+    glass_tint = BRIEF_BG
+    result = {
+        'surfaces': surfaces, 'text': text,
+        'text_tones': {'TextPrimary': 99.0, 'TextSecondary': 70.0,
+                       'TextMuted': 48.0, 'TextDisabled': 30.0}, 'borders': borders,
+        'hairline_sources': hairline_sources, 'spine': spine, 'accents': accents,
+        'accent_lch': accent_lch, 'accent_chroma_cap': round(ACCENT_CHROMA, 1),
+        'hue_gap': hue_gap,
+        'categories': categories,
+        'inks': inks, 'fills': fills, 'lightest': surfaces['Surface4'], 'tones': tones,
+        'ramp_band': ramp_band,
+        'neutral_hue': neutral_hue, 'neutral_chroma': neutral_chroma,
+        'warning_container': composite(accents['Warning'], WARNING_FILL_ALPHA, surfaces['Surface1']),
+        'glass_tint': glass_tint,
+        'glass_fallback': argb_with_alpha(glass_tint, 0.74, surfaces['Surface1']),
+        'glass_fallback_strong': argb_with_alpha(glass_tint, 0.80, surfaces['Surface1']),
+        'glass_rim': BRIEF_TEXT,
+        'swatches': [accents[name] for name in SWATCH_ORDER],
+        'ambient_top': BRIEF_PRIMARY, 'ambient_bottom': BRIEF_SECONDARY,
+    }
+    return result
     return {
         'surfaces': surfaces, 'text': text, 'text_tones': text_tones, 'borders': borders,
         'hairline_sources': hairline_sources, 'spine': spine, 'accents': accents,

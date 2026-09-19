@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
+import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
@@ -87,7 +87,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         SettingRow(
             title = stringResource(R.string.sleep_enable),
-            control = { Switch(enabled, { enabled = it; haptics.toggle(it); commit() }, enabled = !busy) },
+            control = { RoutineSwitch(enabled, { enabled = it; haptics.toggle(it); commit() }, enabled = !busy) },
         )
         Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
             RoutineTimeField(
@@ -119,7 +119,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
         }
         SettingRow(
             title = stringResource(R.string.sleep_weekend_mode),
-            control = { Switch(weekend, { weekend = it; haptics.toggle(it); commit() }, enabled = !busy) },
+            control = { RoutineSwitch(weekend, { weekend = it; haptics.toggle(it); commit() }, enabled = !busy) },
         )
         if (weekend) {
             Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {

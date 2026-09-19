@@ -2,7 +2,13 @@ package com.example.mydailyroutine.core.designsystem.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.graphicsLayer
+import com.example.mydailyroutine.core.designsystem.motion.AppleMotion
+import com.example.mydailyroutine.core.designsystem.motion.glassTouchSpec
 import androidx.compose.ui.unit.IntSize
+import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
@@ -41,7 +47,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -254,7 +259,7 @@ fun SettingSwitch(
     description: String? = null,
 ) {
     SettingRow(title = title, modifier = modifier, description = description,
-        control = { Switch(value, onChange, enabled = enabled) })
+        control = { RoutineSwitch(value, onChange, enabled = enabled) })
 }
 
 /**
@@ -486,7 +491,12 @@ fun RoutineSheetListScaffold(
     }
 }
 
-/** Primary sheet action: identical geometry everywhere, label never breaks. */
+/**
+ * Primary sheet action: identical geometry everywhere, label never breaks. The brief's liquid
+ * button: a solid turquoise capsule (the theme's `primary` with the background as its ink) that
+ * compresses four percent under the finger and springs back — the soft-body press from Kyant0's
+ * catalog, without pretending a 52 dp button is a lens.
+ */
 @Composable
 fun SheetPrimaryButton(
     label: String,
@@ -494,11 +504,25 @@ fun SheetPrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
+    val reduceMotion = LocalReduceMotion.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val press by animateFloatAsState(
+        if (pressed) 1f else 0f,
+        glassTouchSpec<Float>(reduceMotion),
+        label = "primary-press",
+    )
     Button(
         onClick = onClick,
         enabled = enabled,
         shape = RoutineShapes.Pill,
-        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),
+        interactionSource = interaction,
+        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp)
+            .graphicsLayer {
+                val scale = 1f - press * (1f - AppleMotion.PressScale)
+                scaleX = scale
+                scaleY = scale
+            },
     ) { RoutineLabel(label, style = MaterialTheme.typography.labelLarge) }
 }
 

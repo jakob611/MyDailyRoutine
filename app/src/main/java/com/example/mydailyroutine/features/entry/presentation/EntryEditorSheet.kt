@@ -23,10 +23,12 @@ import androidx.compose.material.icons.outlined.Close
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheetScaffold
+import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
+import com.example.mydailyroutine.core.designsystem.components.LiquidSlider
 import com.example.mydailyroutine.core.designsystem.components.SheetPrimaryButton
 import com.example.mydailyroutine.core.designsystem.components.SheetSecondaryButton
 import com.example.mydailyroutine.core.designsystem.components.categoryIcon
@@ -363,10 +365,12 @@ fun EntryEditorSheet(
                                 OutlinedTextField(minimum, { minimum = it.filter(Char::isDigit).take(4) },
                                     label = { RoutineText(stringResource(R.string.minimum_duration)) }, singleLine = true,
                                     enabled = !busy, modifier = Modifier.fillMaxWidth())
-                                Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                                    OutlinedTextField(elasticity, { elasticity = it }, label = { RoutineText(stringResource(R.string.elasticity)) }, modifier = Modifier.weight(1f), singleLine = true, enabled = !busy)
-                                    OutlinedTextField(priority, { priority = it }, label = { RoutineText(stringResource(R.string.priority_weight)) }, modifier = Modifier.weight(1f), singleLine = true, enabled = !busy)
-                                }
+                                // The two elastic weights become liquid sliders: bounded, continuous
+                                // values that are felt, not typed. A stored value outside the slider's
+                                // 0-10 span keeps its text field — a control that silently truncates
+                                // data is worse than one that looks plainer.
+                                LiquidWeightRow(stringResource(R.string.elasticity), elasticity, !busy) { elasticity = it }
+                                LiquidWeightRow(stringResource(R.string.priority_weight), priority, !busy) { priority = it }
                                 RoutineText(stringResource(R.string.elastic_hint), style = MaterialTheme.typography.bodySmall,
                                     color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                             }
@@ -391,7 +395,7 @@ fun EntryEditorSheet(
                         title = stringResource(R.string.entry_repeat),
                         description = stringResource(if (weekly) R.string.entry_repeat_hint else R.string.entry_once_hint),
                         control = {
-                            Switch(weekly, { weekly = it; haptics.toggle(it) }, enabled = !busy, modifier = Modifier.testTag("repeat-weekly"))
+                            RoutineSwitch(weekly, { weekly = it; haptics.toggle(it) }, enabled = !busy, modifier = Modifier.testTag("repeat-weekly"))
                         },
                     )
                     if (weekly) {
@@ -402,7 +406,7 @@ fun EntryEditorSheet(
                     SettingRow(
                         title = stringResource(R.string.entry_reminder),
                         description = stringResource(if (category == RoutineCategory.REST_BUFFER) R.string.reminder_at_recovery else R.string.reminder_before),
-                        control = { Switch(notifications, { notifications = it; haptics.toggle(it) }, enabled = !busy) },
+                        control = { RoutineSwitch(notifications, { notifications = it; haptics.toggle(it) }, enabled = !busy) },
                     )
                 } else {
                     RoutineText(stringResource(R.string.marker_hint), style = MaterialTheme.typography.bodySmall,
@@ -447,6 +451,35 @@ fun AppDatePicker(date: LocalDate, onDismiss: () -> Unit, onDate: (LocalDate) ->
         }) { RoutineLabel(stringResource(R.string.choose), style = MaterialTheme.typography.labelLarge) } },
         dismissButton = { TextButton(onClick = onDismiss) { RoutineLabel(stringResource(R.string.cancel), style = MaterialTheme.typography.labelLarge) } },
     ) { DatePicker(state) }
+}
+
+/**
+ * One elastic weight as a [LiquidSlider] with its label and current value above the track, falling
+ * back to the plain text field whenever the stored number is not inside the slider's 0-10 span.
+ */
+@Composable
+private fun LiquidWeightRow(label: String, text: String, enabled: Boolean, onText: (String) -> Unit) {
+    val value = text.replace(',', '.').toFloatOrNull()
+    if (value == null || value !in 0f..10f) {
+        OutlinedTextField(text, onText, label = { RoutineText(label) },
+            singleLine = true, enabled = enabled, modifier = Modifier.fillMaxWidth())
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            RoutineText(label, style = MaterialTheme.typography.bodyMedium,
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
+            RoutineText(String.format(java.util.Locale.US, "%.1f", value),
+                style = MaterialTheme.typography.bodyMedium, color = RoutineColors.Amber,
+                maxLines = RoutineTextDefaults.Body)
+        }
+        LiquidSlider(
+            value = value,
+            onValueChange = { onText(String.format(java.util.Locale.US, "%.1f", it)) },
+            enabled = enabled,
+            valueRange = 0f..10f,
+        )
+    }
 }
 
 /** The occurrence half of the unified block editor: title, times, and how far the change reaches. */

@@ -45,7 +45,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -77,12 +76,14 @@ import com.example.mydailyroutine.core.designsystem.components.ActionRow
 import com.example.mydailyroutine.core.designsystem.components.MetaChip
 import com.example.mydailyroutine.core.designsystem.components.NowBand
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
+import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.TimeGutter
 import com.example.mydailyroutine.core.designsystem.components.categoryBar
 import com.example.mydailyroutine.core.designsystem.components.categoryIcon
 import com.example.mydailyroutine.core.designsystem.components.timelineRail
+import com.example.mydailyroutine.core.designsystem.glass.liquidUnderGlow
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
@@ -167,7 +168,11 @@ fun TimelineBlockCard(
         window.end.atZone(now.zone).toLocalTime().clockLabel(),
     )
 
-    Box(modifier.fillMaxWidth().zIndex(if (dragging) 1f else 0f)) {
+    Box(
+        modifier.fillMaxWidth()
+            .liquidUnderGlow(style.accent, if (past || block.isSuppressed) 0f else 0.10f)
+            .zIndex(if (dragging) 1f else 0f),
+    ) {
         Row(Modifier.fillMaxWidth().timelineRail(if (active) style.accent.copy(alpha = 0.6f) else RoutineColors.Spine)) {
             val recordedZone = block.actualTiming?.zoneId?.let(java.time.ZoneId::of) ?: now.zone
             TimeGutter(
@@ -417,7 +422,7 @@ fun TimelineBlockCard(
                                             )
                                         }
                                     }
-                                    Switch(
+                                    RoutineSwitch(
                                         checked = block.isNotificationEnabled,
                                         onCheckedChange = { onAction(TimelineAction.SetReminder(block.routineBlockId, it)) },
                                         enabled = !busy,

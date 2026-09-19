@@ -31,7 +31,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -51,6 +50,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.CategoryTabs
@@ -235,14 +235,14 @@ private fun LazyListScope.rhythmTab(
                 title = stringResource(R.string.settings_haptics),
                 description = stringResource(R.string.settings_haptics_hint),
                 control = {
-                    Switch(preferences.hapticsEnabled, { onAction(TimelineAction.SetHaptics(it)) }, enabled = !busy)
+                    RoutineSwitch(preferences.hapticsEnabled, { onAction(TimelineAction.SetHaptics(it)) }, enabled = !busy)
                 },
             )
             SettingRow(
                 title = stringResource(R.string.execution_automatic),
                 description = stringResource(R.string.execution_automatic_hint),
                 control = {
-                    Switch(preferences.automaticHealingEnabled, { onAction(TimelineAction.SetAutomaticHealing(it)) },
+                    RoutineSwitch(preferences.automaticHealingEnabled, { onAction(TimelineAction.SetAutomaticHealing(it)) },
                         enabled = !busy)
                 },
             )
@@ -296,7 +296,7 @@ private fun LazyListScope.remindersTab(
             title = stringResource(R.string.recovery_alerts_title),
             description = stringResource(R.string.recovery_alerts_description),
             control = {
-                Switch(preferences.notifyRecovery, { onAction(TimelineAction.SetRecoveryNotifications(it)) }, enabled = !busy)
+                RoutineSwitch(preferences.notifyRecovery, { onAction(TimelineAction.SetRecoveryNotifications(it)) }, enabled = !busy)
             },
         )
     }
@@ -306,7 +306,7 @@ private fun LazyListScope.remindersTab(
                 title = stringResource(R.string.quiet_title),
                 description = stringResource(R.string.quiet_description),
                 control = {
-                    Switch(preferences.muteDuringSchoolHours, { onAction(TimelineAction.SetMute(it)) }, enabled = !busy)
+                    RoutineSwitch(preferences.muteDuringSchoolHours, { onAction(TimelineAction.SetMute(it)) }, enabled = !busy)
                 },
             )
             Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
@@ -592,7 +592,7 @@ private fun AdvancedHealthSettings(config: HealthConfig, busy: Boolean, onSave: 
             title = stringResource(R.string.threshold_fragmented),
             description = stringResource(R.string.rule_enabled),
             control = {
-                Switch(enabled(WarningType.FRAGMENTED_TIME), { toggle(WarningType.FRAGMENTED_TIME, it) }, enabled = !busy)
+                RoutineSwitch(enabled(WarningType.FRAGMENTED_TIME), { toggle(WarningType.FRAGMENTED_TIME, it) }, enabled = !busy)
             },
         )
         Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
@@ -626,7 +626,7 @@ private fun RuleField(
         SettingRow(
             title = title,
             description = stringResource(R.string.rule_enabled),
-            control = { Switch(enabled, onEnabled, enabled = !busy) },
+            control = { RoutineSwitch(enabled, onEnabled, enabled = !busy) },
         )
         MinuteField(value, onValue, stringResource(R.string.threshold_minutes), range, enabled && !busy,
             Modifier.fillMaxWidth())
@@ -679,7 +679,7 @@ private fun PeriodicBreakSettings(
         SettingRow(
             title = stringResource(R.string.periodic_break_title),
             description = stringResource(R.string.periodic_break_description),
-            control = { Switch(enabled, { enabled = it; push() }, enabled = !busy) },
+            control = { RoutineSwitch(enabled, { enabled = it; push() }, enabled = !busy) },
         )
         if (enabled) {
             Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {

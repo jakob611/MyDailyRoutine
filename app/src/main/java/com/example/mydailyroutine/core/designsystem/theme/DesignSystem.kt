@@ -49,25 +49,25 @@ import com.example.mydailyroutine.domain.model.RoutineCategory
  */
 object RoutineColors {
     /**
-     * Derived, not designed: `tools/derive_palette.py --check` recomputes every token below from
-     * published Apple and Material constants and CI fails on drift. Direction A ("vivid tints on a
-     * tinted spine"): surfaces carry an indigo hue spine so the night reads as night, not as grey;
-     * category hues live at tone 70 and chroma up to 52 on small elements, where saturation is
-     * legibility; wells are the tint at 20% over the card surface (Apple's selected-row pattern) with
-     * tone-84 content; the brand amber is one confident accent at tone 75. Text keeps M3's dark
-     * roles under the halation cap; hairlines reproduce published Apple/M3 contrasts.
+     * Derived, not designed: `tools/derive_palette.py --check` recomputes every token below and CI
+     * fails on drift. Direction B ("turquoise liquid glass", brief of 2026-09-19): a deep neutral
+     * base #131515, glass surfaces on #2B2C28, one turquoise primary #7DE2D1 whose ink is the
+     * background itself, and soft white #FFFAFB text over a cool #BEEEE6 secondary. Category hues
+     * stay a hue-separated family (gap >= 12deg, Delta-E >= 20) so six subjects never read as one
+     * colour; wells are the tint at 20% over the card surface with AAA content; the warning yellow
+     * is exempt from the family and never a category.
      */
-    val Background = Color(0xFF0F131A)
-    val SheetSurface = Color(0xFF090E16)
-    val Surface1 = Color(0xFF181C22)
-    val Surface2 = Color(0xFF1C2027)
-    val Surface3 = Color(0xFF262A31)
-    val Surface4 = Color(0xFF31353C)
-    val TextPrimary = Color(0xFFF8FBFF)
-    val TextSecondary = Color(0xFFDEE2EB)
-    val TextMuted = Color(0xFFC2C7CF)
+    val Background = Color(0xFF131515)
+    val SheetSurface = Color(0xFF1B1D1C)
+    val Surface1 = Color(0xFF2B2C28)
+    val Surface2 = Color(0xFF2F302C)
+    val Surface3 = Color(0xFF333430)
+    val Surface4 = Color(0xFF383835)
+    val TextPrimary = Color(0xFFFFFAFB)
+    val TextSecondary = Color(0xFFADD8D1)
+    val TextMuted = Color(0xFF98BEB8)
     /** Disabled content only. Apple's quaternaryLabel / Material's 38 %: never body copy. */
-    val TextDisabled = Color(0xFF41454C)
+    val TextDisabled = Color(0xFF465654)
     val Border = Color.White.copy(alpha = 0.152f)
     val BorderStrong = Color.White.copy(alpha = 0.188f)
     val CardBorder = Color.White.copy(alpha = 0.100f)
@@ -79,37 +79,37 @@ object RoutineColors {
     val FillTertiary = Color(0xFF787880).copy(alpha = 0.24f)
     val FillQuaternary = Color(0xFF787880).copy(alpha = 0.18f)
 
-    /** Category hues at a saturated mid tone: stripes, dots, chip icons, progress, small text. */
-    val Cobalt = Color(0xFF87A9FF)
-    val Amber = Color(0xFFFBA73D)
-    val Sage = Color(0xFF69BD71)
-    val Crimson = Color(0xFFFF8A77)
-    val Violet = Color(0xFFD194EC)
-    val Teal = Color(0xFF42B7E3)
-    val Indigo = Color(0xFFAE9FFD)
-    val Warning = Color(0xFFE9C300)
-    val Neutral = Color(0xFFABABB0)
+    /** Category hues: stripes, dots, chip icons, progress, small text. Amber is the brand turquoise. */
+    val Cobalt = Color(0xFF9CC5FF)
+    val Amber = Color(0xFF7DE2D1)
+    val Sage = Color(0xFFA4D98C)
+    val Crimson = Color(0xFFFF9B8A)
+    val Violet = Color(0xFFD3B0FA)
+    val Teal = Color(0xFF5EC4E8)
+    val Indigo = Color(0xFFA8D8FF)
+    val Warning = Color(0xFFF5C542)
+    val Neutral = Color(0xFFBCC3BF)
 
-    /** Ink on a light accent fill: the accent's own hue at M3's onPrimary tone. */
-    val InkOnPrimary = Color(0xFF5C2100)
-    val InkOnSecondary = Color(0xFF252775)
-    val InkOnTertiary = Color(0xFF4C1867)
-    val InkOnError = Color(0xFF6B0004)
+    /** Ink on a light accent fill: the background itself - the brief's #131515 on #7DE2D1. */
+    val InkOnPrimary = Color(0xFF131515)
+    val InkOnSecondary = Color(0xFF131515)
+    val InkOnTertiary = Color(0xFF131515)
+    val InkOnError = Color(0xFF131515)
 
     /** Ambient glow behind the content layer: the liquid glass refracts these two washes. */
-    val AmbientTop = Color(0xFFAE9FFD)
-    val AmbientBottom = Color(0xFFFBA73D)
+    val AmbientTop = Color(0xFFA8D8FF)
+    val AmbientBottom = Color(0xFF7DE2D1)
     val AmbientTopAlpha = 0.06f
     val AmbientBottomAlpha = 0.04f
 
     /** Translucent wash painted on top of refracted glass to keep text readable. */
-    val GlassTint = Color(0xFF0F131A)
-    val GlassTintAlpha = 0.45f
+    val GlassTint = Color(0xFF131515)
+    val GlassTintAlpha = 0.40f
     val GlassTintStrongAlpha = 0.80f
     /** Solid stand-in for platforms that cannot render the effect (below Android 12). */
-    val GlassFallback = Color(0xBD11151C)
-    val GlassFallbackStrong = Color(0xCC11151C)
-    val GlassRim = Color(0xFFF8FBFF)
+    val GlassFallback = Color(0xBD191B1A)
+    val GlassFallbackStrong = Color(0xCC181A19)
+    val GlassRim = Color(0xFFFFFAFB)
     val GlassRimWaist = 0.28f
     val GlassRimTail = 0.04f
     val GlassSpecular = 1.9f
@@ -117,16 +117,16 @@ object RoutineColors {
     val GlassTouchGlow = 0.22f
     val GlassTiltGlow = 0.10f
 
-    val WarningContainer = Color(0xFF37351D)
-    val School = CategoryStyle(Cobalt, Color(0xFF2E384E), Color(0xFFC5D0FD))
-    val Focus = CategoryStyle(Amber, Color(0xFF453827), Color(0xFFF0CBA7))
-    val Recovery = CategoryStyle(Sage, Color(0xFF283C32), Color(0xFFB6DBB6))
-    val Exam = CategoryStyle(Crimson, Color(0xFF463233), Color(0xFFFFC4B8))
-    val Project = CategoryStyle(Violet, Color(0xFF3D344A), Color(0xFFE5C8F0))
-    val Personal = CategoryStyle(Neutral, Color(0xFF35393E), Color(0xFFD1D1DA))
+    val WarningContainer = Color(0xFF49432C)
+    val School = CategoryStyle(Cobalt, Color(0xFF424B53), Color(0xFFDCE7FC))
+    val Focus = CategoryStyle(Amber, Color(0xFF3B504A), Color(0xFFCBF0EA))
+    val Recovery = CategoryStyle(Sage, Color(0xFF434F3C), Color(0xFFDBEDCF))
+    val Exam = CategoryStyle(Crimson, Color(0xFF55423C), Color(0xFFFFD9D3))
+    val Project = CategoryStyle(Violet, Color(0xFF4D4652), Color(0xFFEDDCFB))
+    val Personal = CategoryStyle(Neutral, Color(0xFF484A46), Color(0xFFE4E4E3))
     fun cardSurface(accent: Color): Color = accent.copy(alpha = 0.06f).compositeOver(Surface1)
 
-    val subjectSwatches = listOf(0xFF87A9FFL, 0xFF69BD71L, 0xFFFBA73DL, 0xFFFF8A77L, 0xFFD194ECL, 0xFF42B7E3L)
+    val subjectSwatches = listOf(0xFF9CC5FFL, 0xFFA4D98CL, 0xFF7DE2D1L, 0xFFFF9B8AL, 0xFFD3B0FAL, 0xFF5EC4E8L)
 }
 
 data class CategoryStyle(val accent: Color, val container: Color, val content: Color)

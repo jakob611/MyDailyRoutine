@@ -73,8 +73,8 @@ import com.kyant.backdrop.effects.lens
  * The three things that make this read as *liquid glass* rather than as a grey translucent rectangle
  * are the three things Apple's material does and most Android copies skip:
  *
- * * **A heavy blur** (24-28 dp for bars and sheets, against Apple's ~30-40 px regular material and
- *   40-48 for navigation bars). Heavy blur is also what buys legibility: it removes the high-frequency
+ * * **A heavy blur** (16-24 dp, the band the design brief of 2026-09-19 publishes: chips at 16,
+ *   controls at 18, bars at 20, sheets at 24). Heavy blur is also what buys legibility: it removes the high-frequency
  *   detail that competes with text, so the tint can stay at 0.74 instead of 0.82 and the panel stays
  *   see-through.
  * * **A saturation and brightness lift on the blurred content** (`colorControls`, ~160 % saturation —
@@ -113,17 +113,17 @@ enum class GlassRole(
     val fallback: Color,
 ) {
     /** Top bar, segmented control row, any header floating over scrolling content. */
-    Bar(24.dp, 14.dp, 22.dp, depth = false, dispersion = true, rim = 0.30f,
+    Bar(20.dp, 14.dp, 22.dp, depth = false, dispersion = true, rim = 0.22f,
         tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallbackStrong),
     /** Sticky header and footer inside a bottom sheet. Thickest blur: it sits over the most content. */
-    Sheet(28.dp, 14.dp, 26.dp, depth = true, dispersion = true, rim = 0.26f,
+    Sheet(24.dp, 14.dp, 26.dp, depth = true, dispersion = true, rim = 0.20f,
         tintAlpha = RoutineColors.GlassTintStrongAlpha, fallback = RoutineColors.GlassFallbackStrong),
     /** Filter chips, tabs, small pill buttons. Thinner material, and no dispersion at this size: on a
      *  32 dp chip the colour fringing reads as a printing defect, not as optics. */
-    Chip(14.dp, 8.dp, 14.dp, depth = false, dispersion = false, rim = 0.22f,
+    Chip(16.dp, 8.dp, 14.dp, depth = false, dispersion = false, rim = 0.15f,
         tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallback),
     /** Floating action button and other floating primary controls. */
-    Control(18.dp, 16.dp, 26.dp, depth = true, dispersion = true, rim = 0.38f,
+    Control(18.dp, 16.dp, 26.dp, depth = true, dispersion = true, rim = 0.25f,
         tintAlpha = 0f, fallback = RoutineColors.GlassFallback),
 }
 
@@ -404,8 +404,8 @@ fun Modifier.routineGlassTouch(touch: GlassTouch, shape: CornerBasedShape): Modi
     }
 
 /**
- * The ambient wash behind every screen: a vertical graphite ramp plus one indigo glow at the top and
- * one amber glow at the bottom, both under 6 % alpha. Its job is twofold — keep elevation readable on
+ * The ambient wash behind every screen: a vertical graphite ramp plus one ice-blue glow at the top
+ * and one turquoise glow at the bottom, both under 6 % alpha. Its job is twofold — keep elevation readable on
  * an OLED panel and give the glass something to refract where a floating bar sits over empty space.
  */
 @Composable
@@ -440,5 +440,26 @@ fun RoutineAmbientBackground(modifier: Modifier = Modifier) {
                 )
             )
         }
+    )
+}
+
+/**
+ * The light-leak under the floating cards of the design brief of 2026-09-19: a radial wash of the
+ * card's own accent at 8-12 % alpha, centred just below the card, as if the glass pane bent a little
+ * of the ambient light around its bottom edge. It goes *first* in the modifier chain — before any
+ * clip — so the glow can fall outside the card's bounds; the card then paints over the part that
+ * would otherwise sit under it.
+ */
+fun Modifier.liquidUnderGlow(accent: Color, alpha: Float = 0.10f): Modifier = this.drawBehind {
+    val center = Offset(size.width * 0.5f, size.height * 1.04f)
+    val radius = (size.width * 0.72f).coerceAtLeast(1f)
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(accent.copy(alpha = alpha), Color.Transparent),
+            center = center,
+            radius = radius,
+        ),
+        radius = radius,
+        center = center,
     )
 }

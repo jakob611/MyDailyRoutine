@@ -14,25 +14,25 @@
   tools/derive_palette.py, which computes them from published Apple and Material constants.
 -->
 <resources>
-    <color name="routine_background">#FF0F131A</color>
-    <color name="routine_surface_1">#FF181C22</color>
-    <color name="routine_surface_2">#FF1C2027</color>
-    <color name="routine_surface_3">#FF262A31</color>
-    <color name="routine_surface_4">#FF31353C</color>
-    <color name="routine_sheet_surface">#FF090E16</color>
-    <color name="routine_text_primary">#FFF8FBFF</color>
-    <color name="routine_text_secondary">#FFDEE2EB</color>
-    <color name="routine_text_muted">#FFC2C7CF</color>
+    <color name="routine_background">#FF131515</color>
+    <color name="routine_surface_1">#FF2B2C28</color>
+    <color name="routine_surface_2">#FF2F302C</color>
+    <color name="routine_surface_3">#FF333430</color>
+    <color name="routine_surface_4">#FF383835</color>
+    <color name="routine_sheet_surface">#FF1B1D1C</color>
+    <color name="routine_text_primary">#FFFFFAFB</color>
+    <color name="routine_text_secondary">#FFADD8D1</color>
+    <color name="routine_text_muted">#FF98BEB8</color>
     <color name="routine_spine">#FF54575F</color>
     <color name="routine_border">#27FFFFFF</color>
     <color name="routine_border_strong">#30FFFFFF</color>
     <color name="routine_card_border">#1AFFFFFF</color>
-    <color name="routine_cobalt">#FF87A9FF</color>
-    <color name="routine_amber">#FFFBA73D</color>
-    <color name="routine_sage">#FF69BD71</color>
-    <color name="routine_crimson">#FFFF8A77</color>
-    <color name="routine_violet">#FFD194EC</color>
-    <color name="routine_indigo">#FFAE9FFD</color>
-    <color name="routine_neutral">#FFABABB0</color>
-    <color name="routine_warning">#FFE9C300</color>
+    <color name="routine_cobalt">#FF9CC5FF</color>
+    <color name="routine_amber">#FF7DE2D1</color>
+    <color name="routine_sage">#FFA4D98C</color>
+    <color name="routine_crimson">#FFFF9B8A</color>
+    <color name="routine_violet">#FFD3B0FA</color>
+    <color name="routine_indigo">#FFA8D8FF</color>
+    <color name="routine_neutral">#FFBCC3BF</color>
+    <color name="routine_warning">#FFF5C542</color>
 </resources>

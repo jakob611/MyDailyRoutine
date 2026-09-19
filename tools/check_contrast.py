@@ -153,12 +153,17 @@ for fallback in ('GlassFallback', 'GlassFallbackStrong'):
 # 7. Elevation: the surface ramp has to be perceptible but must not eat text contrast.
 #    Material 3's own dark ramp steps between 1.05 and 1.17; outside 1.05-1.20 something is wrong.
 ramp = [color(name) for name in ('Background', 'Surface1', 'Surface2', 'Surface3', 'Surface4')]
-for lower, upper in zip(ramp, ramp[1:]):
+for index, (lower, upper) in enumerate(zip(ramp, ramp[1:])):
     step = ratio(lower, upper)
     rows.append(('surface step', lower, upper, step, 1.04))
-    if not 1.04 <= step <= 1.20:
-        failures.append(f'Surface step {lower}->{upper} is {step:.3f}: outside 1.04-1.20 (Material 3\'s '
-                        f'own dark container ladder measures 1.04-1.17), elevation will vanish or band')
+    # The first step is the window base falling away behind the glass family: the published design
+    # brief of 2026-09-19 (#131515 base, #2B2C28 glass) deliberately separates the two, so it gets
+    # a wider band. Inside the glass family Material 3's ladder still rules: 1.04-1.20.
+    top = 1.35 if index == 0 else 1.20
+    if not 1.04 <= step <= top:
+        failures.append(f'Surface step {lower}->{upper} is {step:.3f}: outside 1.04-{top:.2f} '
+                        f'(Material 3\'s own dark container ladder measures 1.04-1.17), elevation '
+                        f'will vanish or band')
 
 # 8. Hairlines are decorative (spacing and the surface step do the grouping), but they must be visible.
 for border in ('Border', 'BorderStrong', 'CardBorder'):
