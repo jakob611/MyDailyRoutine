@@ -31,11 +31,11 @@ class ScheduleNotifier(private val context: Context) {
     /** The notification accent is the category's own hue, the same one the timeline spine uses. */
     private val categoryAccent = mapOf(
         RoutineCategory.SCHOOL to R.color.routine_cobalt,
-        RoutineCategory.FOCUS_ANALYTICAL to R.color.routine_amber,
-        RoutineCategory.FOCUS_SYNTHESIZING to R.color.routine_violet,
+        RoutineCategory.FOCUS_ANALYTICAL to R.color.routine_focus_accent,
+        RoutineCategory.FOCUS_SYNTHESIZING to R.color.routine_project_accent,
         RoutineCategory.ADMIN to R.color.routine_neutral,
-        RoutineCategory.REST_BUFFER to R.color.routine_sage,
-        RoutineCategory.EMERGENCY_RESERVE to R.color.routine_sage,
+        RoutineCategory.REST_BUFFER to R.color.routine_recovery_accent,
+        RoutineCategory.EMERGENCY_RESERVE to R.color.routine_recovery_accent,
     )
 
     fun ensureChannels() {
@@ -187,7 +187,7 @@ class ScheduleNotifier(private val context: Context) {
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setColor(ContextCompat.getColor(context, R.color.routine_amber))
+            .setColor(ContextCompat.getColor(context, R.color.routine_primary))
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)

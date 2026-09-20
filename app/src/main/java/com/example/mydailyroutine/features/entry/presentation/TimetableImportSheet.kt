@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextFieldColors
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheetScaffold
@@ -155,6 +156,7 @@ fun TimetableImportSheet(
                 minLines = 5,
                 maxLines = 10,
                 shape = RoutineShapes.Card,
+                colors = RoutineTextFieldColors(),
             )
             SheetSecondaryButton(
                 label = stringResource(R.string.timetable_import_preview),
@@ -182,7 +184,7 @@ fun TimetableImportSheet(
                             }
                             Row(
                                 Modifier.fillMaxWidth().background(
-                                    if (matchesSubject) RoutineColors.School.container else RoutineColors.Surface2,
+                                    if (matchesSubject) RoutineColors.School.container else RoutineColors.SurfaceLowest,
                                     RoutineShapes.Chip,
                                 ).padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
                                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
@@ -192,7 +194,7 @@ fun TimetableImportSheet(
                                     text = row.day.getDisplayName(java.time.format.TextStyle.SHORT, Slovenian),
                                     modifier = Modifier.widthIn(min = 40.dp),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (matchesSubject) RoutineColors.School.content else RoutineColors.TextMuted,
+                                    color = if (matchesSubject) RoutineColors.School.content else RoutineColors.TextSecondary,
                                 )
                                 RoutineLabel(
                                     text = "%02d:%02d – %02d:%02d".format(

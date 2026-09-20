@@ -117,7 +117,7 @@ fun DailyTimeline(
                 Surface(
                     Modifier.fillMaxWidth(),
                     shape = RoutineShapes.Card,
-                    color = RoutineColors.Surface1,
+                    color = RoutineColors.SurfaceContainer,
                     border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 ) {
                     Column(
@@ -151,7 +151,7 @@ fun DailyTimeline(
                                 text = stringResource(R.string.reserve_remaining, day.metrics.reserveMinutes),
                                 modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = RoutineColors.Sage,
+                                color = RoutineColors.RecoveryAccent,
                             )
                             if (day.warnings.isNotEmpty()) {
                                 RoutineLabel(
@@ -168,8 +168,8 @@ fun DailyTimeline(
                         onClick = { onAction(TimelineAction.OpenTasks) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoutineShapes.Card,
-                        colors = CardDefaults.cardColors(containerColor = RoutineColors.Crimson.copy(alpha = 0.10f)),
-                        border = BorderStroke(1.dp, RoutineColors.Crimson.copy(alpha = 0.35f)),
+                        colors = CardDefaults.cardColors(containerColor = RoutineColors.Error.copy(alpha = 0.10f)),
+                        border = BorderStroke(1.dp, RoutineColors.Error.copy(alpha = 0.35f)),
                     ) {
                         Column(
                             Modifier.fillMaxWidth().padding(RoutineSpacing.md),
@@ -178,7 +178,7 @@ fun DailyTimeline(
                             RoutineText(
                                 text = stringResource(if (today) R.string.tasks_due_today else R.string.tasks_due_on_day, dueTasks.size),
                                 style = MaterialTheme.typography.titleSmall,
-                                color = RoutineColors.Crimson,
+                                color = RoutineColors.Error,
                                 maxLines = RoutineTextDefaults.Body,
                             )
                             val shown = dueTasks.take(2).joinToString(" · ") { it.title }
@@ -192,7 +192,7 @@ fun DailyTimeline(
                     }
                 }
                 execution?.let { active ->
-                    Surface(color = RoutineColors.Focus.container, contentColor = RoutineColors.Focus.content,
+                    Surface(color = RoutineColors.SurfaceHigh, contentColor = RoutineColors.TextPrimary,
                         shape = RoutineShapes.Card, modifier = Modifier.fillMaxWidth()) {
                         Column(
                             Modifier.fillMaxWidth().padding(RoutineSpacing.md),
@@ -205,6 +205,7 @@ fun DailyTimeline(
                             RoutineLabel(
                                 text = stringResource(R.string.execution_elapsed_minutes, active.elapsedMinutes(now.toInstant())),
                                 style = MaterialTheme.typography.displaySmall,
+                                color = if (active.stoppedAt == null) RoutineColors.Timer else RoutineColors.TextSecondary,
                             )
                             RoutineLabel(
                                 text = stringResource(R.string.execution_elapsed_label),
@@ -214,7 +215,7 @@ fun DailyTimeline(
                                 TextButton(
                                     enabled = !busy,
                                     onClick = { onAction(TimelineAction.FinishExecution) },
-                                    colors = ButtonDefaults.textButtonColors(contentColor = RoutineColors.Focus.content),
+                                    colors = ButtonDefaults.textButtonColors(contentColor = RoutineColors.Primary),
                                 ) {
                                     RoutineLabel(stringResource(R.string.execution_finish), style = MaterialTheme.typography.labelLarge)
                                 }
@@ -265,14 +266,14 @@ fun DailyTimeline(
                 Surface(
                     Modifier.fillMaxWidth().padding(vertical = RoutineSpacing.lg),
                     shape = RoutineShapes.Card,
-                    color = RoutineColors.Surface1,
+                    color = RoutineColors.SurfaceContainer,
                     border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 ) {
                     Column(
                         Modifier.fillMaxWidth().padding(RoutineSpacing.xl),
                         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
                     ) {
-                        Icon(Icons.Outlined.Spa, null, tint = RoutineColors.Sage)
+                        Icon(Icons.Outlined.Spa, null, tint = RoutineColors.RecoveryAccent)
                         // The tagline used to occupy the top bar of every screen, where it cost
                         // height forever and said nothing the reader needed. Here it is an eyebrow
                         // on the one screen with room for it, and it reads as an invitation.
@@ -390,7 +391,7 @@ fun DailyTimeline(
                 RoutineText(
                     text = stringResource(R.string.recovery_safety),
                     style = MaterialTheme.typography.bodySmall,
-                    color = RoutineColors.TextMuted,
+                    color = RoutineColors.TextSecondary,
                     maxLines = RoutineTextDefaults.Paragraph,
                 )
             }
@@ -417,7 +418,7 @@ private fun TimelineGap(minutes: Int, nowFraction: Float?, clock: String) {
                     text = stringResource(R.string.unallocated_time, durationLabel(minutes)),
                     modifier = Modifier.padding(start = RoutineSpacing.md),
                     style = MaterialTheme.typography.labelSmall,
-                    color = RoutineColors.TextMuted,
+                    color = RoutineColors.TextSecondary,
                 )
             }
         }

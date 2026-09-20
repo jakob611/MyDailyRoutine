@@ -39,7 +39,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
+import com.example.mydailyroutine.core.designsystem.components.RoutineCompletionCheckbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -173,7 +173,7 @@ fun TimelineBlockCard(
             .liquidUnderGlow(style.accent, if (past || block.isSuppressed) 0f else 0.10f)
             .zIndex(if (dragging) 1f else 0f),
     ) {
-        Row(Modifier.fillMaxWidth().timelineRail(if (active) style.accent.copy(alpha = 0.6f) else RoutineColors.Spine)) {
+        Row(Modifier.fillMaxWidth().timelineRail(if (active) RoutineColors.Timer.copy(alpha = 0.6f) else RoutineColors.Spine)) {
             val recordedZone = block.actualTiming?.zoneId?.let(java.time.ZoneId::of) ?: now.zone
             TimeGutter(
                 start = block.actualTiming?.startedAt?.atZone(recordedZone)?.toLocalTime()?.clockLabel()
@@ -229,7 +229,7 @@ fun TimelineBlockCard(
                 shape = RoutineShapes.Card,
                 colors = CardDefaults.cardColors(containerColor = RoutineColors.cardSurface(style.accent)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
-                border = if (activeAmount > 0.01f) BorderStroke(1.5.dp, style.accent.copy(alpha = 0.6f * activeAmount))
+                border = if (activeAmount > 0.01f) BorderStroke(1.5.dp, RoutineColors.Timer.copy(alpha = 0.20f * activeAmount))
                 else BorderStroke(1.dp, RoutineColors.CardBorder),
             ) {
                 Box(Modifier.fillMaxWidth()) {
@@ -251,7 +251,7 @@ fun TimelineBlockCard(
                                     text = block.title,
                                     style = MaterialTheme.typography.titleMedium,
                                     maxLines = if (expanded) RoutineTextDefaults.Paragraph else RoutineTextDefaults.Body,
-                                    color = if (past || block.isSuppressed) RoutineColors.TextMuted else RoutineColors.TextPrimary,
+                                    color = if (past || block.isSuppressed) RoutineColors.TextSecondary else RoutineColors.TextPrimary,
                                     textDecoration = if (block.isCompleted || block.isSuppressed) TextDecoration.LineThrough else null,
                                 )
                                 RoutineLabel(
@@ -276,10 +276,10 @@ fun TimelineBlockCard(
                                     Icons.Default.Check,
                                     stringResource(R.string.lesson_auto_done),
                                     Modifier.size(RoutineMetrics.ActionMinWidth).padding(RoutineSpacing.md),
-                                    tint = RoutineColors.Sage,
+                                    tint = RoutineColors.Success,
                                 )
                             } else {
-                                Checkbox(
+                                RoutineCompletionCheckbox(
                                     checked = block.isCompleted,
                                     onCheckedChange = { onAction(TimelineAction.ToggleComplete(block)) },
                                     enabled = !busy && !block.isSuppressed,
@@ -339,7 +339,7 @@ fun TimelineBlockCard(
                             RoutineText(
                                 text = stringResource(R.string.school_inactive, block.holidayTitle.orEmpty()),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = RoutineColors.TextMuted,
+                                color = RoutineColors.TextSecondary,
                                 maxLines = RoutineTextDefaults.Body,
                             )
                         }
@@ -442,7 +442,7 @@ fun TimelineBlockCard(
                                 RoutineText(
                                     text = dragHint,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = RoutineColors.TextMuted,
+                                    color = RoutineColors.TextSecondary,
                                     maxLines = RoutineTextDefaults.Paragraph,
                                 )
                                 ActionRow {
@@ -461,7 +461,7 @@ fun TimelineBlockCard(
                                         RoutineLabel(
                                             stringResource(if (block.isOneOff) R.string.delete_block else R.string.delete_routine),
                                             style = MaterialTheme.typography.labelLarge,
-                                            color = RoutineColors.Crimson,
+                                            color = RoutineColors.Error,
                                         )
                                     }
                                 }
@@ -524,14 +524,14 @@ fun NowMarker(time: String, modifier: Modifier = Modifier, pulse: Float = pulseA
         ) {
             Box(
                 Modifier.size(RoutineMetrics.NowDotSize).alpha(pulse)
-                    .background(RoutineColors.Crimson, CircleShape),
+                    .background(RoutineColors.Timer, CircleShape),
             )
-            Box(Modifier.weight(1f).height(RoutineMetrics.SpineWidth).background(RoutineColors.Crimson))
+            Box(Modifier.weight(1f).height(RoutineMetrics.SpineWidth).background(RoutineColors.Timer))
             RoutineLabel(
                 text = time,
                 modifier = Modifier.alpha(pulse).padding(horizontal = RoutineSpacing.xs),
                 style = MaterialTheme.typography.labelSmall,
-                color = RoutineColors.Crimson,
+                color = RoutineColors.Timer,
             )
         }
     }
@@ -577,14 +577,14 @@ fun MilestoneCard(
                 shape = RoutineShapes.Card,
                 border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
-                colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1),
+                colors = CardDefaults.cardColors(containerColor = RoutineColors.SurfaceContainer),
             ) {
                 Column(
                     Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                     verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                        Icon(Icons.Outlined.Flag, null, tint = RoutineColors.Crimson)
+                        Icon(Icons.Outlined.Flag, null, tint = RoutineColors.Error)
                         RoutineText(
                             text = item.title,
                             modifier = Modifier.weight(1f),
@@ -598,7 +598,7 @@ fun MilestoneCard(
                             modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f),
                             tint = RoutineColors.TextSecondary,
                         )
-                        Checkbox(
+                        RoutineCompletionCheckbox(
                             checked = item.isCompleted,
                             onCheckedChange = { onAction(TimelineAction.ToggleComplete(item)) },
                             enabled = !busy,
@@ -631,7 +631,7 @@ fun MilestoneCard(
                                 RoutineLabel(stringResource(R.string.edit), style = MaterialTheme.typography.labelLarge)
                             }
                             TextButton(enabled = !busy, onClick = { onAction(TimelineAction.RequestDelete(item)) }) {
-                                RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+                                RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Error)
                             }
                         }
                     }

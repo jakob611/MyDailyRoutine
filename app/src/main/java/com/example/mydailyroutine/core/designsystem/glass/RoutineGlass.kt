@@ -32,15 +32,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.core.designsystem.motion.AppleMotion
 import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.glassTouchSpec
@@ -51,7 +48,7 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.lens
 
 /**
@@ -70,17 +67,9 @@ import com.kyant.backdrop.effects.lens
  *    refracted backdrop so small text stays above 4.5:1, and below Android 12 — where `RenderEffect`
  *    does not exist — the same panel is drawn as the matching solid surface.
  *
- * The three things that make this read as *liquid glass* rather than as a grey translucent rectangle
- * are the three things Apple's material does and most Android copies skip:
- *
- * * **A heavy blur** (16-24 dp, the band the design brief of 2026-09-19 publishes: chips at 16,
- *   controls at 18, bars at 20, sheets at 24). Heavy blur is also what buys legibility: it removes the high-frequency
- *   detail that competes with text, so the tint can stay at 0.74 instead of 0.82 and the panel stays
- *   see-through.
- * * **A saturation and brightness lift on the blurred content** (`colorControls`, ~160 % saturation —
- *   `vibrancy()` is exactly 150 %). This is what makes glass look lit from behind.
- * * **A specular rim**: one hairline of light along the top-left edge falling away to the bottom-right.
- *   Without an edge, a translucent panel has no boundary and reads as a smudge.
+ * Effects use the pinned Backdrop 1.0.0 API: vibrancy, then blur, then lens. This is our
+ * chosen chain, not a universal requirement of the library. Glass stays on floating chrome;
+ * reading cards are opaque, avoiding repeated GPU effects and self-sampling layers.
  *
  * The modifier helpers are deliberately *not* `@Composable`: Compose lint requires composable
  * functions that return a value to be PascalCase, and `Modifier.routineGlass()` has to stay a normal
@@ -94,38 +83,6 @@ val LocalRoutineBackdrop = staticCompositionLocalOf<Backdrop?> { null }
  *  the platform cannot do, so these flags only decide whether to paint the solid fallback. */
 val glassSupported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 val lensSupported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-
-/**
- * Where glass is used and how strong it is. One row per role keeps every bar, sheet and button
- * optically identical instead of letting each screen invent its own blur radius.
- *
- * `lensHeight` must stay at or below the smallest corner radius of the shape or the refraction breaks
- * at that corner; the `RoutineShapes.Glass*` shapes are all ≥ 14 dp.
- */
-enum class GlassRole(
-    val blur: Dp,
-    val lensHeight: Dp,
-    val lensAmount: Dp,
-    val depth: Boolean,
-    val dispersion: Boolean,
-    val rim: Float,
-    val tintAlpha: Float,
-    val fallback: Color,
-) {
-    /** Top bar, segmented control row, any header floating over scrolling content. */
-    Bar(20.dp, 14.dp, 22.dp, depth = false, dispersion = true, rim = 0.22f,
-        tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallbackStrong),
-    /** Sticky header and footer inside a bottom sheet. Thickest blur: it sits over the most content. */
-    Sheet(24.dp, 14.dp, 26.dp, depth = true, dispersion = true, rim = 0.20f,
-        tintAlpha = RoutineColors.GlassTintStrongAlpha, fallback = RoutineColors.GlassFallbackStrong),
-    /** Filter chips, tabs, small pill buttons. Thinner material, and no dispersion at this size: on a
-     *  32 dp chip the colour fringing reads as a printing defect, not as optics. */
-    Chip(16.dp, 8.dp, 14.dp, depth = false, dispersion = false, rim = 0.15f,
-        tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallback),
-    /** Floating action button and other floating primary controls. */
-    Control(18.dp, 16.dp, 26.dp, depth = true, dispersion = true, rim = 0.25f,
-        tintAlpha = 0f, fallback = RoutineColors.GlassFallback),
-}
 
 /** Device tilt in -1..1 on both axes, quantised: the raw rotation vector jitters every sample, and
  *  repaint-triggering noise is exactly how a specular highlight becomes a shimmer defect. */
@@ -167,8 +124,8 @@ fun rememberGlassTilt(): GlassTilt {
     return tilt
 }
 
-/** Rim hairline. Drawn centred on the shape outline, so the clip leaves half of it: ~0.8 dp of light. */
-private val RimWidth = 1.6.dp
+/** Rim hairline. Drawn centred on the shape outline, so the clip leaves half of it: ~0.5 dp of light. */
+private val RimWidth = GlassStyles.RimWidth
 
 /** Creates the window backdrop and publishes it to the subtree; the ambient wash is drawn into it. */
 @Composable
@@ -199,12 +156,12 @@ fun Modifier.routineBackdropLayer(backdrop: Backdrop?): Modifier {
  * status bar reads as a rendering defect.
  */
 private fun DrawScope.drawSpecular(role: GlassRole) {
-    val peak = RoutineColors.GlassSpecular * role.rim
+    val peak = GlassStyles.Specular * role.style.rim
     val width = RimWidth.toPx()
     drawLine(
         brush = Brush.horizontalGradient(
             0f to RoutineColors.GlassRim.copy(alpha = peak),
-            0.6f to RoutineColors.GlassRim.copy(alpha = peak * RoutineColors.GlassSpecularFall),
+            0.6f to RoutineColors.GlassRim.copy(alpha = peak * GlassStyles.SpecularFall),
             1f to Color.Transparent,
         ),
         start = Offset(0f, width / 2f),
@@ -216,14 +173,14 @@ private fun DrawScope.drawSpecular(role: GlassRole) {
 private fun rimBrush(strength: Float, start: Offset = Offset.Zero, end: Offset = Offset.Unspecified) =
     Brush.linearGradient(
         0f to RoutineColors.GlassRim.copy(alpha = strength),
-        0.42f to RoutineColors.GlassRim.copy(alpha = strength * RoutineColors.GlassRimWaist),
-        1f to RoutineColors.GlassRim.copy(alpha = strength * RoutineColors.GlassRimTail),
+        0.42f to RoutineColors.GlassRim.copy(alpha = strength * GlassStyles.RimWaist),
+        1f to RoutineColors.GlassRim.copy(alpha = strength * GlassStyles.RimTail),
         start = start,
         end = end,
     )
 
 /**
- * The glass treatment: effect chain in the order the library requires (colour filter ⇒ blur ⇒ lens),
+ * The glass treatment: chosen effect chain (vibrancy ⇒ blur ⇒ lens),
  * finished with a tinted surface for legibility. Falls back to a plain solid surface when there is no
  * backdrop to sample or the platform cannot render effects.
  *
@@ -234,42 +191,25 @@ fun Modifier.routineGlass(
     backdrop: Backdrop?,
     shape: CornerBasedShape,
     role: GlassRole = GlassRole.Bar,
-    tint: Color = RoutineColors.GlassTint,
-    hue: Boolean = false,
     specular: Boolean = true,
     tilt: GlassTilt = GlassTilt(),
 ): Modifier {
     if (backdrop == null || !glassSupported) {
-        val fallback = if (hue) tint else role.fallback
+        val fallback = role.surface
         // No RenderEffect, no lens — but the rim stays, because the edge is what tells the reader the
         // panel is a surface and not a stain on the background.
         return this.clip(shape).background(fallback)
-            .border(RimWidth / 2f, rimBrush(role.rim), shape)
+            .border(RimWidth / 2f, rimBrush(role.style.rim), shape)
             .then(if (specular) Modifier.drawWithContent { drawContent(); drawSpecular(role) } else Modifier)
     }
-    // A coloured control is tinted the way the library documents: hue-blend first so the refracted
-    // backdrop keeps its own shading, then a translucent wash of the accent on top. Neutral chrome
-    // only gets the wash, because its job is to make text readable, not to carry meaning.
-    // Braces after a `when` arrow are the branch body, not a lambda, so the drawing is written as an
-    // `if` whose branches are lambdas typed by the declaration above them.
-    val wash: (DrawScope.() -> Unit)? = if (hue) {
-        {
-            drawRect(tint, blendMode = BlendMode.Hue)
-            drawRect(tint.copy(alpha = RoutineColors.GlassTintStrongAlpha))
-        }
-    } else if (role.tintAlpha > 0f) {
-        { drawRect(tint.copy(alpha = role.tintAlpha)) }
-    } else {
-        null
-    }
     val surface: DrawScope.() -> Unit = {
-        wash?.invoke(this)
+        drawRect(role.surface.copy(alpha = role.style.surfaceAlpha))
         if (specular && (tilt.x != 0f || tilt.y != 0f)) {
             // The one highlight that cannot be faked with a static gradient: it follows the phone.
             val center = Offset(size.width * (0.5f + tilt.x * 0.45f), size.height * (0.5f + tilt.y * 0.45f))
             drawRect(
                 Brush.radialGradient(
-                    0f to RoutineColors.GlassRim.copy(alpha = RoutineColors.GlassTiltGlow * role.rim * 3f),
+                    0f to RoutineColors.GlassRim.copy(alpha = GlassStyles.TiltGlow * role.style.rim * 3f),
                     1f to Color.Transparent,
                     center = center,
                     radius = size.width * 0.7f,
@@ -279,22 +219,24 @@ fun Modifier.routineGlass(
         // Specular rim, drawn last so it sits on top of the wash and survives the clip as a hairline.
         drawOutline(
             outline = shape.createOutline(size, layoutDirection, this),
-            brush = rimBrush(role.rim, Offset.Zero, Offset(size.width, size.height)),
+            brush = rimBrush(role.style.rim, Offset.Zero, Offset(size.width, size.height)),
             style = Stroke(width = RimWidth.toPx()),
         )
         if (specular) drawSpecular(role)
     }
+    val glassShape = shape
     return this.drawBackdrop(
         backdrop = backdrop,
         shape = { shape },
         effects = {
-            // Colour filter, then blur, then lens — the order the library requires, each stage
-            // chaining onto the previous RenderEffect. The lift is what makes glass read as lit from
-            // behind rather than as a grey rectangle: 160 % saturation (`vibrancy()` is 150 %),
-            // a hair of contrast, and +4 % brightness, which Apple's materials also apply.
-            colorControls(brightness = 0.06f, contrast = 1.03f, saturation = 1.8f)
-            blur(role.blur.toPx())
-            lens(role.lensHeight.toPx(), role.lensAmount.toPx(), role.depth, role.dispersion)
+            vibrancy()
+            blur(role.style.blur.toPx())
+            // Refraction height must not exceed any visible corner's radius.
+            val corners = listOf(glassShape.topStart, glassShape.topEnd, glassShape.bottomStart, glassShape.bottomEnd)
+                .map { it.toPx(size, this) }.filter { it > 0f }
+            val height = minOf(role.style.lensHeight.toPx(), corners.minOrNull() ?: 0f, size.minDimension / 2f)
+            lens(refractionHeight = height, refractionAmount = role.style.lensAmount.toPx(),
+                depthEffect = role.style.depth, chromaticAberration = role.style.dispersion)
         },
         onDrawSurface = surface,
     )
@@ -309,13 +251,11 @@ fun RoutineGlassSurface(
     modifier: Modifier = Modifier,
     shape: CornerBasedShape,
     role: GlassRole = GlassRole.Bar,
-    tint: Color = RoutineColors.GlassTint,
-    hue: Boolean = false,
     specular: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val backdrop = LocalRoutineBackdrop.current
-    Box(modifier.routineGlass(backdrop, shape, role, tint, hue, specular, tilt = LocalGlassTilt.current)
+    Box(modifier.routineGlass(backdrop, shape, role, specular, tilt = LocalGlassTilt.current)
         .clip(shape)) { content() }
 }
 
@@ -394,7 +334,7 @@ fun Modifier.routineGlassTouch(touch: GlassTouch, shape: CornerBasedShape): Modi
             outline = shape.createOutline(size, layoutDirection, this),
             brush = Brush.radialGradient(
                 colors = listOf(
-                    RoutineColors.GlassRim.copy(alpha = RoutineColors.GlassTouchGlow * touch.glow),
+                    RoutineColors.GlassRim.copy(alpha = GlassStyles.TouchGlow * touch.glow),
                     Color.Transparent,
                 ),
                 center = point,
@@ -403,30 +343,20 @@ fun Modifier.routineGlassTouch(touch: GlassTouch, shape: CornerBasedShape): Modi
         )
     }
 
-/**
- * The ambient wash behind every screen: a vertical graphite ramp plus one ice-blue glow at the top
- * and one turquoise glow at the bottom, both under 6 % alpha. Its job is twofold — keep elevation readable on
- * an OLED panel and give the glass something to refract where a floating bar sits over empty space.
- */
+/** Local, low-opacity blue/violet light under the content, never a turquoise card fill. */
 @Composable
 fun RoutineAmbientBackground(modifier: Modifier = Modifier) {
     Box(
         modifier.drawBehind {
-            drawRect(
-                Brush.verticalGradient(
-                    0f to RoutineColors.Background,
-                    0.5f to RoutineColors.Surface1,
-                    1f to RoutineColors.Background,
-                )
-            )
+            drawRect(RoutineColors.Background)
             drawRect(
                 Brush.radialGradient(
                     colors = listOf(
                         RoutineColors.AmbientTop.copy(alpha = RoutineColors.AmbientTopAlpha),
                         Color.Transparent,
                     ),
-                    center = Offset(size.width * 0.16f, size.height * 0.01f),
-                    radius = (size.width * 1.15f).coerceAtLeast(1f),
+                    center = Offset(size.width * 0.25f, size.height * 0.2f),
+                    radius = (size.minDimension * 0.65f).coerceAtLeast(1f),
                 )
             )
             drawRect(
@@ -435,8 +365,8 @@ fun RoutineAmbientBackground(modifier: Modifier = Modifier) {
                         RoutineColors.AmbientBottom.copy(alpha = RoutineColors.AmbientBottomAlpha),
                         Color.Transparent,
                     ),
-                    center = Offset(size.width * 0.94f, size.height * 0.99f),
-                    radius = (size.width * 1.25f).coerceAtLeast(1f),
+                    center = Offset(size.width * 0.8f, size.height * 0.75f),
+                    radius = (size.minDimension * 0.75f).coerceAtLeast(1f),
                 )
             )
         }
@@ -445,12 +375,12 @@ fun RoutineAmbientBackground(modifier: Modifier = Modifier) {
 
 /**
  * The light-leak under the floating cards of the design brief of 2026-09-19: a radial wash of the
- * card's own accent at 8-12 % alpha, centred just below the card, as if the glass pane bent a little
+ * card's own accent at 4 % alpha, centred just below the card, as if the glass pane bent a little
  * of the ambient light around its bottom edge. It goes *first* in the modifier chain — before any
  * clip — so the glow can fall outside the card's bounds; the card then paints over the part that
  * would otherwise sit under it.
  */
-fun Modifier.liquidUnderGlow(accent: Color, alpha: Float = 0.10f): Modifier = this.drawBehind {
+fun Modifier.liquidUnderGlow(accent: Color, alpha: Float = 0.04f): Modifier = this.drawBehind {
     val center = Offset(size.width * 0.5f, size.height * 1.04f)
     val radius = (size.width * 0.72f).coerceAtLeast(1f)
     drawCircle(

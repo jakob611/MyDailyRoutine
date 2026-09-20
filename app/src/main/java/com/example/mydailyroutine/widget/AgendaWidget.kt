@@ -134,7 +134,7 @@ private fun AgendaContent(context: Context, agenda: WidgetAgenda) {
         } else {
             WidgetText(context, agenda.countdown, if (roomy) 15f else 12f, bold = roomy, color = RoutineColors.TextSecondary)
         }
-        WidgetText(context, context.getString(R.string.reserve_remaining, agenda.reserveRemaining), 12f, RoutineColors.Sage,
+        WidgetText(context, context.getString(R.string.reserve_remaining, agenda.reserveRemaining), 12f, RoutineColors.RecoveryAccent,
             singleLine = true)
         Spacer(GlanceModifier.height(10.dp))
         LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
@@ -144,28 +144,28 @@ private fun AgendaContent(context: Context, agenda: WidgetAgenda) {
             }
             items(agenda.rows.take(60)) { row ->
                 Column(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).cornerRadius(16.dp)
-                    .background(if (row.active || row.next) row.style.container else RoutineColors.Surface1)
+                    .background(if (row.active || row.next) row.style.container else RoutineColors.SurfaceContainer)
                     .clickable(openDay).padding(10.dp)) {
                     Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         WidgetText(context, row.time, 12f, RoutineColors.TextSecondary,
                             modifier = GlanceModifier.defaultWeight(), singleLine = true)
-                        WidgetText(context, row.status, 12f, if (row.active || row.next) row.style.content else RoutineColors.TextMuted,
+                        WidgetText(context, row.status, 12f, if (row.active) RoutineColors.Timer else RoutineColors.TextSecondary,
                             bold = true, singleLine = true)
                     }
                     WidgetText(context, row.title, 15f, bold = true)
                     row.progress?.let { progress ->
                         LinearProgressIndicator(progress = progress, modifier = GlanceModifier.fillMaxWidth().height(5.dp),
-                            color = ColorProvider(row.style.accent), backgroundColor = ColorProvider(RoutineColors.Surface2))
+                            color = ColorProvider(if (row.active) RoutineColors.Timer else row.style.accent), backgroundColor = ColorProvider(RoutineColors.SurfaceLowest))
                     }
                 }
             }
             if (agenda.rows.size > 60) item {
-                WidgetText(context, context.getString(R.string.widget_more, agenda.rows.size - 60), 12f, RoutineColors.Amber, modifier = GlanceModifier.clickable(openDay))
+                WidgetText(context, context.getString(R.string.widget_more, agenda.rows.size - 60), 12f, RoutineColors.Primary, modifier = GlanceModifier.clickable(openDay))
             }
         }
         Spacer(GlanceModifier.height(8.dp))
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            WidgetText(context, context.getString(R.string.widget_as_of, agenda.updatedAt), 11f, RoutineColors.TextMuted,
+            WidgetText(context, context.getString(R.string.widget_as_of, agenda.updatedAt), 11f, RoutineColors.TextSecondary,
                 modifier = GlanceModifier.defaultWeight().clickable(actionRunCallback<RefreshAgendaAction>()), singleLine = true)
             Box(GlanceModifier.background(RoutineColors.Focus.container).cornerRadius(24.dp).clickable(actionStartActivity(MainActivity.fastAddIntent(context))).padding(10.dp)) {
                 WidgetText(context, context.getString(R.string.widget_add), 12f, RoutineColors.Focus.content, bold = true, singleLine = true)

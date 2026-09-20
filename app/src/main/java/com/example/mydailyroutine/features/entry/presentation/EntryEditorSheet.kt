@@ -20,6 +20,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Close
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextFieldColors
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheetScaffold
@@ -219,8 +220,10 @@ fun EntryEditorSheet(
                 OutlinedTextField(title, { title = it.take(120); error = null }, label = { RoutineText(stringResource(R.string.entry_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
                     isError = showError && title.isBlank(),
                     supportingText = if (showError && title.isBlank()) {
-                        { RoutineText(stringResource(R.string.error_title), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning) }
-                    } else null)
+                        { RoutineText(stringResource(R.string.error_title), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Error) }
+                    } else null,
+                    colors = RoutineTextFieldColors(),
+                )
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     val choices = if (editing == null) EntryKind.entries else listOf(EntryKind.DEADLINE, EntryKind.EXAM)
                     choices.forEachIndexed { index, choice ->
@@ -240,7 +243,7 @@ fun EntryEditorSheet(
                 // each an explicit tap that says what it will fill in.
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(quickPresets, key = { it.key }) { preset ->
-                        val color = preset.colorHex?.let { Color(it.toInt()) } ?: RoutineColors.Amber
+                        val color = if (preset.isExam) RoutineColors.Error else categoryStyle(preset.category).accent
                         SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
                             border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.45f)),
                             label = { RoutineLabel(preset.label(context), color = color) })
@@ -255,7 +258,7 @@ fun EntryEditorSheet(
                             // that decides what an action feels like.
                             detectTapGestures(onLongPress = { onEditSubject(subject) }) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(subject.colorHex.toInt()).copy(alpha = 0.2f),
+                                selectedContainerColor = RoutineColors.cardSurface(Color(subject.colorHex.toInt())),
                                 selectedLabelColor = RoutineColors.TextPrimary,
                             ),
                             onClick = {
@@ -272,11 +275,13 @@ fun EntryEditorSheet(
                     label = { RoutineText(stringResource(R.string.entry_date)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy,
                     isError = showError && ScheduleValidation.parseDate(dateText) == null,
                     supportingText = if (showError && ScheduleValidation.parseDate(dateText) == null) {
-                        { RoutineText(stringResource(R.string.error_date), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning) }
+                        { RoutineText(stringResource(R.string.error_date), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Error) }
                     } else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), trailingIcon = {
                         IconButton(onClick = { pickingDate = true; haptics.tap() }, enabled = !busy) { Icon(Icons.Outlined.CalendarMonth, stringResource(R.string.choose_date)) }
-                    })
+                    },
+                    colors = RoutineTextFieldColors(),
+                )
                 if (kind != EntryKind.BLOCK) {
                     SettingRow(
                         title = stringResource(R.string.entry_all_day),
@@ -331,7 +336,9 @@ fun EntryEditorSheet(
                                         OutlinedTextField(breakMinutes, { breakMinutes = it.filter(Char::isDigit).take(2) },
                                             label = { RoutineText(stringResource(R.string.minutes_short)) }, singleLine = true,
                                             enabled = !busy, modifier = Modifier.width(82.dp),
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            colors = RoutineTextFieldColors(),
+                                        )
                                     }
                                 }
                             },
@@ -364,7 +371,9 @@ fun EntryEditorSheet(
                             if (!fixed && category != RoutineCategory.SCHOOL) {
                                 OutlinedTextField(minimum, { minimum = it.filter(Char::isDigit).take(4) },
                                     label = { RoutineText(stringResource(R.string.minimum_duration)) }, singleLine = true,
-                                    enabled = !busy, modifier = Modifier.fillMaxWidth())
+                                    enabled = !busy, modifier = Modifier.fillMaxWidth(),
+                                    colors = RoutineTextFieldColors(),
+                                )
                                 // The two elastic weights become liquid sliders: bounded, continuous
                                 // values that are felt, not typed. A stored value outside the slider's
                                 // 0-10 span keeps its text field — a control that silently truncates
@@ -386,7 +395,7 @@ fun EntryEditorSheet(
                                 val until = ScheduleValidation.parseTime(endText)
                                 if (from != null && until != null && from != until) {
                                     val raw = nominalMinutes(from, until)
-                                    RoutineText(stringResource(R.string.velocity_preview, raw, if (calibrate) velocity.getCalibratedDuration(raw, subjectId.toString()) else raw), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Sage, maxLines = RoutineTextDefaults.Paragraph)
+                                    RoutineText(stringResource(R.string.velocity_preview, raw, if (calibrate) velocity.getCalibratedDuration(raw, subjectId.toString()) else raw), style = MaterialTheme.typography.bodySmall, color = RoutineColors.RecoveryAccent, maxLines = RoutineTextDefaults.Paragraph)
                                 }
                             }
                         }
@@ -412,7 +421,9 @@ fun EntryEditorSheet(
                     RoutineText(stringResource(R.string.marker_hint), style = MaterialTheme.typography.bodySmall,
                         color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                     OutlinedTextField(effort, { effort = it }, label = { RoutineText(stringResource(R.string.milestone_effort)) },
-                        singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
+                        singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth(),
+                        colors = RoutineTextFieldColors(),
+                    )
                     SettingRow(
                         title = stringResource(R.string.terminal_exam),
                         control = {
@@ -462,7 +473,9 @@ private fun LiquidWeightRow(label: String, text: String, enabled: Boolean, onTex
     val value = text.replace(',', '.').toFloatOrNull()
     if (value == null || value !in 0f..10f) {
         OutlinedTextField(text, onText, label = { RoutineText(label) },
-            singleLine = true, enabled = enabled, modifier = Modifier.fillMaxWidth())
+            singleLine = true, enabled = enabled, modifier = Modifier.fillMaxWidth(),
+            colors = RoutineTextFieldColors(),
+        )
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
@@ -470,7 +483,7 @@ private fun LiquidWeightRow(label: String, text: String, enabled: Boolean, onTex
             RoutineText(label, style = MaterialTheme.typography.bodyMedium,
                 color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
             RoutineText(String.format(java.util.Locale.US, "%.1f", value),
-                style = MaterialTheme.typography.bodyMedium, color = RoutineColors.Amber,
+                style = MaterialTheme.typography.bodyMedium, color = RoutineColors.Primary,
                 maxLines = RoutineTextDefaults.Body)
         }
         LiquidSlider(
@@ -516,7 +529,7 @@ private fun OccurrenceEditor(
             footer = {
                 error?.let {
                     RoutineText(stringResource(it), style = MaterialTheme.typography.bodySmall,
-                        color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
+                        color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
                 }
                 SheetPrimaryButton(
                     label = stringResource(if (busy) R.string.saving else R.string.save_changes),
@@ -547,6 +560,7 @@ private fun OccurrenceEditor(
                 singleLine = true,
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
+                colors = RoutineTextFieldColors(),
             )
             RoutineTimeField(
                 value = times.startText,

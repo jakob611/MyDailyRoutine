@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextFieldColors
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
@@ -64,6 +65,7 @@ fun ActualCompletionDialog(block: ResolvedTimelineItem.Block, busy: Boolean, onA
                     enabled = !busy,
                     isError = invalid,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = RoutineTextFieldColors(),
                 )
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
@@ -81,7 +83,7 @@ fun ActualCompletionDialog(block: ResolvedTimelineItem.Block, busy: Boolean, onA
                 }
                 if (invalid) {
                     RoutineText(stringResource(R.string.actual_invalid), style = MaterialTheme.typography.bodySmall,
-                        color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
+                        color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
                 }
             }
         },

@@ -113,7 +113,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             RoutineText(
                 text = stringResource(R.string.sleep_planned_duration, durationLabel(nominalMinutes(start, end))),
                 style = MaterialTheme.typography.labelMedium,
-                color = RoutineColors.Sage,
+                color = RoutineColors.RecoveryAccent,
                 maxLines = RoutineTextDefaults.Body,
             )
         }
@@ -169,7 +169,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         if (invalid) {
             RoutineText(stringResource(R.string.sleep_invalid), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
         }
     }
 }

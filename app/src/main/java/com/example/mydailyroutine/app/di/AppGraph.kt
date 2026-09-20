@@ -31,7 +31,8 @@ class AppGraph(context: Context) {
     val patterns = RoomRoutinePatternsRepository(database, repository, ::requestRefresh)
     val planning = RoomPlanningRepository(database, repository, ::requestRefresh)
     val execution = RoomExecutionRepository(database, repository, planning, ::requestRefresh)
-    val backup = RoomBackupRepository(database, repository, ::requestRefresh)
+    val backup = RoomBackupRepository(database, repository, ::requestRefresh,
+        com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches.first())
     val goals = RoomGoalsRepository(database, ::requestRefresh)
     val preferences = DataStorePreferencesRepository(context, ::requestRefresh)
     val exampleData = DemoDataSeeder(context, database, preferences, ::requestRefresh, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches)

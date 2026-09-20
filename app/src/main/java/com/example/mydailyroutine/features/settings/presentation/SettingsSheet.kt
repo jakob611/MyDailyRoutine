@@ -50,6 +50,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextFieldColors
 import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.R
@@ -223,7 +224,7 @@ private fun LazyListScope.rhythmTab(
 ) {
     item(key = "settings-privacy") {
         RoutineText(stringResource(R.string.privacy_delete_warning), style = MaterialTheme.typography.bodySmall,
-            color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
+            color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
     }
     item(key = "settings-sleep") { SleepSettings(sleep, busy, onAction) }
     item(key = "settings-entry-defaults") {
@@ -389,6 +390,7 @@ private fun LazyListScope.planTab(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !busy,
+                colors = RoutineTextFieldColors(),
             )
             RoutineText(stringResource(R.string.teaching_end_hint), style = MaterialTheme.typography.bodySmall,
                 color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
@@ -458,7 +460,7 @@ private fun LazyListScope.dataTab(
     } else {
         item(key = "settings-subjects-hint") {
             RoutineText(stringResource(R.string.subject_edit_hint), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         }
         items(subjects, key = { "subject:${it.id}" }) { subject ->
             OutlinedCard(
@@ -480,7 +482,7 @@ private fun LazyListScope.dataTab(
                             color = RoutineColors.TextSecondary,
                         )
                     }
-                    Icon(Icons.Outlined.Edit, null, Modifier.size(20.dp), tint = RoutineColors.TextMuted)
+                    Icon(Icons.Outlined.Edit, null, Modifier.size(20.dp), tint = RoutineColors.TextSecondary)
                 }
             }
         }
@@ -507,7 +509,7 @@ private fun LazyListScope.dataTab(
                 enabled = !busy && !exampleLoaded,
             )
             RoutineText(stringResource(R.string.battery_note), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         }
     }
     item(key = "settings-backup") {
@@ -529,6 +531,7 @@ private fun LazyListScope.dataTab(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
                 maxLines = 6,
                 enabled = !busy,
+                colors = RoutineTextFieldColors(),
             )
             Button(
                 enabled = !busy && importText.isNotBlank(),
@@ -603,11 +606,11 @@ private fun AdvancedHealthSettings(config: HealthConfig, busy: Boolean, onSave: 
         }
         if (invalid) {
             RoutineText(stringResource(R.string.error_thresholds), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
         }
         TextButton(enabled = !busy, onClick = { invalid = false; onSave(HealthConfig()) }) {
             RoutineLabel(stringResource(R.string.reset_thresholds), style = MaterialTheme.typography.labelLarge,
-                color = RoutineColors.Crimson)
+                color = RoutineColors.Error)
         }
     }
 }
@@ -654,6 +657,7 @@ private fun MinuteField(
         enabled = enabled,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = modifier,
+        colors = RoutineTextFieldColors(),
     )
 }
 
@@ -705,7 +709,7 @@ private fun PeriodicBreakSettings(
                 }
             }
             RoutineText(stringResource(R.string.periodic_break_hint), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         }
     }
 }
