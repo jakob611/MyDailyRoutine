@@ -50,6 +50,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextFieldColors
 import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.R
@@ -389,6 +390,7 @@ private fun LazyListScope.planTab(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !busy,
+                colors = RoutineTextFieldColors(),
             )
             RoutineText(stringResource(R.string.teaching_end_hint), style = MaterialTheme.typography.bodySmall,
                 color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
@@ -529,6 +531,7 @@ private fun LazyListScope.dataTab(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
                 maxLines = 6,
                 enabled = !busy,
+                colors = RoutineTextFieldColors(),
             )
             Button(
                 enabled = !busy && importText.isNotBlank(),
@@ -603,7 +606,7 @@ private fun AdvancedHealthSettings(config: HealthConfig, busy: Boolean, onSave: 
         }
         if (invalid) {
             RoutineText(stringResource(R.string.error_thresholds), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
         }
         TextButton(enabled = !busy, onClick = { invalid = false; onSave(HealthConfig()) }) {
             RoutineLabel(stringResource(R.string.reset_thresholds), style = MaterialTheme.typography.labelLarge,
@@ -654,6 +657,7 @@ private fun MinuteField(
         enabled = enabled,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = modifier,
+        colors = RoutineTextFieldColors(),
     )
 }
 

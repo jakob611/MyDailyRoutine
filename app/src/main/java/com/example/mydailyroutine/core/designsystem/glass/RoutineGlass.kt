@@ -38,8 +38,6 @@ import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.core.designsystem.motion.AppleMotion
 import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.glassTouchSpec
@@ -126,7 +124,7 @@ fun rememberGlassTilt(): GlassTilt {
     return tilt
 }
 
-/** Rim hairline. Drawn centred on the shape outline, so the clip leaves half of it: ~0.8 dp of light. */
+/** Rim hairline. Drawn centred on the shape outline, so the clip leaves half of it: ~0.5 dp of light. */
 private val RimWidth = GlassStyles.RimWidth
 
 /** Creates the window backdrop and publishes it to the subtree; the ambient wash is drawn into it. */

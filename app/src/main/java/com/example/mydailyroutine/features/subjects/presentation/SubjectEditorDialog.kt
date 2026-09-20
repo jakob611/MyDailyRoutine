@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextFieldColors
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
@@ -87,6 +88,7 @@ fun SubjectEditorDialog(
                     singleLine = true,
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = RoutineTextFieldColors(),
                 )
                 OutlinedTextField(
                     value = duration,
@@ -101,6 +103,7 @@ fun SubjectEditorDialog(
                     isError = validDuration == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
+                    colors = RoutineTextFieldColors(),
                 )
                 RoutineText(stringResource(R.string.subject_color), style = MaterialTheme.typography.titleSmall,
                     maxLines = RoutineTextDefaults.Body)

@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextFieldColors
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheetScaffold
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
@@ -97,7 +98,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
             footer = {
                 if (error) {
                     RoutineText(stringResource(R.string.topic_invalid), style = MaterialTheme.typography.bodySmall,
-                        color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
+                        color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
                 }
                 SheetPrimaryButton(
                     label = stringResource(if (busy) R.string.saving else R.string.topic_save),
@@ -139,6 +140,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
                 enabled = !busy,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
+                colors = RoutineTextFieldColors(),
             )
             if (state.content.subjects.isNotEmpty()) {
                 RoutineText(stringResource(R.string.saved_subjects), style = MaterialTheme.typography.titleSmall,
@@ -193,6 +195,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
                         Icon(Icons.Outlined.CalendarMonth, stringResource(R.string.choose_date))
                     }
                 },
+                colors = RoutineTextFieldColors(),
             )
             OutlinedTextField(
                 value = finalText,
@@ -206,6 +209,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
                         Icon(Icons.Outlined.CalendarMonth, stringResource(R.string.choose_date))
                     }
                 },
+                colors = RoutineTextFieldColors(),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                 OutlinedTextField(
@@ -216,6 +220,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = RoutineTextFieldColors(),
                 )
                 OutlinedTextField(
                     value = duration,
@@ -225,6 +230,7 @@ fun TopicEditorSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit,
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = RoutineTextFieldColors(),
                 )
             }
         }

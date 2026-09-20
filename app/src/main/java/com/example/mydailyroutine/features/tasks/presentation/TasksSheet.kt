@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.AlertDialog
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextFieldColors
 import com.example.mydailyroutine.core.designsystem.components.RoutineCompletionCheckbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -164,6 +165,7 @@ fun TasksSheet(
                                 }
                             }
                         },
+                        colors = RoutineTextFieldColors(),
                     )
                     TaskAttributePickers(
                         dueEpoch = newDueEpoch,
@@ -443,6 +445,7 @@ private fun TaskRow(
                         singleLine = true,
                         enabled = !busy,
                         label = { RoutineText(stringResource(R.string.tasks_edit_title)) },
+                        colors = RoutineTextFieldColors(),
                     )
                     TaskAttributePickers(
                         dueEpoch = editDueEpoch,
@@ -463,6 +466,7 @@ private fun TaskRow(
                         minLines = 2,
                         label = { RoutineText(stringResource(R.string.tasks_note)) },
                         placeholder = { RoutineText(stringResource(R.string.tasks_note_hint)) },
+                        colors = RoutineTextFieldColors(),
                     )
                     ActionRow {
                         TextButton(

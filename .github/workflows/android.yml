@@ -53,7 +53,7 @@ jobs:
       - run: yes | sdkmanager --licenses > /dev/null || true
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - name: "Static gates: schema, presentation invariants, WCAG contrast"
-        run: python3 tools/derive_palette.py --check && python3 tools/check_sqlite_integrity.py && python3 tools/check_presentation.py && python3 tools/check_contrast.py
+        run: python3 -m unittest discover -s tools -p 'test_palette_tools.py' && python3 tools/derive_palette.py --check && python3 tools/check_sqlite_integrity.py && python3 tools/check_presentation.py && python3 tools/check_contrast.py
       - name: Build, unit tests and lint
         run: |
           set -o pipefail
@@ -72,7 +72,7 @@ jobs:
               tests = int(root.get('tests', 0)); bad = int(root.get('failures', 0)) + int(root.get('errors', 0))
               total += tests; failed += bad
               print(f"{root.get('name')}: {tests} tests, {bad} failed")
-          print(f"UNIT TESTS TOTAL: {total} tests, {failed} failed")
+          print(f"::notice title=Unit tests::{total} tests, {failed} failed")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
               out.write("## Unit tests\n\n")
               for path in sorted(glob.glob('core/build/test-results/*/TEST-*.xml') + glob.glob('app/build/test-results/*/TEST-*.xml')):

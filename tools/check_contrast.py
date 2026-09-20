@@ -35,18 +35,20 @@ for name, (accent, container, content) in categories.items():
     check(f'{name} content', content, container, 7.0)
     check(f'{name} accent', accent, container, 3.0)
     for text in ['TextPrimary', 'TextSecondary']:
-        check(f'{name} secondary', colors[text], container)
+        check(f'{name}/{text}', colors[text], container)
 
 for fill in accents:
     check(f'filled control/{fill}', colors['Background'], colors[fill])
 
 # Cards, weekly blocks, month heat maps: bound even user-picked white subject colours.
 for accent in [c[0] for c in categories.values()] + ['#FFFFFF', '#000000']:
-    for alpha, base in [(0.06, 'SurfaceContainer'), (0.22, 'Background')]:
+    for alpha, base in [(0.06, 'SurfaceContainer')]:
         for text in ['TextPrimary', 'TextSecondary']:
             check(f'tinted card {alpha}/{accent}/{text}', colors[text], composite(accent, alpha, colors[base]))
 for heat in [0.08, 0.43]:
     check('month heat text', colors['TextPrimary'], composite(colors['FocusAccent'], heat, colors['Background']))
+
+check('month outside current month', colors['TextSecondary'], colors['SurfaceLow'])
 
 # Ambient washes accumulate at most these opacities (conservative same-position bound).
 ambient = colors['Background']

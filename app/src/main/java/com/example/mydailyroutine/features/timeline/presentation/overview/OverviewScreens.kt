@@ -329,6 +329,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                             val inMonth = YearMonth.from(date) == month
                             val heat = (day.metrics.focusMinutes / 300f).coerceIn(0f, 1f)
                             val background = when {
+                                !inMonth -> RoutineColors.SurfaceLow
                                 holiday -> RoutineColors.Recovery.container
                                 heat > 0 -> RoutineColors.FocusAccent.copy(alpha = 0.08f + heat * 0.35f)
                                 else -> RoutineColors.SurfaceContainer

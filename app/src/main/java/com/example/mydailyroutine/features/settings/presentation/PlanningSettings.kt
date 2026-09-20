@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextFieldColors
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
@@ -52,6 +53,7 @@ fun PlanningSettings(config: PlanningConfig, busy: Boolean, onSave: (PlanningCon
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
+            colors = RoutineTextFieldColors(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
             OutlinedTextField(
@@ -61,6 +63,7 @@ fun PlanningSettings(config: PlanningConfig, busy: Boolean, onSave: (PlanningCon
                 enabled = !busy,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
+                colors = RoutineTextFieldColors(),
             )
             OutlinedTextField(
                 value = end,
@@ -69,6 +72,7 @@ fun PlanningSettings(config: PlanningConfig, busy: Boolean, onSave: (PlanningCon
                 enabled = !busy,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
+                colors = RoutineTextFieldColors(),
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
@@ -79,6 +83,7 @@ fun PlanningSettings(config: PlanningConfig, busy: Boolean, onSave: (PlanningCon
                 enabled = !busy,
                 singleLine = true,
                 modifier = Modifier.weight(1f),
+                colors = RoutineTextFieldColors(),
             )
             OutlinedTextField(
                 value = sigma,
@@ -88,6 +93,7 @@ fun PlanningSettings(config: PlanningConfig, busy: Boolean, onSave: (PlanningCon
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f),
+                colors = RoutineTextFieldColors(),
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
@@ -99,6 +105,7 @@ fun PlanningSettings(config: PlanningConfig, busy: Boolean, onSave: (PlanningCon
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f),
+                colors = RoutineTextFieldColors(),
             )
             OutlinedTextField(
                 value = focus,
@@ -108,6 +115,7 @@ fun PlanningSettings(config: PlanningConfig, busy: Boolean, onSave: (PlanningCon
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f),
+                colors = RoutineTextFieldColors(),
             )
         }
         OutlinedTextField(
@@ -118,12 +126,13 @@ fun PlanningSettings(config: PlanningConfig, busy: Boolean, onSave: (PlanningCon
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
+            colors = RoutineTextFieldColors(),
         )
         RoutineText(stringResource(R.string.planning_limit_hint), style = MaterialTheme.typography.bodySmall,
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         if (error) {
             RoutineText(stringResource(R.string.planning_invalid), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
         }
         SheetSecondaryButton(
             label = stringResource(R.string.planning_save),

@@ -39,6 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextFieldColors
 import com.example.mydailyroutine.core.designsystem.components.RoutineCompletionCheckbox
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -993,6 +994,7 @@ private fun ActivityEditorSheet(
                 singleLine = true,
                 enabled = !busy,
                 label = { RoutineText(stringResource(R.string.goals_activity_title)) },
+                colors = RoutineTextFieldColors(),
             )
             if (project.kind == "CAS") {
                 ActionRow {
@@ -1047,6 +1049,7 @@ private fun ActivityEditorSheet(
                 enabled = !busy,
                 label = { RoutineText(stringResource(R.string.goals_activity_note)) },
                 placeholder = { RoutineText(stringResource(R.string.goals_activity_note_hint), maxLines = RoutineTextDefaults.Body) },
+                colors = RoutineTextFieldColors(),
             )
             SettingRow(
                 title = stringResource(R.string.goals_done),
@@ -1107,6 +1110,7 @@ private fun ActivityEditorSheet(
                     enabled = !busy,
                     label = { RoutineText(stringResource(R.string.goals_add_reflection)) },
                     placeholder = { RoutineText(stringResource(R.string.goals_reflection_hint), maxLines = RoutineTextDefaults.Body) },
+                    colors = RoutineTextFieldColors(),
                 )
                 ActionRow {
                     FilledTonalButton(
@@ -1204,6 +1208,7 @@ private fun MilestoneEditorSheet(
                 singleLine = true,
                 enabled = !busy,
                 label = { RoutineText(stringResource(R.string.goals_milestone_title)) },
+                colors = RoutineTextFieldColors(),
             )
             OutlinedButton(enabled = !busy, shape = RoutineShapes.Pill, onClick = { picking = true }) {
                 RoutineLabel(RoutineDate.normalYear(LocalDate.ofEpochDay(epoch)), style = MaterialTheme.typography.labelLarge)
@@ -1287,6 +1292,7 @@ private fun ProjectEditorSheet(
                 singleLine = true,
                 enabled = !busy,
                 label = { RoutineText(stringResource(R.string.goals_project_name)) },
+                colors = RoutineTextFieldColors(),
             )
             ActionRow {
                 OutlinedButton(
@@ -1314,6 +1320,7 @@ private fun ProjectEditorSheet(
                 enabled = !busy,
                 label = { RoutineText(stringResource(R.string.goals_target_hours)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                colors = RoutineTextFieldColors(),
             )
             OutlinedTextField(
                 value = words,
@@ -1323,6 +1330,7 @@ private fun ProjectEditorSheet(
                 enabled = !busy,
                 label = { RoutineText(stringResource(R.string.goals_target_words)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = RoutineTextFieldColors(),
             )
             RoutineText(stringResource(R.string.goals_period_note), style = MaterialTheme.typography.labelSmall,
                 color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)

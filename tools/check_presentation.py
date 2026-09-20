@@ -110,3 +110,10 @@ goals = (ui_root / 'features/goals/presentation/GoalsScreen.kt').read_text()
 assert '.alpha(if (inMonth)' not in overview
 assert 'Modifier.alpha(0.55f)' not in goals
 print('Palette source checks passed: no literal UI colours outside the palette/XML mirror.')
+
+# All input wells share the same opaque recessed container, including native error states.
+for file in main_files:
+    code = file.read_text()
+    fields = len(re.findall(r'\bOutlinedTextField\(', code))
+    if fields:
+        assert code.count('colors = RoutineTextFieldColors()') == fields, f'Input bypasses shared surface: {file}'

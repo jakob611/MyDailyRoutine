@@ -169,7 +169,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         if (invalid) {
             RoutineText(stringResource(R.string.sleep_invalid), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
         }
     }
 }

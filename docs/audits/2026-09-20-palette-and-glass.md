@@ -9,7 +9,7 @@ To ni trditev, da so vse poslovne poti formalno dokazane ali fizično preizkuše
 
 - `core`: 33 produkcijskih Kotlin datotek, čista domena brez Android/Compose odvisnosti;
   koledar, intervali, zdravje, planiranje, ponavljanje, učenje, izvajanje in pogodbe repozitorijev.
-- `app`: 84 produkcijskih Kotlin datotek po tej spremembi; 48 UI-datotek preverja presentation gate.
+- `app`: 85 produkcijskih Kotlin datotek po tej spremembi; 49 UI-datotek preverja presentation gate.
 - `AppGraph` poveže Room, DataStore, repozitorije, scheduler, widget in koordinacijo.
 - `RoutineViewModel` je UDF-koordinator, `RoutineApp` je host navigacije/dialogov/sheetov.
 - Room ostaja vir podatkov; kanonični resolver se uporablja tudi za obvestila in widget.
@@ -75,7 +75,7 @@ barve predmeta. User barve ostajajo na črtah, pikah, izbirniku in subtilnih 6-%
 | Leto / roki | Skupne surface/text/status vloge; oznake in legende še vedno ločijo pomen z besedilom, ne samo barvo. |
 | Cilji / CAS / Gantt | Berljivi zaključeni vnosi brez zatemnitve celotnega teksta, success zaključki, warning bližnji roki, error zamujeni. |
 | Opravila | Error zamujena, warning današnja, success checkbox zaključka; predmeti ostanejo označeni s piko. |
-| Vnos / predloge / uvoz urnika | Kategorijski accent iz palete za napise; poljubna subject barva ni več barva teksta. Input/track vloge so najnižja površina, selected površine dvignjene. |
+| Vnos / predloge / uvoz urnika | Kategorijski accent iz palete za napise; poljubna subject barva ni več barva teksta. Vseh 38 inputov uporablja skupno najnižjo opaque površino (`RoutineTextFieldColors`); selected površine so dvignjene. |
 | Načrtovanje / teme / predmeti | Skupne Material vloge za obrazce, menije in dialoge; brisanje error, akcije primary. |
 | Nastavitve / spanje / dnevi | Enaka semantika in berljivi pomožni teksti; temen kontrasten gumb na vključenem teal stikalu. |
 | Sheet header/footer | En renderer in material; ločeno vzorčen backdrop brez self-samplinga. |
@@ -119,7 +119,7 @@ Primeri iz avtomatskega izračuna (sRGB kompozicija; GPU slika je ločeno prever
 - Control nad belim + tilt + touch: TextSecondary **4,97 : 1**, Primary **5,67 : 1**.
 - `#718096` ni uporabljena za drobne vsebinske napise: na SurfaceHighest je približno **3,17 : 1**.
 
-`check_contrast.py` pokriva 215 kombinacij: vse glavne površine, akcente, šest kategorij, tinted
+`check_contrast.py` pokriva 200 kombinacij: vse glavne površine, akcente, šest kategorij, tinted
 kartice z belim/črnim user accentom, ambient, heatmap, pulziranje, vse glass role in fallback.
 To ni certifikat WCAG za celotno aplikacijo; dekorativni robovi niso interaktivni indikatorji.
 
@@ -135,8 +135,8 @@ To ni certifikat WCAG za celotno aplikacijo; dekorativni robovi niso interaktivn
 
 ## Preverjanje in objava
 
-Lokalno brez Android SDK/JDK: palette drift/XML check, 215 contrast kombinacij, presentation guard
-in 19 SQLite integrity testov. Dodani so štirje Kotlin testi za Material vloge, semantiko, user
+Lokalno brez Android SDK/JDK: palette drift/XML check, 200 contrast kombinacij, presentation guard
+in 19 SQLite integrity testov ter štirje testi kontrastne matematike/parserja. Dodani so štirje Kotlin testi za Material vloge, semantiko, user
 swatche in glass fallback; te izvrši GitHub CI skupaj z obstoječimi JVM/Android testi.
 
 GitHub workflow gradi debug in **R8 release**, izvaja core/app unit teste, lint in API 35 emulator
