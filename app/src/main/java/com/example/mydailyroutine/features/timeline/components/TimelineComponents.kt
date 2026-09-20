@@ -170,7 +170,7 @@ fun TimelineBlockCard(
 
     Box(
         modifier.fillMaxWidth()
-            .liquidUnderGlow(style.accent, if (past || block.isSuppressed) 0f else 0.10f)
+            .liquidUnderGlow(style.accent, if (past || block.isSuppressed) 0f else 0.06f)
             .zIndex(if (dragging) 1f else 0f),
     ) {
         Row(Modifier.fillMaxWidth().timelineRail(if (active) style.accent.copy(alpha = 0.6f) else RoutineColors.Spine)) {
@@ -276,7 +276,7 @@ fun TimelineBlockCard(
                                     Icons.Default.Check,
                                     stringResource(R.string.lesson_auto_done),
                                     Modifier.size(RoutineMetrics.ActionMinWidth).padding(RoutineSpacing.md),
-                                    tint = RoutineColors.Sage,
+                                    tint = RoutineColors.Success,
                                 )
                             } else {
                                 Checkbox(
@@ -461,7 +461,7 @@ fun TimelineBlockCard(
                                         RoutineLabel(
                                             stringResource(if (block.isOneOff) R.string.delete_block else R.string.delete_routine),
                                             style = MaterialTheme.typography.labelLarge,
-                                            color = RoutineColors.Crimson,
+                                            color = RoutineColors.Error,
                                         )
                                     }
                                 }
@@ -524,14 +524,14 @@ fun NowMarker(time: String, modifier: Modifier = Modifier, pulse: Float = pulseA
         ) {
             Box(
                 Modifier.size(RoutineMetrics.NowDotSize).alpha(pulse)
-                    .background(RoutineColors.Crimson, CircleShape),
+                    .background(RoutineColors.Error, CircleShape),
             )
-            Box(Modifier.weight(1f).height(RoutineMetrics.SpineWidth).background(RoutineColors.Crimson))
+            Box(Modifier.weight(1f).height(RoutineMetrics.SpineWidth).background(RoutineColors.Error))
             RoutineLabel(
                 text = time,
                 modifier = Modifier.alpha(pulse).padding(horizontal = RoutineSpacing.xs),
                 style = MaterialTheme.typography.labelSmall,
-                color = RoutineColors.Crimson,
+                color = RoutineColors.Error,
             )
         }
     }
@@ -584,7 +584,7 @@ fun MilestoneCard(
                     verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                        Icon(Icons.Outlined.Flag, null, tint = RoutineColors.Crimson)
+                        Icon(Icons.Outlined.Flag, null, tint = RoutineColors.Error)
                         RoutineText(
                             text = item.title,
                             modifier = Modifier.weight(1f),
@@ -631,7 +631,7 @@ fun MilestoneCard(
                                 RoutineLabel(stringResource(R.string.edit), style = MaterialTheme.typography.labelLarge)
                             }
                             TextButton(enabled = !busy, onClick = { onAction(TimelineAction.RequestDelete(item)) }) {
-                                RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+                                RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Error)
                             }
                         }
                     }

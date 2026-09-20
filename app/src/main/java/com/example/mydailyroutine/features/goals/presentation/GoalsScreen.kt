@@ -360,7 +360,7 @@ private fun ProgressLog(progress: List<GoalProgress>, activities: List<GoalActiv
                         if (entry.kind != "reflection") {
                             TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteGoalProgress(entry.id)) }) {
                                 RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge,
-                                    color = RoutineColors.Crimson)
+                                    color = RoutineColors.Error)
                             }
                         }
                     }
@@ -461,7 +461,7 @@ private fun StatusCard(
             )
             val hourTarget = project.targetHours
             if (hourTarget != null) {
-                GoalBar((hours / hourTarget).toFloat(), RoutineColors.Amber)
+                GoalBar((hours / hourTarget).toFloat(), RoutineColors.Primary)
                 RoutineLabel(stringResource(R.string.goals_hours_total, hours.roundToInt(), hourTarget.roundToInt()),
                     style = MaterialTheme.typography.labelMedium)
             }
@@ -490,7 +490,7 @@ private fun StatusCard(
             }
             val wordTarget = project.targetWords
             if (project.kind == "EE" && wordTarget != null) {
-                GoalBar((words.toFloat() / wordTarget), RoutineColors.Cobalt)
+                GoalBar((words.toFloat() / wordTarget), RoutineColors.Timer)
                 RoutineLabel(stringResource(R.string.goals_words_total, words, wordTarget),
                     style = MaterialTheme.typography.labelMedium)
                 // Word steps reflow at full label size; they never share a line with the counter.
@@ -521,12 +521,12 @@ private fun StatusCard(
                     Box(
                         Modifier.size(RoutineSpacing.sm).clip(CircleShape).background(
                             when {
-                                days < 0 -> RoutineColors.Crimson
+                                days < 0 -> RoutineColors.Error
                                 // The warning yellow, not the brand turquoise: this dot is the
                                 // middle step of an urgency traffic light, and the brand colour
                                 // must never double as a warning.
                                 days <= 14 -> RoutineColors.Warning
-                                else -> RoutineColors.Sage
+                                else -> RoutineColors.Success
                             },
                         ),
                     )
@@ -539,7 +539,7 @@ private fun StatusCard(
                     RoutineLabel(
                         goalRelative(next.dueDate),
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (days < 0) RoutineColors.Crimson else RoutineColors.TextSecondary,
+                        color = if (days < 0) RoutineColors.Error else RoutineColors.TextSecondary,
                     )
                 }
             } else if (milestones.isEmpty()) {
@@ -547,7 +547,7 @@ private fun StatusCard(
                     color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
             } else {
                 RoutineLabel(stringResource(R.string.goals_all_milestones_done), style = MaterialTheme.typography.labelMedium,
-                    color = RoutineColors.Sage)
+                    color = RoutineColors.Success)
             }
             RoutineLabel(stringResource(R.string.goals_activity_progress, activities.count { it.isDone }, activities.size),
                 style = MaterialTheme.typography.labelMedium, color = RoutineColors.TextSecondary)
@@ -665,13 +665,13 @@ private fun GoalGantt(
                                 val left = xOf(from).toPx()
                                 val right = xOf(to.plusDays(1)).toPx().coerceAtMost(size.width)
                                 if (right > left) {
-                                    drawRect(RoutineColors.Crimson.copy(alpha = 0.07f),
+                                    drawRect(RoutineColors.Error.copy(alpha = 0.07f),
                                         Offset(left, 0f), androidx.compose.ui.geometry.Size(right - left, size.height))
                                 }
                             }
                             if (!today.isBefore(start) && !today.isAfter(end)) {
                                 val x = xOf(today).toPx()
-                                drawRect(RoutineColors.Amber.copy(alpha = 0.6f), Offset(x, 0f),
+                                drawRect(RoutineColors.Primary.copy(alpha = 0.6f), Offset(x, 0f),
                                     androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height))
                             }
                         },
@@ -705,7 +705,7 @@ private fun GanttMilestoneStrip(milestones: List<GoalMilestone>, modifier: Modif
                 Box(
                     Modifier.size(9.dp).rotate(45f)
                         .background(
-                            if (milestone.isDone) RoutineColors.TextDisabled else RoutineColors.Crimson,
+                            if (milestone.isDone) RoutineColors.TextDisabled else RoutineColors.Error,
                             RoundedCornerShape(2.dp),
                         )
                         .semantics { contentDescription = RoutineDate.normal(milestone.dueDate) },
@@ -774,7 +774,7 @@ private fun GanttBar(activity: GoalActivity, onActivity: (GoalActivity) -> Unit)
         RoutineDate.normal(activity.start),
         RoutineDate.normal(activity.end),
     )
-    val border = if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.Violet, RoundedCornerShape(5.dp)) else Modifier
+    val border = if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.FocusAccent, RoundedCornerShape(5.dp)) else Modifier
     val dim = if (activity.isDone) Modifier.alpha(0.55f) else Modifier
     BoxWithConstraints(
         Modifier.clip(RoundedCornerShape(5.dp))
@@ -981,7 +981,7 @@ private fun ActivityEditorSheet(
                     SheetSecondaryButton(
                         label = stringResource(R.string.delete),
                         enabled = !busy,
-                        contentColor = RoutineColors.Crimson,
+                        contentColor = RoutineColors.Error,
                         onClick = { confirmingDelete = true },
                     )
                 }
@@ -1094,7 +1094,7 @@ private fun ActivityEditorSheet(
                             ActionRow {
                                 TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteGoalProgress(entry.id)) }) {
                                     RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge,
-                                        color = RoutineColors.Crimson)
+                                        color = RoutineColors.Error)
                                 }
                             }
                         }
@@ -1192,7 +1192,7 @@ private fun MilestoneEditorSheet(
                     SheetSecondaryButton(
                         label = stringResource(R.string.delete),
                         enabled = !busy,
-                        contentColor = RoutineColors.Crimson,
+                        contentColor = RoutineColors.Error,
                         onClick = { confirmingDelete = true },
                     )
                 }
@@ -1275,7 +1275,7 @@ private fun ProjectEditorSheet(
                     SheetSecondaryButton(
                         label = stringResource(R.string.delete),
                         enabled = !busy,
-                        contentColor = RoutineColors.Crimson,
+                        contentColor = RoutineColors.Error,
                         onClick = { confirmingDelete = true },
                     )
                 }
@@ -1371,7 +1371,7 @@ private fun DeleteConfirmation(
                 // Deleting dispatches an action, and the wrapper answers every destructive action with the
                 // error haptic. Warning here as well would be two vibrations for one decision.
                 onClick = { onDelete(); onConfirm() },
-            ) { RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson) }
+            ) { RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Error) }
         },
         dismissButton = {
             TextButton(onClick = onCancel) {

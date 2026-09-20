@@ -134,7 +134,7 @@ private fun AgendaContent(context: Context, agenda: WidgetAgenda) {
         } else {
             WidgetText(context, agenda.countdown, if (roomy) 15f else 12f, bold = roomy, color = RoutineColors.TextSecondary)
         }
-        WidgetText(context, context.getString(R.string.reserve_remaining, agenda.reserveRemaining), 12f, RoutineColors.Sage,
+        WidgetText(context, context.getString(R.string.reserve_remaining, agenda.reserveRemaining), 12f, RoutineColors.Success,
             singleLine = true)
         Spacer(GlanceModifier.height(10.dp))
         LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
@@ -160,7 +160,7 @@ private fun AgendaContent(context: Context, agenda: WidgetAgenda) {
                 }
             }
             if (agenda.rows.size > 60) item {
-                WidgetText(context, context.getString(R.string.widget_more, agenda.rows.size - 60), 12f, RoutineColors.Amber, modifier = GlanceModifier.clickable(openDay))
+                WidgetText(context, context.getString(R.string.widget_more, agenda.rows.size - 60), 12f, RoutineColors.Primary, modifier = GlanceModifier.clickable(openDay))
             }
         }
         Spacer(GlanceModifier.height(8.dp))

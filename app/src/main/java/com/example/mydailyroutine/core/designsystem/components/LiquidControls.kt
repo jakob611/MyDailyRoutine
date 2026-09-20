@@ -136,7 +136,7 @@ fun RoutineSwitch(
         Box(
             Modifier.fillMaxSize()
                 .clip(track)
-                .background(lerp(RoutineColors.Surface4, RoutineColors.Amber, position.value))
+                .background(lerp(RoutineColors.Surface4, RoutineColors.Primary, position.value))
                 // One hairline of light along the top of the track: the same lit-edge idea as the
                 // glass rim, at capsule scale.
                 .drawWithContent {
@@ -246,7 +246,7 @@ fun LiquidSlider(
         Box(
             Modifier.fillMaxWidth(shown).height(SliderTrack)
                 .clip(capsule)
-                .background(RoutineColors.Amber),
+                .background(RoutineColors.Primary),
         )
         Box(
             Modifier

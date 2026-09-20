@@ -134,16 +134,16 @@ fun NowBand(
                 ) {
                     Box(
                         Modifier.size(RoutineMetrics.NowDotSize).alpha(pulse)
-                            .background(RoutineColors.Crimson, CircleShape),
+                            .background(RoutineColors.Error, CircleShape),
                     )
                     Box(
-                        Modifier.weight(1f).height(RoutineMetrics.SpineWidth).background(RoutineColors.Crimson),
+                        Modifier.weight(1f).height(RoutineMetrics.SpineWidth).background(RoutineColors.Error),
                     )
                     RoutineLabel(
                         text = time,
                         modifier = Modifier.alpha(pulse).padding(horizontal = RoutineSpacing.xs),
                         style = MaterialTheme.typography.labelSmall,
-                        color = RoutineColors.Crimson,
+                        color = RoutineColors.Error,
                     )
                 }
             }

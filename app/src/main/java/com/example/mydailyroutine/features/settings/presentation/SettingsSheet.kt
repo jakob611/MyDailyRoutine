@@ -607,7 +607,7 @@ private fun AdvancedHealthSettings(config: HealthConfig, busy: Boolean, onSave: 
         }
         TextButton(enabled = !busy, onClick = { invalid = false; onSave(HealthConfig()) }) {
             RoutineLabel(stringResource(R.string.reset_thresholds), style = MaterialTheme.typography.labelLarge,
-                color = RoutineColors.Crimson)
+                color = RoutineColors.Error)
         }
     }
 }

@@ -123,7 +123,7 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
                     maxLines = RoutineTextDefaults.Paragraph)
                 if (!SlovenianAcademicCalendar.covers(content.date)) {
                     RoutineText(stringResource(R.string.coverage_warning), style = MaterialTheme.typography.bodySmall,
-                        color = RoutineColors.Crimson, maxLines = RoutineTextDefaults.Paragraph)
+                        color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
                 }
             }
         }
@@ -304,7 +304,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                     color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                 if (!SlovenianAcademicCalendar.covers(content.date)) {
                     RoutineText(stringResource(R.string.coverage_warning), style = MaterialTheme.typography.bodySmall,
-                        color = RoutineColors.Crimson, maxLines = RoutineTextDefaults.Paragraph)
+                        color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
                 }
             }
         }
@@ -330,7 +330,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                             val heat = (day.metrics.focusMinutes / 300f).coerceIn(0f, 1f)
                             val background = when {
                                 holiday -> RoutineColors.Recovery.container
-                                heat > 0 -> RoutineColors.Amber.copy(alpha = 0.08f + heat * 0.35f)
+                                heat > 0 -> RoutineColors.Primary.copy(alpha = 0.08f + heat * 0.35f)
                                 else -> RoutineColors.Surface1
                             }
                             val description = if (holiday) stringResource(R.string.month_cell_off, date.toString())
@@ -345,7 +345,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                                     .semantics { contentDescription = description },
                                 shape = RoundedCornerShape(12.dp),
                                 color = background,
-                                border = if (date == today) androidx.compose.foundation.BorderStroke(2.dp, RoutineColors.Amber) else null,
+                                border = if (date == today) androidx.compose.foundation.BorderStroke(2.dp, RoutineColors.Primary) else null,
                             ) {
                                 Column(
                                     Modifier.fillMaxWidth().padding(RoutineSpacing.xs),
@@ -362,8 +362,8 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                                         modifier = Modifier.padding(top = RoutineSpacing.xs),
                                     ) {
                                         if (holiday) Dot(RoutineColors.Recovery.accent)
-                                        if (day.metrics.examCount > 0) Dot(RoutineColors.Crimson)
-                                        if (day.metrics.milestoneCount > day.metrics.examCount) Dot(RoutineColors.Crimson)
+                                        if (day.metrics.examCount > 0) Dot(RoutineColors.Error)
+                                        if (day.metrics.milestoneCount > day.metrics.examCount) Dot(RoutineColors.Error)
                                     }
                                 }
                             }
@@ -377,10 +377,10 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
             ) {
-                Legend(stringResource(R.string.legend_exam), RoutineColors.Crimson)
-                Legend(stringResource(R.string.legend_deadline), RoutineColors.Crimson)
+                Legend(stringResource(R.string.legend_exam), RoutineColors.Error)
+                Legend(stringResource(R.string.legend_deadline), RoutineColors.Error)
                 Legend(stringResource(R.string.legend_no_school), RoutineColors.Recovery.accent)
-                Legend(stringResource(R.string.legend_focus), RoutineColors.Amber)
+                Legend(stringResource(R.string.legend_focus), RoutineColors.Primary)
             }
         }
         milestoneSection(R.string.month_markers, content.milestones.filter { YearMonth.from(it.dueDate) == month },
@@ -464,7 +464,7 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                 tag = "year-balance-toggle",
             ) {
                 if (!SlovenianAcademicCalendar.covers(start)) {
-                    RoutineText(stringResource(R.string.coverage_warning), color = RoutineColors.Crimson,
+                    RoutineText(stringResource(R.string.coverage_warning), color = RoutineColors.Error,
                         style = MaterialTheme.typography.bodySmall, maxLines = RoutineTextDefaults.Paragraph)
                 }
                 Column(Modifier.fillMaxWidth().testTag("year-month-grid"),
@@ -493,7 +493,7 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                                         LinearProgressIndicator(
                                             progress = { off.toFloat() / month.lengthOfMonth() },
                                             modifier = Modifier.fillMaxWidth().padding(top = RoutineSpacing.xs),
-                                            color = RoutineColors.Sage,
+                                            color = RoutineColors.Success,
                                         )
                                     }
                                 }
@@ -579,7 +579,7 @@ private fun MilestoneRadar(milestones: List<Milestone>, today: LocalDate, expand
                     Spacer(Modifier.weight((1f - fraction).coerceAtLeast(0.05f)))
                     Box(
                         Modifier.fillMaxWidth().weight(fraction.coerceAtLeast(0.02f))
-                            .clip(RoundedCornerShape(6.dp)).background(RoutineColors.Crimson.copy(alpha = 0.7f)),
+                            .clip(RoundedCornerShape(6.dp)).background(RoutineColors.Error.copy(alpha = 0.7f)),
                     )
                     Spacer(Modifier.height(RoutineSpacing.xs))
                     RoutineLabel(RoutineDate.axisDay(start),
@@ -622,9 +622,9 @@ private fun LazyListScope.milestoneSection(
             ) {
                 Dot(
                     when {
-                        source == "g" -> RoutineColors.Violet
-                        marker.isExam -> RoutineColors.Crimson
-                        else -> RoutineColors.Crimson
+                        source == "g" -> RoutineColors.FocusAccent
+                        marker.isExam -> RoutineColors.Error
+                        else -> RoutineColors.Error
                     },
                 )
                 Column(Modifier.weight(1f)) {
