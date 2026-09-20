@@ -239,6 +239,7 @@ data class SchedulePreferences(
     val schoolEnd: LocalTime = LocalTime.of(14, 30),
     val teachingEndDate: LocalDate = LocalDate.of(2027, 6, 24),
     val hapticsEnabled: Boolean = true,
+    val soundEffectsEnabled: Boolean = true,
     val automaticHealingEnabled: Boolean = true,
     val entryDefaults: EntryDefaults = EntryDefaults(),
     val health: HealthConfig = HealthConfig(),

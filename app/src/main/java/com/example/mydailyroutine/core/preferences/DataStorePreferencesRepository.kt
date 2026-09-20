@@ -31,6 +31,7 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
     private val teachingEndKey = longPreferencesKey("teaching_end_epoch_day")
     private val healingKey = booleanPreferencesKey("automatic_healing_enabled")
     private val hapticsKey = booleanPreferencesKey("haptics_enabled")
+    private val soundKey = booleanPreferencesKey("sound_effects_enabled")
     private val lessonKey = intPreferencesKey("default_lesson_minutes")
     private val breakKey = intPreferencesKey("default_lesson_break_minutes")
     private val periodicKey = booleanPreferencesKey("periodic_break_enabled")
@@ -47,6 +48,7 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             schoolStart = time(values[startKey], defaults.schoolStart),
             schoolEnd = time(values[endKey], defaults.schoolEnd),
             hapticsEnabled = values[hapticsKey] ?: true,
+            soundEffectsEnabled = values[soundKey] ?: true,
             automaticHealingEnabled = values[healingKey] ?: true,
             entryDefaults = EntryDefaults(values[lessonKey]?.takeIf { it in 1..240 } ?: 45, values[breakKey]?.takeIf { it in 1..60 } ?: 5),
             health = HealthPreferenceCodec.read(values),
@@ -90,6 +92,11 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
 
     override suspend fun setHapticsEnabled(enabled: Boolean) {
         store.edit { it[hapticsKey] = enabled }
+        onChanged()
+    }
+
+    override suspend fun setSoundEffectsEnabled(enabled: Boolean) {
+        store.edit { it[soundKey] = enabled }
         onChanged()
     }
 

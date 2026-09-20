@@ -1,5 +1,9 @@
 # My Daily Routine
 
+**Product name: LockIn.** The launcher icons, the top bar of the opening screen and the app label
+carry the LockIn brand — the teal padlock monogram with its wordmark. Repository, package and
+theme identifiers keep the original `MyDailyRoutine` naming on purpose.
+
 A Slovenian-language, OLED-dark-first Android time-blocking app for school, focused study, personal routines, recovery, and IB milestones. Kotlin 2.x, Jetpack Compose / Material 3, Room, Coroutines / Flow, AlarmManager, and Glance. No account, HTTP client, telemetry, or runtime network permission.
 
 ## Faster routine input

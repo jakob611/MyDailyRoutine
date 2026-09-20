@@ -153,6 +153,7 @@ class ConnectedFeaturesTest {
         override suspend fun setEntryDefaults(defaults: com.example.mydailyroutine.domain.routines.EntryDefaults) { preferences.update { it.copy(entryDefaults = defaults) } }
         override suspend fun setAutomaticHealingEnabled(enabled: Boolean) { preferences.update { it.copy(automaticHealingEnabled = enabled) } }
         override suspend fun setHapticsEnabled(enabled: Boolean) { preferences.update { it.copy(hapticsEnabled = enabled) } }
+        override suspend fun setSoundEffectsEnabled(enabled: Boolean) { preferences.update { it.copy(soundEffectsEnabled = enabled) } }
         override suspend fun setPlanningConfig(config: com.example.mydailyroutine.domain.planning.PlanningConfig) { preferences.update { it.copy(planning = config) } }
         override suspend fun setHealthConfig(config: HealthConfig) { preferences.update { it.copy(health = config) } }
         override suspend fun setPeriodicBreak(config: com.example.mydailyroutine.domain.health.PeriodicBreakConfig) { preferences.update { it.copy(periodicBreak = config) } }
