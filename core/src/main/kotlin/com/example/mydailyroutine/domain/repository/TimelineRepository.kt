@@ -38,6 +38,7 @@ interface PreferencesRepository {
     suspend fun setSchoolWindow(start: LocalTime, end: LocalTime)
     suspend fun setTeachingEndDate(date: LocalDate)
     suspend fun setHapticsEnabled(enabled: Boolean)
+    suspend fun setSoundEffectsEnabled(enabled: Boolean)
     suspend fun setAutomaticHealingEnabled(enabled: Boolean)
     suspend fun setEntryDefaults(defaults: com.example.mydailyroutine.domain.routines.EntryDefaults)
     suspend fun setHealthConfig(config: HealthConfig)

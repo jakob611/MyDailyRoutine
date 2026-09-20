@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -61,6 +62,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.haptics.*
+import com.example.mydailyroutine.core.designsystem.sound.*
 import com.example.mydailyroutine.features.timeline.presentation.overview.*
 import com.example.mydailyroutine.features.timeline.presentation.DailyTimeline
 import com.example.mydailyroutine.features.planning.presentation.*
@@ -68,6 +70,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -117,6 +120,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     val data = state.content
     val context = LocalContext.current
     val haptics = rememberRoutineHaptics(state.preferences.hapticsEnabled)
+    val sounds = rememberRoutineSounds(state.preferences.soundEffectsEnabled)
     val nativeHaptics = LocalHapticFeedback.current
     val gatedHaptics = remember(state.preferences.hapticsEnabled, nativeHaptics) {
         object : HapticFeedback {
@@ -125,7 +129,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             }
         }
     }
-    val onAction: (TimelineAction) -> Unit = remember(viewModel, haptics) { { action ->
+    val onAction: (TimelineAction) -> Unit = remember(viewModel, haptics, sounds) { { action ->
         // One haptic per action, chosen by what the action *means* instead of one tick for everything.
         // Apple's generators are semantic — selection for a discrete step, impact for a collision,
         // notification for an outcome — and that mapping is most of why an iPhone feels precise. The
@@ -170,6 +174,32 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             // Everything else is a light impact: closing, dismissing, retrying.
             else -> haptics.tap()
         }
+        // Sound sits only on the semantic moments, in step with the matching haptic: ear and palm
+        // tell the same story at the same instant. Toggles and plain taps stay silent, so a sound
+        // always means an outcome or a destination, never a tick.
+        when (action) {
+            // „Dodaj v moj dan“: the day accepted a block — click pack 2 under the success haptic.
+            is TimelineAction.SaveEntry -> sounds.addToDay()
+            // The other committed changes: interface pack 2 under the success haptic.
+            is TimelineAction.SaveBlockEdit, is TimelineAction.AddTask,
+            is TimelineAction.UpdateTask, is TimelineAction.RecordActual,
+            is TimelineAction.ImportTimetable, is TimelineAction.ImportSchedule -> sounds.confirm()
+            // Something destroyed or refused: interface pack 3 under the error haptic.
+            is TimelineAction.ConfirmDelete, is TimelineAction.DeleteTopic, is TimelineAction.DeleteSubject,
+            is TimelineAction.DeleteTask, is TimelineAction.DeleteBacklog, is TimelineAction.DeleteGoalsProject,
+            is TimelineAction.DeleteGoalActivity, is TimelineAction.DeleteGoalMilestone,
+            is TimelineAction.DeleteGoalProgress, is TimelineAction.DeleteSeries,
+            is TimelineAction.ClearCompletedTasks, is TimelineAction.Skip, is TimelineAction.CancelExecution ->
+                sounds.reject()
+            // „Dodaj blok“ and the remaining sheets: interface pack 8 under the press haptic.
+            is TimelineAction.OpenAdd, is TimelineAction.ShowTimetableImport -> sounds.open()
+            // The four top-bar icon buttons: click pack 6 under the press haptic.
+            is TimelineAction.OpenPlanning, is TimelineAction.OpenSettings,
+            is TimelineAction.OpenTasks, is TimelineAction.OpenGoals -> sounds.topAction()
+            // Dan / Teden / Mesec / Leto: interface pack 1 under the selection haptic.
+            is TimelineAction.SelectMode -> sounds.select()
+            else -> Unit
+        }
         viewModel.onAction(action)
     } }
     val snackbars = remember { SnackbarHostState() }
@@ -178,9 +208,11 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         if (state.execution != null) viewModel.onAction(TimelineAction.SyncExecution)
     }
     var choosingDate by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(viewModel, haptics, context) {
+    LaunchedEffect(viewModel, haptics, sounds, context) {
         viewModel.effects.collect { effect -> when (effect) {
-            TimelineEffect.Completed -> haptics.complete()
+            // The hero moment: the block's completion animation, the success haptic and the
+            // confirm sound land together.
+            TimelineEffect.Completed -> { haptics.complete(); sounds.confirm() }
             is TimelineEffect.Message -> snackbars.showSnackbar(if (effect.count != null) context.getString(effect.resource, effect.minutes, effect.count) else if (effect.minutes == null) context.getString(effect.resource) else context.getString(effect.resource, effect.minutes))
         } }
     }
@@ -194,8 +226,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     }
     val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(now.toLocalDate()) }
     val reduceMotion = rememberReduceMotion()
-    CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalHapticFeedback provides gatedHaptics,
-        LocalReduceMotion provides reduceMotion) {
+    CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalRoutineSounds provides sounds,
+        LocalHapticFeedback provides gatedHaptics, LocalReduceMotion provides reduceMotion) {
       // One backdrop for the window: the content layer records into it and the floating chrome —
       // the top bar, the fast-add control — refracts it. They have to stay siblings of the layer,
       // never inside it, or a panel draws itself into itself.
@@ -314,10 +346,18 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 // the only thing in the bar still worth the space.
                                 AnimatedContent(targetState = collapsed, label = "header-title",
                                     transitionSpec = { ContentTransform(fadeIn(effectSpec<Float>(reduceMotion)), fadeOut(effectSpec<Float>(reduceMotion)), sizeTransform = SizeTransform(clip = false)) }) { isCollapsed ->
-                                    RoutineLabel(
-                                        text = if (isCollapsed) periodTitle(data) else stringResource(R.string.app_name),
-                                        style = MaterialTheme.typography.titleLarge,
-                                    )
+                                    if (isCollapsed) {
+                                        RoutineLabel(periodTitle(data), style = MaterialTheme.typography.titleLarge)
+                                    } else {
+                                        // The brand answers the door: the LockIn mark with its wordmark
+                                        // lives where the plain app-name text used to sit. This is the
+                                        // screen the app opens on — deliberately not a splash screen.
+                                        Image(
+                                            painter = painterResource(R.drawable.logo_lockin),
+                                            contentDescription = stringResource(R.string.app_name),
+                                            modifier = Modifier.height(28.dp),
+                                        )
+                                    }
                                 }
                             }
                         },
