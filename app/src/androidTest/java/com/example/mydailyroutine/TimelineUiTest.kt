@@ -31,7 +31,9 @@ class TimelineUiTest {
     private fun click(@StringRes id: Int) = compose.onNodeWithText(text(id)).performClick()
 
     @Test fun allFourSlovenianViewsAndFastAddAreReachable() {
-        compose.onNodeWithText(text(R.string.app_name)).assertIsDisplayed()
+        // The expanded top bar carries the LockIn logo as an image, so the brand is asserted by
+        // its content description instead of a text node.
+        compose.onNodeWithContentDescription(text(R.string.app_name)).assertIsDisplayed()
         awaitText(R.string.day_heading); capture("01-day")
         click(R.string.nav_week); awaitText(R.string.week_heading); capture("02-week")
         click(R.string.nav_month); awaitText(R.string.month_heading); capture("03-month")

@@ -175,6 +175,7 @@ sealed interface TimelineAction {
     data class DeleteSubject(val id: Long) : TimelineAction
     data class InsertRecovery(val type: WarningType, val anchorKey: String, val recoveryTitle: String, val continuationSuffix: String) : TimelineAction
     data class SetHaptics(val enabled: Boolean) : TimelineAction
+    data class SetSoundEffects(val enabled: Boolean) : TimelineAction
     data class SetHealthConfig(val config: HealthConfig) : TimelineAction
     data class SetPeriodicBreak(val config: PeriodicBreakConfig) : TimelineAction
     data object RequestDemo : TimelineAction
