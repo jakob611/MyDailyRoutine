@@ -32,6 +32,7 @@ class RoomBackupRepository(
     private val db: RoutineDatabase,
     private val timeline: TimelineRepository,
     private val onChanged: () -> Unit,
+    private val defaultSubjectColor: Long,
 ) : ScheduleBackupRepository {
 
     override suspend fun exportJson(): String = withContext(Dispatchers.IO) {
@@ -150,7 +151,7 @@ class RoomBackupRepository(
                 for (i in 0 until arr.length()) {
                     val o = arr.getJSONObject(i)
                     val name = o.getString("name")
-                    val color = colorToLong(o.optString("color", "#3B82F6"))
+                    val color = SubjectColorCodec.decode(o.optString("color"), defaultSubjectColor)
                     val dur = o.optInt("defaultDuration", 45)
                     val id = db.subjects().insert(Subject(0, name, color, dur).entity())
                     subjectIds[name] = id
@@ -251,12 +252,6 @@ class RoomBackupRepository(
             }
             onChanged()
         }
-    }
-
-    private fun colorToLong(hex: String): Long {
-        val cleaned = hex.removePrefix("#")
-        val full = if (cleaned.length == 3) cleaned.map { "$it$it" }.joinToString("") else cleaned
-        return runCatching { full.toLong(16) }.getOrDefault(0x3B82F6)
     }
 
     private fun mapCategory(name: String): RoutineCategory = try {

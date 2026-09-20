@@ -32,7 +32,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
+import com.example.mydailyroutine.core.designsystem.components.RoutineCompletionCheckbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -184,13 +184,13 @@ fun TasksSheet(
                         color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                 }
             }
-            taskSection("overdue", R.string.tasks_section_overdue, RoutineColors.Crimson, overdue, subjects, subjectsById, today, busy, expandedId,
+            taskSection("overdue", R.string.tasks_section_overdue, RoutineColors.Error, overdue, subjects, subjectsById, today, busy, expandedId,
                 onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
-            taskSection("today", R.string.tasks_section_today, RoutineColors.Amber, dueToday, subjects, subjectsById, today, busy, expandedId,
+            taskSection("today", R.string.tasks_section_today, RoutineColors.Warning, dueToday, subjects, subjectsById, today, busy, expandedId,
                 onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
             taskSection("upcoming", R.string.tasks_section_upcoming, RoutineColors.Cobalt, upcoming, subjects, subjectsById, today, busy, expandedId,
                 onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
-            taskSection("nodue", R.string.tasks_section_no_due, RoutineColors.TextMuted, noDue, subjects, subjectsById, today, busy, expandedId,
+            taskSection("nodue", R.string.tasks_section_no_due, RoutineColors.TextSecondary, noDue, subjects, subjectsById, today, busy, expandedId,
                 onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
             if (done.isNotEmpty()) {
                 item(key = "tasks-done-header") {
@@ -227,7 +227,7 @@ fun TasksSheet(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                         ) {
-                            Checkbox(
+                            RoutineCompletionCheckbox(
                                 checked = true,
                                 onCheckedChange = { if (!busy) { haptics.tap(); onAction(TimelineAction.ToggleTask(task.id)) } },
                                 enabled = !busy,
@@ -236,13 +236,13 @@ fun TasksSheet(
                             RoutineText(
                                 text = task.title,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = RoutineColors.TextMuted,
+                                color = RoutineColors.TextSecondary,
                                 modifier = Modifier.weight(1f),
                                 maxLines = RoutineTextDefaults.Body,
                             )
                             task.dueDate?.let {
                                 RoutineLabel(RoutineDate.normal(it), style = MaterialTheme.typography.labelSmall,
-                                    color = RoutineColors.TextMuted)
+                                    color = RoutineColors.TextSecondary)
                             }
                         }
                     }
@@ -264,7 +264,7 @@ fun TasksSheet(
             text = { RoutineText(stringResource(R.string.tasks_delete_body, target.title), maxLines = RoutineTextDefaults.Paragraph) },
             confirmButton = {
                 TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteTask(target.id)); deleteId = null }) {
-                    RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+                    RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Error)
                 }
             },
             dismissButton = {
@@ -309,7 +309,7 @@ private fun TaskAttributePickers(
                 enabled = !busy,
                 onClick = { onDueEpoch(null) },
             ) {
-                Icon(Icons.Outlined.Close, stringResource(R.string.tasks_clear_date), tint = RoutineColors.Crimson)
+                Icon(Icons.Outlined.Close, stringResource(R.string.tasks_clear_date), tint = RoutineColors.Error)
             }
         }
         Box {
@@ -404,7 +404,7 @@ private fun TaskRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
             ) {
-                Checkbox(
+                RoutineCompletionCheckbox(
                     checked = task.completedAtEpochMillis != null,
                     onCheckedChange = { if (!busy) onToggle() },
                     enabled = !busy,
@@ -423,7 +423,7 @@ private fun TaskRow(
                     RoutineLabel(
                         text = taskDueLabel(date, today),
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (task.completedAtEpochMillis == null && date.isBefore(today)) RoutineColors.Crimson
+                        color = if (task.completedAtEpochMillis == null && date.isBefore(today)) RoutineColors.Error
                         else RoutineColors.TextSecondary,
                     )
                 }
@@ -485,7 +485,7 @@ private fun TaskRow(
                         }
                         TextButton(enabled = !busy, onClick = { haptics.warning(); onRequestDelete() }) {
                             RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge,
-                                color = RoutineColors.Crimson)
+                                color = RoutineColors.Error)
                         }
                     }
                 }

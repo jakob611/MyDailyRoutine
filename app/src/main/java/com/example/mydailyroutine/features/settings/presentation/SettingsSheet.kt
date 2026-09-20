@@ -223,7 +223,7 @@ private fun LazyListScope.rhythmTab(
 ) {
     item(key = "settings-privacy") {
         RoutineText(stringResource(R.string.privacy_delete_warning), style = MaterialTheme.typography.bodySmall,
-            color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
+            color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
     }
     item(key = "settings-sleep") { SleepSettings(sleep, busy, onAction) }
     item(key = "settings-entry-defaults") {
@@ -458,7 +458,7 @@ private fun LazyListScope.dataTab(
     } else {
         item(key = "settings-subjects-hint") {
             RoutineText(stringResource(R.string.subject_edit_hint), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         }
         items(subjects, key = { "subject:${it.id}" }) { subject ->
             OutlinedCard(
@@ -480,7 +480,7 @@ private fun LazyListScope.dataTab(
                             color = RoutineColors.TextSecondary,
                         )
                     }
-                    Icon(Icons.Outlined.Edit, null, Modifier.size(20.dp), tint = RoutineColors.TextMuted)
+                    Icon(Icons.Outlined.Edit, null, Modifier.size(20.dp), tint = RoutineColors.TextSecondary)
                 }
             }
         }
@@ -507,7 +507,7 @@ private fun LazyListScope.dataTab(
                 enabled = !busy && !exampleLoaded,
             )
             RoutineText(stringResource(R.string.battery_note), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         }
     }
     item(key = "settings-backup") {
@@ -607,7 +607,7 @@ private fun AdvancedHealthSettings(config: HealthConfig, busy: Boolean, onSave: 
         }
         TextButton(enabled = !busy, onClick = { invalid = false; onSave(HealthConfig()) }) {
             RoutineLabel(stringResource(R.string.reset_thresholds), style = MaterialTheme.typography.labelLarge,
-                color = RoutineColors.Crimson)
+                color = RoutineColors.Error)
         }
     }
 }
@@ -705,7 +705,7 @@ private fun PeriodicBreakSettings(
                 }
             }
             RoutineText(stringResource(R.string.periodic_break_hint), style = MaterialTheme.typography.bodySmall,
-                color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         }
     }
 }

@@ -149,7 +149,7 @@ fun TimeWheelDialog(
                             onConfirm("%02d:%02d".format(centerIndexOf(hourState), centerIndexOf(minuteState)))
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = RoutineColors.Amber,
+                            containerColor = RoutineColors.Primary,
                             contentColor = RoutineColors.InkOnPrimary,
                         ),
                         shape = RoutineShapes.Pill,

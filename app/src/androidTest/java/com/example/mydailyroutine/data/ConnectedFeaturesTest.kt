@@ -109,7 +109,7 @@ class ConnectedFeaturesTest {
         val model = withContext(Dispatchers.Main) { RoutineViewModel(repo, prefs, SavedStateHandle(mapOf("date" to date.toEpochDay())), DemoDataSeeder(context, db, prefs, {}, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches), com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}),
                 com.example.mydailyroutine.features.execution.data.RoomExecutionRepository(db, repo, com.example.mydailyroutine.features.planning.data.RoomPlanningRepository(db, repo, {}), {}),
                 com.example.mydailyroutine.features.routines.data.RoomRoutinePatternsRepository(db,repo,{}),
-                com.example.mydailyroutine.features.backup.data.RoomBackupRepository(db, repo, {}),
+                com.example.mydailyroutine.features.backup.data.RoomBackupRepository(db, repo, {}, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches.first()),
                 com.example.mydailyroutine.features.goals.data.RoomGoalsRepository(db, {})) }
         val collector = launch { model.state.collect() }
         try {

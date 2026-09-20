@@ -146,7 +146,7 @@ fun PlanningSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit, sh
             text = { RoutineText(stringResource(R.string.delete_entry_body, entry.title), maxLines = RoutineTextDefaults.Paragraph) },
             confirmButton = {
                 TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteBacklog(entry.id)); deleteBacklogId = null }) {
-                    RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+                    RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Error)
                 }
             },
             dismissButton = {
@@ -163,7 +163,7 @@ fun PlanningSheet(state: TimelineUiState, onAction: (TimelineAction) -> Unit, sh
             text = { RoutineText(stringResource(R.string.delete_topic_body), maxLines = RoutineTextDefaults.Paragraph) },
             confirmButton = {
                 TextButton(enabled = !busy, onClick = { onAction(TimelineAction.DeleteTopic(id)); deleteTopicId = null }) {
-                    RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+                    RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Error)
                 }
             },
             dismissButton = {
@@ -211,7 +211,7 @@ private fun LazyListScope.backlogTab(
                     }
                     TextButton(enabled = !busy, onClick = { onRequestDelete(entry.id) }) {
                         RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge,
-                            color = RoutineColors.Crimson)
+                            color = RoutineColors.Error)
                     }
                 }
             }
@@ -244,7 +244,7 @@ private fun LazyListScope.topicsTab(
                 ActionRow {
                     TextButton(enabled = !busy, onClick = { onRequestDelete(topic.id) }) {
                         RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge,
-                            color = RoutineColors.Crimson)
+                            color = RoutineColors.Error)
                     }
                 }
             }
@@ -272,7 +272,7 @@ private fun LazyListScope.markersTab(
                 var synthesis by rememberSaveable(milestone.id) { mutableStateOf(false) }
                 RoutineText(milestone.title, style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
                 RoutineLabel(RoutineDate.withWeekdayYear(milestone.dueDate), style = MaterialTheme.typography.labelMedium,
-                    color = if (milestone.dueDate.isBefore(LocalDate.now())) RoutineColors.Crimson else RoutineColors.Violet)
+                    color = if (milestone.dueDate.isBefore(LocalDate.now())) RoutineColors.Error else RoutineColors.ProjectAccent)
                 SettingRow(
                     title = stringResource(R.string.planning_synthesis_toggle),
                     control = {
@@ -291,7 +291,7 @@ private fun LazyListScope.markersTab(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                    Box(Modifier.size(6.dp).clip(CircleShape).background(RoutineColors.Violet))
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(RoutineColors.ProjectAccent))
                     RoutineText(
                         text = stringResource(
                             R.string.stages_hint,

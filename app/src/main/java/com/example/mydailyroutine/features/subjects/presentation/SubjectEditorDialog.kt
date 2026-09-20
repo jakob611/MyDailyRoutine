@@ -132,7 +132,7 @@ fun SubjectEditorDialog(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         RoutineLabel(stringResource(R.string.delete_subject),
-                            style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+                            style = MaterialTheme.typography.labelLarge, color = RoutineColors.Error)
                     }
                 }
             }
@@ -169,7 +169,7 @@ fun SubjectEditorDialog(
             confirmButton = {
                 TextButton(enabled = !busy, onClick = { confirmingDelete = false; onDelete?.invoke() }) {
                     RoutineLabel(stringResource(R.string.delete_subject), style = MaterialTheme.typography.labelLarge,
-                        color = RoutineColors.Crimson)
+                        color = RoutineColors.Error)
                 }
             },
             dismissButton = {

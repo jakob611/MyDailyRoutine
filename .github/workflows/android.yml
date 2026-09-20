@@ -6,15 +6,13 @@ on:
     branches: [master]
   workflow_dispatch:
 concurrency:
-  group: android-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: android-${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -96,18 +94,11 @@ jobs:
         with:
           name: debug-apk
           path: app/build/outputs/apk/debug/*.apk
-      - name: Publish debug APK to rolling release
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          apk=$(ls app/build/outputs/apk/debug/*.apk | head -1)
-          rel=$(ls app/build/outputs/apk/release/*unsigned*.apk app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)
-          notes="app-release.apk je MINIFICIRANA (R8) gradnja za vsakdanje testiranje na telefonu - obcutno tekoca od debug razlicice, ki nosi Compose debug instrumentacijo. app-debug.apk ostaja za loge. Gradnja ${{ github.sha }} iz CI (build + emulator testi), podpisano z debug kljucem: pred namestitvijo dovoli namestitev iz neznanih virov. Ni produkcijska izdaja."
-          gh release create debug-latest --title "APK (zadnji zeleni CI): release + debug" --notes "$notes" 2>/dev/null \
-            || gh release edit debug-latest --title "APK (zadnji zeleni CI): release + debug" --notes "$notes"
-          gh release upload debug-latest "$apk" --clobber
-          gh release upload debug-latest "$rel" --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
   device-tests:
     runs-on: ubuntu-latest
     steps:
@@ -172,3 +163,47 @@ jobs:
             ci-device-crash.log
             ci-device-logcat.log
             app/build/ui-audit/
+
+  publish-test-release:
+    # Never label a build as verified before emulator tests have passed too. PRs upload artifacts;
+    # a manual run publishes an immutable prerelease without replacing someone else's rolling APK.
+    needs: [build, device-tests]
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-apk
+          path: apk
+      - name: Publish verified release-variant APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          tag="test-${BUILD_SHA:0:12}"
+          cd apk
+          sha256sum app-release.apk > app-release.apk.sha256
+          cat > notes.md <<EOF
+          Preizkusna release gradnja (R8 + resource shrinking), commit $BUILD_SHA.
+
+          CI: $RUN_URL — static gates, JVM tests, Android lint, build and API 35 emulator tests.
+
+          APK je podpisan s testnim/debug kljucem, ne s produkcijskim kljucem.
+          Kljuc se lahko med CI zagoni razlikuje. Ce Android zavrne posodobitev, najprej
+          izvozi varnostno kopijo podatkov; sele nato odstrani staro aplikacijo in namesti to APK.
+          Ne odstranjuj stare aplikacije brez varnostne kopije.
+          Zmogljivost in videz na fizicni napravi se nista potrjena.
+          EOF
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --notes-file notes.md --prerelease
+          else
+            gh release create "$tag" --target "$BUILD_SHA" --prerelease \
+              --title "MyDailyRoutine test APK · ${BUILD_SHA:0:12}" --notes-file notes.md
+          fi
+          gh release upload "$tag" app-release.apk app-release.apk.sha256 --clobber
+          echo "### Test release: https://github.com/$GH_REPO/releases/tag/$tag" >> "$GITHUB_STEP_SUMMARY"
