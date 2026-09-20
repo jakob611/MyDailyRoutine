@@ -151,7 +151,7 @@ fun DailyTimeline(
                                 text = stringResource(R.string.reserve_remaining, day.metrics.reserveMinutes),
                                 modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = RoutineColors.Sage,
+                                color = RoutineColors.Success,
                             )
                             if (day.warnings.isNotEmpty()) {
                                 RoutineLabel(
@@ -168,8 +168,8 @@ fun DailyTimeline(
                         onClick = { onAction(TimelineAction.OpenTasks) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoutineShapes.Card,
-                        colors = CardDefaults.cardColors(containerColor = RoutineColors.Crimson.copy(alpha = 0.10f)),
-                        border = BorderStroke(1.dp, RoutineColors.Crimson.copy(alpha = 0.35f)),
+                        colors = CardDefaults.cardColors(containerColor = RoutineColors.Error.copy(alpha = 0.10f)),
+                        border = BorderStroke(1.dp, RoutineColors.Error.copy(alpha = 0.35f)),
                     ) {
                         Column(
                             Modifier.fillMaxWidth().padding(RoutineSpacing.md),
@@ -178,7 +178,7 @@ fun DailyTimeline(
                             RoutineText(
                                 text = stringResource(if (today) R.string.tasks_due_today else R.string.tasks_due_on_day, dueTasks.size),
                                 style = MaterialTheme.typography.titleSmall,
-                                color = RoutineColors.Crimson,
+                                color = RoutineColors.Error,
                                 maxLines = RoutineTextDefaults.Body,
                             )
                             val shown = dueTasks.take(2).joinToString(" · ") { it.title }
@@ -272,7 +272,7 @@ fun DailyTimeline(
                         Modifier.fillMaxWidth().padding(RoutineSpacing.xl),
                         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
                     ) {
-                        Icon(Icons.Outlined.Spa, null, tint = RoutineColors.Sage)
+                        Icon(Icons.Outlined.Spa, null, tint = RoutineColors.Success)
                         // The tagline used to occupy the top bar of every screen, where it cost
                         // height forever and said nothing the reader needed. Here it is an eyebrow
                         // on the one screen with room for it, and it reads as an invitation.

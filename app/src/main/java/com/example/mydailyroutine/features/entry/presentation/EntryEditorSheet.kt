@@ -240,7 +240,7 @@ fun EntryEditorSheet(
                 // each an explicit tap that says what it will fill in.
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(quickPresets, key = { it.key }) { preset ->
-                        val color = preset.colorHex?.let { Color(it.toInt()) } ?: RoutineColors.Amber
+                        val color = preset.colorHex?.let { Color(it.toInt()) } ?: RoutineColors.Primary
                         SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
                             border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.45f)),
                             label = { RoutineLabel(preset.label(context), color = color) })
@@ -386,7 +386,7 @@ fun EntryEditorSheet(
                                 val until = ScheduleValidation.parseTime(endText)
                                 if (from != null && until != null && from != until) {
                                     val raw = nominalMinutes(from, until)
-                                    RoutineText(stringResource(R.string.velocity_preview, raw, if (calibrate) velocity.getCalibratedDuration(raw, subjectId.toString()) else raw), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Sage, maxLines = RoutineTextDefaults.Paragraph)
+                                    RoutineText(stringResource(R.string.velocity_preview, raw, if (calibrate) velocity.getCalibratedDuration(raw, subjectId.toString()) else raw), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Success, maxLines = RoutineTextDefaults.Paragraph)
                                 }
                             }
                         }
@@ -470,7 +470,7 @@ private fun LiquidWeightRow(label: String, text: String, enabled: Boolean, onTex
             RoutineText(label, style = MaterialTheme.typography.bodyMedium,
                 color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
             RoutineText(String.format(java.util.Locale.US, "%.1f", value),
-                style = MaterialTheme.typography.bodyMedium, color = RoutineColors.Amber,
+                style = MaterialTheme.typography.bodyMedium, color = RoutineColors.Primary,
                 maxLines = RoutineTextDefaults.Body)
         }
         LiquidSlider(

@@ -51,8 +51,8 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 
 /**
  * Liquid glass for the floating chrome of the app (Kyant0's Backdrop, `io.github.kyant0:backdrop`).
@@ -73,12 +73,11 @@ import com.kyant.backdrop.effects.lens
  * The three things that make this read as *liquid glass* rather than as a grey translucent rectangle
  * are the three things Apple's material does and most Android copies skip:
  *
- * * **A heavy blur** (16-24 dp, the band the design brief of 2026-09-19 publishes: chips at 16,
- *   controls at 18, bars at 20, sheets at 24). Heavy blur is also what buys legibility: it removes the high-frequency
- *   detail that competes with text, so the tint can stay at 0.74 instead of 0.82 and the panel stays
- *   see-through.
- * * **A saturation and brightness lift on the blurred content** (`colorControls`, ~160 % saturation —
- *   `vibrancy()` is exactly 150 %). This is what makes glass look lit from behind.
+ * * **Moderate blur** (4-6 dp for compact controls, 6 dp for a standard bar/card, and 6 dp for
+ *   a sheet). The surface stays recognisable instead of becoming a flat grey plate.
+ * * **Library vibrancy**, followed by blur and lens. Backdrop 1.0.0 exposes `vibrancy()` rather than
+ *   requiring a hand-tuned saturation lift; no aggressive contrast, exposure, or gamma correction is
+ *   applied here.
  * * **A specular rim**: one hairline of light along the top-left edge falling away to the bottom-right.
  *   Without an edge, a translucent panel has no boundary and reads as a smudge.
  *
@@ -99,32 +98,32 @@ val lensSupported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMI
  * Where glass is used and how strong it is. One row per role keeps every bar, sheet and button
  * optically identical instead of letting each screen invent its own blur radius.
  *
- * `lensHeight` must stay at or below the smallest corner radius of the shape or the refraction breaks
- * at that corner; the `RoutineShapes.Glass*` shapes are all ≥ 14 dp.
+ * `lensRadius` stays at or below the smallest visible corner radius of the shape. The values below
+ * are intentionally shared: standard chrome starts at 18/32 dp, compact controls at 14/24 dp,
+ * and a sheet at 24/44 dp.
  */
 enum class GlassRole(
     val blur: Dp,
-    val lensHeight: Dp,
-    val lensAmount: Dp,
+    val lensRadius: Dp,
+    val lensDepth: Dp,
     val depth: Boolean,
     val dispersion: Boolean,
     val rim: Float,
     val tintAlpha: Float,
     val fallback: Color,
 ) {
-    /** Top bar, segmented control row, any header floating over scrolling content. */
-    Bar(20.dp, 14.dp, 22.dp, depth = false, dispersion = true, rim = 0.22f,
-        tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallbackStrong),
-    /** Sticky header and footer inside a bottom sheet. Thickest blur: it sits over the most content. */
-    Sheet(24.dp, 14.dp, 26.dp, depth = true, dispersion = true, rim = 0.20f,
-        tintAlpha = RoutineColors.GlassTintStrongAlpha, fallback = RoutineColors.GlassFallbackStrong),
-    /** Filter chips, tabs, small pill buttons. Thinner material, and no dispersion at this size: on a
-     *  32 dp chip the colour fringing reads as a printing defect, not as optics. */
-    Chip(16.dp, 8.dp, 14.dp, depth = false, dispersion = false, rim = 0.15f,
+    /** Top bar and other standard chrome floating over scrolling content. */
+    Bar(6.dp, 18.dp, 32.dp, depth = true, dispersion = false, rim = 0.16f,
         tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallback),
-    /** Floating action button and other floating primary controls. */
-    Control(18.dp, 16.dp, 26.dp, depth = true, dispersion = true, rim = 0.25f,
-        tintAlpha = 0f, fallback = RoutineColors.GlassFallback),
+    /** Sheet header/footer: broad enough to stay readable over a busy scrolling backdrop. */
+    Sheet(6.dp, 24.dp, 44.dp, depth = true, dispersion = true, rim = 0.18f,
+        tintAlpha = RoutineColors.GlassTintStrongAlpha, fallback = RoutineColors.GlassFallbackStrong),
+    /** Small pills and controls. Chromatic dispersion is intentionally disabled at this size. */
+    Chip(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.12f,
+        tintAlpha = RoutineColors.GlassTintCompactAlpha, fallback = RoutineColors.GlassFallback),
+    /** Floating action button and other compact primary controls. */
+    Control(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.14f,
+        tintAlpha = RoutineColors.GlassTintCompactAlpha, fallback = RoutineColors.GlassFallback),
 }
 
 /** Device tilt in -1..1 on both axes, quantised: the raw rotation vector jitters every sample, and
@@ -288,13 +287,12 @@ fun Modifier.routineGlass(
         backdrop = backdrop,
         shape = { shape },
         effects = {
-            // Colour filter, then blur, then lens — the order the library requires, each stage
-            // chaining onto the previous RenderEffect. The lift is what makes glass read as lit from
-            // behind rather than as a grey rectangle: 160 % saturation (`vibrancy()` is 150 %),
-            // a hair of contrast, and +4 % brightness, which Apple's materials also apply.
-            colorControls(brightness = 0.06f, contrast = 1.03f, saturation = 1.8f)
+            // Keep the effect chain deliberately restrained: the library's standard vibrancy,
+            // moderate blur, then refraction lens. Strong colour controls are not piled on top of
+            // neon accents; if future devices need tuning it belongs in this shared role table.
+            vibrancy()
             blur(role.blur.toPx())
-            lens(role.lensHeight.toPx(), role.lensAmount.toPx(), role.depth, role.dispersion)
+            lens(role.lensRadius.toPx(), role.lensDepth.toPx(), role.depth, role.dispersion)
         },
         onDrawSurface = surface,
     )
@@ -404,29 +402,22 @@ fun Modifier.routineGlassTouch(touch: GlassTouch, shape: CornerBasedShape): Modi
     }
 
 /**
- * The ambient wash behind every screen: a vertical graphite ramp plus one ice-blue glow at the top
- * and one turquoise glow at the bottom, both under 6 % alpha. Its job is twofold — keep elevation readable on
- * an OLED panel and give the glass something to refract where a floating bar sits over empty space.
+ * Ambient light behind the content layer. It is intentionally faint and spatially limited: cards
+ * and floating bars can refract it, while the rest of the OLED canvas remains #090D16.
  */
 @Composable
 fun RoutineAmbientBackground(modifier: Modifier = Modifier) {
     Box(
         modifier.drawBehind {
-            drawRect(
-                Brush.verticalGradient(
-                    0f to RoutineColors.Background,
-                    0.5f to RoutineColors.Surface1,
-                    1f to RoutineColors.Background,
-                )
-            )
+            drawRect(RoutineColors.Background)
             drawRect(
                 Brush.radialGradient(
                     colors = listOf(
                         RoutineColors.AmbientTop.copy(alpha = RoutineColors.AmbientTopAlpha),
                         Color.Transparent,
                     ),
-                    center = Offset(size.width * 0.16f, size.height * 0.01f),
-                    radius = (size.width * 1.15f).coerceAtLeast(1f),
+                    center = Offset(size.width * 0.18f, size.height * 0.10f),
+                    radius = (size.width * 0.78f).coerceAtLeast(1f),
                 )
             )
             drawRect(
@@ -435,8 +426,8 @@ fun RoutineAmbientBackground(modifier: Modifier = Modifier) {
                         RoutineColors.AmbientBottom.copy(alpha = RoutineColors.AmbientBottomAlpha),
                         Color.Transparent,
                     ),
-                    center = Offset(size.width * 0.94f, size.height * 0.99f),
-                    radius = (size.width * 1.25f).coerceAtLeast(1f),
+                    center = Offset(size.width * 0.82f, size.height * 0.78f),
+                    radius = (size.width * 0.88f).coerceAtLeast(1f),
                 )
             )
         }
@@ -450,7 +441,7 @@ fun RoutineAmbientBackground(modifier: Modifier = Modifier) {
  * clip — so the glow can fall outside the card's bounds; the card then paints over the part that
  * would otherwise sit under it.
  */
-fun Modifier.liquidUnderGlow(accent: Color, alpha: Float = 0.10f): Modifier = this.drawBehind {
+fun Modifier.liquidUnderGlow(accent: Color, alpha: Float = 0.06f): Modifier = this.drawBehind {
     val center = Offset(size.width * 0.5f, size.height * 1.04f)
     val radius = (size.width * 0.72f).coerceAtLeast(1f)
     drawCircle(

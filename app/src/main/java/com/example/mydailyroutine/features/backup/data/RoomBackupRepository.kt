@@ -12,6 +12,7 @@ import com.example.mydailyroutine.domain.model.Milestone
 import com.example.mydailyroutine.domain.model.RoutineBlueprint
 import com.example.mydailyroutine.domain.model.RoutineCategory
 import com.example.mydailyroutine.domain.model.Subject
+import com.example.mydailyroutine.domain.model.SubjectPalette
 import com.example.mydailyroutine.domain.model.Task
 import com.example.mydailyroutine.domain.repository.ScheduleBackupRepository
 import com.example.mydailyroutine.domain.repository.TimelineRepository
@@ -150,7 +151,7 @@ class RoomBackupRepository(
                 for (i in 0 until arr.length()) {
                     val o = arr.getJSONObject(i)
                     val name = o.getString("name")
-                    val color = colorToLong(o.optString("color", "#3B82F6"))
+                    val color = colorToLong(o.optString("color")).takeUnless { it == 0L } ?: SubjectPalette.Default
                     val dur = o.optInt("defaultDuration", 45)
                     val id = db.subjects().insert(Subject(0, name, color, dur).entity())
                     subjectIds[name] = id
@@ -256,7 +257,12 @@ class RoomBackupRepository(
     private fun colorToLong(hex: String): Long {
         val cleaned = hex.removePrefix("#")
         val full = if (cleaned.length == 3) cleaned.map { "$it$it" }.joinToString("") else cleaned
-        return runCatching { full.toLong(16) }.getOrDefault(0x3B82F6)
+        val value = runCatching { full.toLong(16) }.getOrDefault(0L)
+        return when (full.length) {
+            6 -> 0xFF000000L or value
+            8 -> value
+            else -> 0L
+        }
     }
 
     private fun mapCategory(name: String): RoutineCategory = try {

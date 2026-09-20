@@ -70,7 +70,7 @@ fun ManagedRoutineCard(
     val haptics = LocalRoutineHaptics.current
     val sleep = block.origin == RoutineOrigin.SLEEP
     val morning = block.origin == RoutineOrigin.MORNING_BUFFER
-    val tint = if (block.isSuppressed) RoutineColors.TextMuted else RoutineColors.Sage
+    val tint = if (block.isSuppressed) RoutineColors.TextMuted else RoutineColors.Success
     val expandLabel = stringResource(if (expanded) R.string.collapse_block else R.string.expand_block)
     Box(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().timelineRail(RoutineColors.Spine), verticalAlignment = Alignment.Top) {
@@ -143,7 +143,7 @@ fun ManagedRoutineCard(
                                 } else {
                                     TextButton(enabled = !busy, onClick = { onAction(TimelineAction.RequestDelete(block)) }) {
                                         RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge,
-                                            color = RoutineColors.Crimson)
+                                            color = RoutineColors.Error)
                                     }
                                 }
                             }

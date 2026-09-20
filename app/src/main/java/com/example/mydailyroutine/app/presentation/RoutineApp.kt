@@ -346,7 +346,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                     androidx.compose.animation.AnimatedVisibility(visible = overdueTasks > 0,
                                         modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
                                         enter = badgeEnter, exit = badgeExit) {
-                                        Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Crimson))
+                                        Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Error))
                                     }
                                 }
                                 IconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open)) }
@@ -392,8 +392,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                     // Draw-phase translation, not layout offset: the capsule glides
                                     // without re-measuring the row on every spring frame.
                                     .graphicsLayer { translationX = slide.toPx() }
-                                    .background(RoutineColors.Cobalt.copy(alpha = 0.18f), RoutineShapes.Pill)
-                                    .border(1.dp, RoutineColors.Cobalt.copy(alpha = 0.55f), RoutineShapes.Pill),
+                                    .background(RoutineColors.Timer.copy(alpha = 0.18f), RoutineShapes.Pill)
+                                    .border(1.dp, RoutineColors.Timer.copy(alpha = 0.55f), RoutineShapes.Pill),
                             )
                             Row(Modifier.fillMaxSize()) {
                                 TimelineMode.entries.forEach { mode ->
@@ -432,7 +432,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         .routineGlassTouch(fastAddTouch, RoutineShapes.Pill)
                         .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control,
                             tilt = LocalGlassTilt.current)
-                        .background(RoutineColors.Amber.copy(alpha = 0.16f), RoutineShapes.Pill)
+                        .background(RoutineColors.Primary.copy(alpha = 0.16f), RoutineShapes.Pill)
                         .clip(RoutineShapes.Pill)
                         .clickable(interactionSource = fastAddTouch.source, indication = null, role = Role.Button) {
                             onAction(TimelineAction.OpenAdd)
@@ -441,8 +441,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                        Icon(Icons.Default.Add, null, tint = RoutineColors.Amber)
-                        RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Amber)
+                        Icon(Icons.Default.Add, null, tint = RoutineColors.Primary)
+                        RoutineLabel(stringResource(R.string.add_block), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Primary)
                     }
                 }
             }
@@ -525,7 +525,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     )
                 } },
                 confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(if (group != null && entireSeries) TimelineAction.DeleteSeries(group) else TimelineAction.ConfirmDelete) }) {
-                    RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+                    RoutineLabel(stringResource(R.string.delete), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Error)
                 } },
                 dismissButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.DismissDelete) }) {
                     RoutineLabel(stringResource(R.string.keep), style = MaterialTheme.typography.labelLarge)
@@ -536,7 +536,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                 maxLines = RoutineTextDefaults.Body) },
             text = { RoutineText(stringResource(R.string.execution_cancel_body), maxLines = RoutineTextDefaults.Paragraph) },
             confirmButton = { TextButton(enabled = !state.panels.isSaving, onClick = { onAction(TimelineAction.CancelExecution) }) {
-                RoutineLabel(stringResource(R.string.execution_cancel_confirm), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Crimson)
+                RoutineLabel(stringResource(R.string.execution_cancel_confirm), style = MaterialTheme.typography.labelLarge, color = RoutineColors.Error)
             } },
             dismissButton = { TextButton(onClick = { onAction(TimelineAction.DismissCancelExecution) }) {
                 RoutineLabel(stringResource(R.string.keep), style = MaterialTheme.typography.labelLarge)
