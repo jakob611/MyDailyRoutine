@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Moj dnevni ritem</string>
+    <string name="app_name">LockIn</string>
     <string name="app_tagline">TVOJ ČAS. TVOJ RITEM.</string>
     <string name="ib_profile">IB · 3. LETNIK</string>
     <string name="nav_day">Dan</string>
@@ -229,6 +229,8 @@
     <string name="save_quiet">Shrani tiho okno</string>
     <string name="settings_haptics">Nežni odzivi na dotik</string>
     <string name="settings_haptics_hint">Različni odzivi za dotik, vlečenje, opravljeno nalogo in opozorilo. Upošteva tudi sistemsko nastavitev vibriranja.</string>
+    <string name="settings_sound">Tihi zvočni učinki</string>
+    <string name="settings_sound_hint">Nežen, a slišen zvok ob potrditvah, izbrisih in odpiranju panelov, usklajen z vibracijami. V sistemskem načinu tišine ostane nem.</string>
     <string name="settings_countdown">Odštevanje do konca pouka</string>
     <string name="calendar_scope_hint">Priložen je zahodni koledar 2026/27. Drugih let ne ugibamo in ne prenašamo.</string>
     <string name="teaching_end_label">Konec pouka · LLLL-MM-DD</string>

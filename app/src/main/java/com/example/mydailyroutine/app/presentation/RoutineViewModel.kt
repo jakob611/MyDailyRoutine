@@ -304,6 +304,7 @@ class RoutineViewModel(
             }
             is TimelineAction.DeleteSubject -> perform { repository.deleteSubject(action.id) }
             is TimelineAction.SetHaptics -> perform { settings.setHapticsEnabled(action.enabled) }
+            is TimelineAction.SetSoundEffects -> perform { settings.setSoundEffectsEnabled(action.enabled) }
             is TimelineAction.SetHealthConfig -> perform {
                 settings.setHealthConfig(action.config)
                 messages.send(TimelineEffect.Message(R.string.message_thresholds_saved))

@@ -239,6 +239,13 @@ private fun LazyListScope.rhythmTab(
                 },
             )
             SettingRow(
+                title = stringResource(R.string.settings_sound),
+                description = stringResource(R.string.settings_sound_hint),
+                control = {
+                    RoutineSwitch(preferences.soundEffectsEnabled, { onAction(TimelineAction.SetSoundEffects(it)) }, enabled = !busy)
+                },
+            )
+            SettingRow(
                 title = stringResource(R.string.execution_automatic),
                 description = stringResource(R.string.execution_automatic_hint),
                 control = {
