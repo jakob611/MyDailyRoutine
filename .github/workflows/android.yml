@@ -21,17 +21,69 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # android-actions/setup-android@v3 started failing in ~15s on both jobs before any
+      # Gradle step (runs 35060558857 / 35060749097). Use the SDK the runner already ships,
+      # discover it instead of hardcoding a path, and publish findings as annotations so a
+      # failure is readable without the (blob-hosted) step log.
+      - name: Locate the Android SDK
+        run: |
+          sdk=""
+          for candidate in "$ANDROID_HOME" "$ANDROID_SDK_ROOT" /usr/local/lib/android/sdk /usr/lib/android-sdk /opt/android-sdk "$HOME/Android/Sdk"; do
+            if [ -n "$candidate" ] && [ -d "$candidate" ]; then sdk="$candidate"; break; fi
+          done
+          sm="$(command -v sdkmanager || true)"
+          if [ -z "$sm" ] && [ -n "$sdk" ]; then
+            sm="$(find "$sdk" -maxdepth 5 -type f -name sdkmanager 2>/dev/null | head -1)"
+          fi
+          if [ -z "$sm" ]; then
+            sm="$(find /usr /opt "$HOME" -maxdepth 6 -type f -name sdkmanager 2>/dev/null | head -1)"
+          fi
+          if [ -z "$sm" ]; then
+            echo "::error::No sdkmanager on this runner. ANDROID_HOME=$ANDROID_HOME ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT sdk=$sdk"
+            find / -maxdepth 4 -type d -name 'android*' 2>/dev/null | head -20 | sed 's|^|::notice::dir |'
+            exit 1
+          fi
+          sdk="${sdk:-$(dirname "$(dirname "$(dirname "$sm")")")}"
+          echo "::notice::Using ANDROID_HOME=$sdk with sdkmanager=$sm"
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+          echo "$(dirname "$sm")" >> "$GITHUB_PATH"
+          echo "$sdk/platform-tools" >> "$GITHUB_PATH"
+          echo "$sdk/emulator" >> "$GITHUB_PATH"
+          "$sm" --version || { echo "::error::sdkmanager present but not runnable: $sm"; exit 1; }
       - uses: gradle/actions/setup-gradle@v4
+      - run: yes | sdkmanager --licenses > /dev/null || true
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
-      - run: python3 tools/check_sqlite_integrity.py && python3 tools/check_presentation.py
+      - name: "Static gates: schema, presentation invariants, WCAG contrast"
+        run: python3 tools/derive_palette.py --check && python3 tools/check_sqlite_integrity.py && python3 tools/check_presentation.py && python3 tools/check_contrast.py
       - name: Build, unit tests and lint
         run: |
           set -o pipefail
-          ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --stacktrace 2>&1 | tee ci-build.log
+          ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug --stacktrace 2>&1 | tee ci-build.log
       - name: Publish compiler and test diagnostics
         if: always()
         run: python3 tools/report_ci_failures.py
+      - name: Unit test summary
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, os, xml.etree.ElementTree as ET
+          total = failed = 0
+          for path in sorted(glob.glob('core/build/test-results/*/TEST-*.xml') + glob.glob('app/build/test-results/*/TEST-*.xml')):
+              root = ET.parse(path).getroot()
+              tests = int(root.get('tests', 0)); bad = int(root.get('failures', 0)) + int(root.get('errors', 0))
+              total += tests; failed += bad
+              print(f"{root.get('name')}: {tests} tests, {bad} failed")
+          print(f"UNIT TESTS TOTAL: {total} tests, {failed} failed")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              out.write("## Unit tests\n\n")
+              for path in sorted(glob.glob('core/build/test-results/*/TEST-*.xml') + glob.glob('app/build/test-results/*/TEST-*.xml')):
+                  root = ET.parse(path).getroot()
+                  bad = int(root.get('failures', 0)) + int(root.get('errors', 0))
+                  mark = "pass" if bad == 0 else "FAIL"
+                  out.write(f"- `{root.get('name')}`: {root.get('tests')} tests, {bad} failed ({mark})\n")
+              out.write(f"\n**Total: {total} tests, {failed} failed**\n")
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -50,10 +102,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           apk=$(ls app/build/outputs/apk/debug/*.apk | head -1)
-          notes="Debug build za testiranje nalog in Ciljev (CAS/EE). Gradnja ${{ github.sha }} iz CI (build + emulator testi). Podpisano z debug kljucem: pred namestitvijo dovoli namestitev iz neznanih virov. Ni produkcijska izdaja."
-          gh release create debug-latest --title "Debug APK (zadnji zelenci CI)" --notes "$notes" 2>/dev/null \
-            || gh release edit debug-latest --title "Debug APK (zadnji zelenci CI)" --notes "$notes"
+          rel=$(ls app/build/outputs/apk/release/*unsigned*.apk app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)
+          notes="app-release.apk je MINIFICIRANA (R8) gradnja za vsakdanje testiranje na telefonu - obcutno tekoca od debug razlicice, ki nosi Compose debug instrumentacijo. app-debug.apk ostaja za loge. Gradnja ${{ github.sha }} iz CI (build + emulator testi), podpisano z debug kljucem: pred namestitvijo dovoli namestitev iz neznanih virov. Ni produkcijska izdaja."
+          gh release create debug-latest --title "APK (zadnji zeleni CI): release + debug" --notes "$notes" 2>/dev/null \
+            || gh release edit debug-latest --title "APK (zadnji zeleni CI): release + debug" --notes "$notes"
           gh release upload debug-latest "$apk" --clobber
+          gh release upload debug-latest "$rel" --clobber
   device-tests:
     runs-on: ubuntu-latest
     steps:
@@ -62,8 +116,35 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # The runner image already ships the SDK; setup-android@v3 started failing on the
+      # action side (both jobs, ~15s, before any Gradle step), so pin to the local SDK.
+      - name: Locate the Android SDK
+        run: |
+          sdk=""
+          for candidate in "$ANDROID_HOME" "$ANDROID_SDK_ROOT" /usr/local/lib/android/sdk /usr/lib/android-sdk /opt/android-sdk "$HOME/Android/Sdk"; do
+            if [ -n "$candidate" ] && [ -d "$candidate" ]; then sdk="$candidate"; break; fi
+          done
+          sm="$(command -v sdkmanager || true)"
+          if [ -z "$sm" ] && [ -n "$sdk" ]; then
+            sm="$(find "$sdk" -maxdepth 5 -type f -name sdkmanager 2>/dev/null | head -1)"
+          fi
+          if [ -z "$sm" ]; then
+            sm="$(find /usr /opt "$HOME" -maxdepth 6 -type f -name sdkmanager 2>/dev/null | head -1)"
+          fi
+          if [ -z "$sm" ]; then
+            echo "::error::No sdkmanager on this runner. ANDROID_HOME=$ANDROID_HOME ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT sdk=$sdk"
+            exit 1
+          fi
+          sdk="${sdk:-$(dirname "$(dirname "$(dirname "$sm")")")}"
+          echo "::notice::Using ANDROID_HOME=$sdk with sdkmanager=$sm"
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+          echo "$(dirname "$sm")" >> "$GITHUB_PATH"
+          echo "$sdk/platform-tools" >> "$GITHUB_PATH"
+          echo "$sdk/emulator" >> "$GITHUB_PATH"
+          "$sm" --version || { echo "::error::sdkmanager present but not runnable: $sm"; exit 1; }
       - uses: gradle/actions/setup-gradle@v4
+      - run: yes | sdkmanager --licenses > /dev/null || true
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - name: Enable KVM
         run: |
@@ -88,4 +169,6 @@ jobs:
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             ci-device.log
+            ci-device-crash.log
+            ci-device-logcat.log
             app/build/ui-audit/

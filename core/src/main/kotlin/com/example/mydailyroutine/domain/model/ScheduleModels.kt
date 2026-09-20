@@ -233,6 +233,8 @@ sealed interface ResolvedTimelineItem {
 
 data class SchedulePreferences(
     val muteDuringSchoolHours: Boolean = true,
+    /** A break starting is visible in the timeline; pinging for it is noise. Off by default. */
+    val notifyRecovery: Boolean = false,
     val schoolStart: LocalTime = LocalTime.of(7, 45),
     val schoolEnd: LocalTime = LocalTime.of(14, 30),
     val teachingEndDate: LocalDate = LocalDate.of(2027, 6, 24),

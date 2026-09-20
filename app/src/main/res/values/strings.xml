@@ -290,6 +290,17 @@
     <string name="notification_recovery_late">Počitek se je začel ob %1$s. Vzemi si trenutek za obnovo.</string>
     <string name="notification_starts">Začetek ob %1$s · %2$s</string>
     <string name="notification_started">Začelo se je ob %1$s · %2$s</string>
+    <plurals name="notification_group_title">
+        <item quantity="one">%1$d blok danes</item>
+        <item quantity="two">%1$d bloka danes</item>
+        <item quantity="few">%1$d bloki danes</item>
+        <item quantity="other">%1$d blokov danes</item>
+    </plurals>
+    <string name="notification_group_summary">Dotakni se za razpored dneva</string>
+    <string name="time_pick_title">Izberi uro</string>
+    <string name="time_apply">Uporabi</string>
+    <string name="recovery_alerts_title">Obvestilo ob začetku počitka</string>
+    <string name="recovery_alerts_description">Odmori so vidni v razporedu; posebna pasica zanje je ponavadi odveč, zato je privzeto izklopljena.</string>
     <string name="notification_subject_fallback">Tvoj dnevni ritem</string>
     <string name="widget_name">Tvoj dnevni pregled</string>
     <string name="widget_description">Preostali bloki, odštevanje do konca pouka in hitro dodajanje. Brez povezave.</string>
@@ -534,6 +545,10 @@
     <string name="timetable_imported">Urnik uvožen — tedenski bloki pouka so pripravljeni</string>
     <string name="sleep_days">Dnevi odhoda v posteljo</string>
     <string name="sleep_days_hint">Če je zbujanje prej na uri kot odhod v posteljo, pomeni naslednji dan. Npr. nedelja 23:00 → ponedeljek 07:00.</string>
+    <string name="sleep_minutes_format">%d min</string>
+    <string name="notify_start">Začni izvedbo</string>
+    <string name="notify_actual">Zabeleži minute</string>
+    <string name="record_actual">Zabeleži dejanske minute</string>
     <string name="sleep_morning">Jutranji prehod (min)</string>
     <string name="sleep_morning_hint">Neobvezni miren začetek po zbujanju. 0 pomeni brez dodatnega bloka.</string>
     <string name="sleep_save">Shrani ritem spanja</string>
@@ -657,6 +672,14 @@
     <string name="goals_reflection_hint">Kaj se je zgodilo in kaj sem se naučil? (150–300 besed je za portfolio dovolj)</string>
     <string name="goals_reflections_empty">Ni še refleksij za to aktivnost.</string>
     <string name="goals_milestones">Mejniki</string>
+    <string name="section_expand">Razširi</string>
+    <string name="section_collapse">Zloži</string>
+    <string name="goals_tab_overview">Pregled</string>
+    <string name="goals_tab_progress">Napredek</string>
+    <string name="goals_progress_log">Dnevnik napredka</string>
+    <string name="goals_progress_empty">Ni še zabeleženega napredka. Ure, besede in refleksije dodajaš v zavihku Aktivnosti.</string>
+    <string name="goals_progress_words">%1$d besed</string>
+    <string name="goals_progress_kind_reflection">refleksija</string>
     <string name="goals_add_milestone">Dodaj mejnik</string>
     <string name="goals_edit_milestone">Uredi mejnik</string>
     <string name="goals_milestone_title">Naziv mejnika</string>
@@ -691,4 +714,32 @@
     <string name="ee_milestone_3">Viva voce s supervizorjem</string>
     <string name="ee_milestone_4">RPF — refleksija do 500 besed</string>
     <string name="ee_milestone_5">Končna oddaja eseja (šolski rok)</string>
+
+    <!-- 2026 prenova vmesnika: razčlenjeni napisi za dostopnost, zavihki in zgoščene postavitve. -->
+    <string name="collapse_block">Strni blok</string>
+    <string name="expand_block">Razširi blok</string>
+    <string name="more_items_suffix">%1$s · še %2$d</string>
+    <string name="execution_elapsed_minutes">%1$d</string>
+    <string name="execution_elapsed_label">minut zbranega dela</string>
+    <string name="week_block_description">%1$s, %2$s, %3$s, %4$s</string>
+    <string name="goals_gantt_bar_description">%1$s od %2$s do %3$s</string>
+    <string name="planning_tab_backlog">Čakalna vrsta</string>
+    <string name="planning_tab_topics">Teme</string>
+    <string name="planning_tab_markers">Roki</string>
+    <string name="planning_topics_empty">Ni tem za ponavljanje. Dodaj temo in razporedim ponovitve.</string>
+    <string name="planning_milestones_empty">Ni prihajajočih rokov.</string>
+    <string name="planning_topic_due">Rok: %1$s</string>
+    <string name="planning_synthesis_toggle">Sintetična naloga (esej, projekt)</string>
+    <string name="settings_tab_rhythm">Ritem</string>
+    <string name="settings_tab_reminders">Opomniki</string>
+    <string name="settings_tab_plan">Načrt</string>
+    <string name="settings_tab_rules">Pravila</string>
+    <string name="settings_tab_data">Podatki</string>
+    <string name="widget_days_unit">do konca pouka</string>
+    <plurals name="timetable_import_create">
+        <item quantity="one">Uvozi %d blok</item>
+        <item quantity="two">Uvozi %d bloka</item>
+        <item quantity="few">Uvozi %d bloke</item>
+        <item quantity="other">Uvozi %d blokov</item>
+    </plurals>
 </resources>

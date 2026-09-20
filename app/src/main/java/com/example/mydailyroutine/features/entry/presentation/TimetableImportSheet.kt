@@ -20,19 +20,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,13 +34,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
+import com.example.mydailyroutine.core.designsystem.components.RoutineSheetScaffold
+import com.example.mydailyroutine.core.designsystem.components.RoutineText
+import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
+import com.example.mydailyroutine.core.designsystem.components.SheetPrimaryButton
+import com.example.mydailyroutine.core.designsystem.components.SheetSecondaryButton
 import com.example.mydailyroutine.domain.model.Subject
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.example.mydailyroutine.core.platform.Slovenian
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.presentation.TimetableRow
@@ -124,47 +126,54 @@ fun TimetableImportSheet(
     val haptics = LocalRoutineHaptics.current
     var text by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf<List<TimetableRow>?>(null) }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoutineShapes.Sheet, containerColor = RoutineColors.Surface1, tonalElevation = 0.dp) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+    val rows = preview
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoutineShapes.Sheet,
+        containerColor = RoutineColors.SheetSurface, tonalElevation = 0.dp) {
+        RoutineSheetScaffold(
+            title = stringResource(R.string.timetable_import_title),
+            subtitle = stringResource(R.string.timetable_import_hint),
+            closeLabel = stringResource(R.string.close),
+            onClose = onDismiss,
+            modifier = Modifier.testTag("timetable-import"),
+            footer = {
+                if (rows != null && rows.isNotEmpty()) {
+                    SheetPrimaryButton(
+                        label = pluralStringResource(R.plurals.timetable_import_create, rows.size, rows.size),
+                        enabled = !busy,
+                        // The import action reaches the wrapper, which fires the success haptic for every committed
+                        // change. A second one here would just blur it.
+                        onClick = { onImport(rows) },
+                    )
+                }
+            },
         ) {
-            Text(stringResource(R.string.timetable_import_title), style = MaterialTheme.typography.headlineSmall)
-            Text(stringResource(R.string.timetable_import_hint), style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextMuted)
             OutlinedTextField(
                 value = text,
                 onValueChange = { value -> text = value; preview = null },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.timetable_import_paste)) },
+                label = { RoutineText(stringResource(R.string.timetable_import_paste)) },
                 minLines = 5,
                 maxLines = 10,
                 shape = RoutineShapes.Card,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilledTonalButton(
-                    modifier = Modifier.weight(1f),
-                    enabled = text.isNotBlank(),
-                    onClick = {
-                        haptics.complete()
-                        preview = TimetablePasteParser.parse(text)
-                    },
-                ) { Text(stringResource(R.string.timetable_import_preview)) }
-            }
-            val rows = preview
+            SheetSecondaryButton(
+                label = stringResource(R.string.timetable_import_preview),
+                enabled = text.isNotBlank(),
+                onClick = {
+                    val parsed = TimetablePasteParser.parse(text)
+                    preview = parsed
+                    // Apple's notification family, used the way it is meant to be: success when the
+                    // paste yielded rows, warning when it did not.
+                    if (parsed.isNullOrEmpty()) haptics.warning() else haptics.confirm()
+                },
+            )
             if (rows != null) {
                 if (rows.isEmpty()) {
-                    Text(stringResource(R.string.timetable_import_none), style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning)
+                    RoutineText(stringResource(R.string.timetable_import_none), style = MaterialTheme.typography.bodySmall,
+                        color = RoutineColors.Warning, maxLines = RoutineTextDefaults.Paragraph)
                 } else {
-                    Text(
-                        stringResource(R.string.timetable_import_confirm, rows.size),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = RoutineColors.TextMuted,
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // The count lives on the import button, so the preview list needs no second headline.
+                    Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
                         rows.forEach { row ->
                             val matchesSubject = subjects.any { subject ->
                                 val name = normalizeToken(subject.name)
@@ -172,27 +181,32 @@ fun TimetableImportSheet(
                                 name.isNotBlank() && title.contains(name)
                             }
                             Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .background(
-                                        if (matchesSubject) RoutineColors.School.container else RoutineColors.Surface2,
-                                        RoutineShapes.Chip,
-                                    )
-                                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                Modifier.fillMaxWidth().background(
+                                    if (matchesSubject) RoutineColors.School.container else RoutineColors.Surface2,
+                                    RoutineShapes.Chip,
+                                ).padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
+                                horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(row.day.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()), style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextMuted)
-                                Text("%02d:%02d – %02d:%02d".format(row.startMinute / 60, row.startMinute % 60, row.endMinute / 60, row.endMinute % 60), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = RoutineColors.School.content)
-                                Text(row.title, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                RoutineLabel(
+                                    text = row.day.getDisplayName(java.time.format.TextStyle.SHORT, Slovenian),
+                                    modifier = Modifier.widthIn(min = 40.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (matchesSubject) RoutineColors.School.content else RoutineColors.TextMuted,
+                                )
+                                RoutineLabel(
+                                    text = "%02d:%02d – %02d:%02d".format(
+                                        row.startMinute / 60, row.startMinute % 60,
+                                        row.endMinute / 60, row.endMinute % 60,
+                                    ),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (matchesSubject) RoutineColors.School.content else RoutineColors.TextSecondary,
+                                )
+                                RoutineText(row.title, style = MaterialTheme.typography.bodySmall, maxLines = RoutineTextDefaults.Title,
+                                    modifier = Modifier.weight(1f))
                             }
                         }
                     }
-                    Button(
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !busy,
-                        onClick = { haptics.complete(); onImport(rows) },
-                    ) { Text(stringResource(R.string.timetable_import_open)) }
                 }
             }
         }

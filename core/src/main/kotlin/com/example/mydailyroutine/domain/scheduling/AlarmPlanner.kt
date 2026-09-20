@@ -38,23 +38,28 @@ object OccurrenceTimes {
 
 /** One upcoming notification batch keeps AlarmManager usage O(1), even for a very dense timetable. */
 class AlarmPlanner(private val resolver: TimelineResolver = TimelineResolver()) {
-    fun forOccurrence(block: ResolvedTimelineItem.Block, zone: ZoneId): PlannedAlarm? {
+    /**
+     * A break starting is visible in the timeline, so pinging for it is opt-in: every unrequested
+     * alert trains the user to swipe the whole app away. [recoveryAlerts] is the user's setting.
+     */
+    fun forOccurrence(block: ResolvedTimelineItem.Block, zone: ZoneId, recoveryAlerts: Boolean = false): PlannedAlarm? {
         if (block.category == RoutineCategory.EMERGENCY_RESERVE || block.isCarryIn || block.isSuppressed || block.isCompleted || !block.isNotificationEnabled) return null
         val window = OccurrenceTimes.window(block, zone)
         if (window.end <= window.start) return null
+        if (block.category == RoutineCategory.REST_BUFFER && !recoveryAlerts) return null
         val kind = if (block.category == RoutineCategory.REST_BUFFER) AlarmKind.RECOVERY_START else AlarmKind.BLOCK_PREVIEW
         val trigger = if (kind == AlarmKind.RECOVERY_START) window.start else window.start.minusSeconds(5 * 60)
         return PlannedAlarm(block, kind, trigger)
     }
 
-    fun next(snapshot: ScheduleSnapshot, now: Instant, zone: ZoneId): AlarmBatch? {
+    fun next(snapshot: ScheduleSnapshot, now: Instant, zone: ZoneId, recoveryAlerts: Boolean = false): AlarmBatch? {
         val schedule = resolver.prepare(snapshot)
         var date = maxOf(snapshot.from, now.atZone(zone).toLocalDate())
         var earliest: Instant? = null
         val alarms = mutableListOf<PlannedAlarm>()
         while (date <= snapshot.through) {
             schedule.forDate(date).filterIsInstance<ResolvedTimelineItem.Block>().forEach { block ->
-                val alarm = forOccurrence(block, zone)
+                val alarm = forOccurrence(block, zone, recoveryAlerts)
                 if (alarm != null && alarm.triggerAt > now) {
                     val previous = earliest
                     when {
@@ -76,12 +81,12 @@ class AlarmPlanner(private val resolver: TimelineResolver = TimelineResolver()) 
     }
 
     /** Re-resolve at receipt time: edited, skipped, completed, deleted, or holiday blocks cannot leak stale notifications. */
-    fun due(snapshot: ScheduleSnapshot, scheduledFor: Instant, now: Instant, zone: ZoneId): List<PlannedAlarm> {
+    fun due(snapshot: ScheduleSnapshot, scheduledFor: Instant, now: Instant, zone: ZoneId, recoveryAlerts: Boolean = false): List<PlannedAlarm> {
         if (now < scheduledFor || Duration.between(scheduledFor, now) > MAX_LATENESS) return emptyList()
         val schedule = resolver.prepare(snapshot)
         val date = scheduledFor.atZone(zone).toLocalDate()
         return (-1L..1L).flatMap { offset ->
-            schedule.forDate(date.plusDays(offset)).filterIsInstance<ResolvedTimelineItem.Block>().mapNotNull { forOccurrence(it, zone) }
+            schedule.forDate(date.plusDays(offset)).filterIsInstance<ResolvedTimelineItem.Block>().mapNotNull { forOccurrence(it, zone, recoveryAlerts) }
         }.filter { it.triggerAt == scheduledFor && OccurrenceTimes.window(it.block, zone).end > now }
             .distinctBy { it.deliveryKey }.sortedBy { it.deliveryKey }
     }
