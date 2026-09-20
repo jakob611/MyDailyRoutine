@@ -2,7 +2,6 @@ package com.example.mydailyroutine.core.designsystem.sound
 
 import android.content.Context
 import android.media.AudioAttributes
-import android.media.AudioManager
 import android.media.SoundPool
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -17,7 +16,7 @@ import com.example.mydailyroutine.R
 val LocalRoutineSounds = staticCompositionLocalOf<RoutineSounds> { error("RoutineSounds provider is required") }
 
 /**
- * The app's audio vocabulary: three quiet interface sounds, picked from the brand's fifteen-sound
+ * The app's audio vocabulary: three interface sounds, picked from the brand's fifteen-sound
  * catalog and paired with the haptic vocabulary in [com.example.mydailyroutine.core.designsystem.haptics.RoutineHaptics].
  *
  * Sound is the louder sibling of a vibration, so it has to earn its place even more carefully:
@@ -33,17 +32,20 @@ val LocalRoutineSounds = staticCompositionLocalOf<RoutineSounds> { error("Routin
  * * **open** — catalog sound 8, with [com.example.mydailyroutine.core.designsystem.haptics.RoutineHaptics.press]:
  *   a main surface took over the screen.
  *
- * Everything is deliberately understated: the pool plays on the sonification stream at a low fixed
- * volume — present, never loud — and stays silent whenever the preference is off or the phone's
- * ringer is not in normal mode, so a silenced phone is never answered by the app.
+ * The pool plays on the **media** stream at full scale: the sonification stream looked correct on
+ * paper but on real hardware it is owned by the system-sound volume (often zero, never touched by
+ * the volume keys the reader actually presses), which made the sounds inaudible in practice. On
+ * the media stream the hardware keys the reader reaches for are exactly the ones that control
+ * these sounds, and full scale means the sounds arrive as loud as the reader chose. The app's own
+ * preference is the master switch; [preview] lets the settings screen prove audibility the moment
+ * the switch flips on.
  */
 @Stable
 class RoutineSounds internal constructor(context: Context, private val enabled: State<Boolean>) {
-    private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val loaded = mutableSetOf<Int>()
     private val pool = SoundPool.Builder()
         .setMaxStreams(MAX_CONCURRENT)
-        .setAudioAttributes(sonification)
+        .setAudioAttributes(feedbackAudio)
         .build()
         .also { pool -> pool.setOnLoadCompleteListener { _, sampleId, status -> if (status == 0) loaded += sampleId } }
 
@@ -60,9 +62,14 @@ class RoutineSounds internal constructor(context: Context, private val enabled: 
     /** A main surface opened. Catalog sound 8, paired with the medium press haptic. */
     fun open() = play(openId)
 
-    private fun play(sampleId: Int) {
-        if (!enabled.value) return
-        if (audio.ringerMode != AudioManager.RINGER_MODE_NORMAL) return
+    /**
+     * Plays the confirm sound regardless of the preference, for the settings screen: flipping the
+     * switch on should answer with the sound itself, before the preference write has propagated.
+     */
+    fun preview() = play(confirmId, force = true)
+
+    private fun play(sampleId: Int, force: Boolean = false) {
+        if (!force && !enabled.value) return
         if (!loaded.contains(sampleId)) return
         pool.play(sampleId, VOLUME, VOLUME, PRIORITY, 0, RATE)
     }
@@ -70,16 +77,16 @@ class RoutineSounds internal constructor(context: Context, private val enabled: 
     internal fun release() = pool.release()
 
     private companion object {
-        /** Quiet on purpose: audible at arm's length, never a ringtone. */
-        const val VOLUME = 0.35f
+        /** Full scale: the system media volume the reader sets is the loudness knob. */
+        const val VOLUME = 1f
         const val MAX_CONCURRENT = 3
         const val PRIORITY = 1
         const val RATE = 1f
 
-        // The same stream the haptics class sonifies with: UI feedback, not media, so the sounds
-        // follow the phone's system-sound volume and stay out of whatever is playing.
-        val sonification = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+        // Media usage on purpose: it is the one stream whose volume the hardware keys control on
+        // every device, so "turn it up" actually turns these sounds up.
+        val feedbackAudio = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
     }

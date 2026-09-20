@@ -61,6 +61,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaul
 import com.example.mydailyroutine.core.designsystem.components.SheetSecondaryButton
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
+import com.example.mydailyroutine.core.designsystem.sound.LocalRoutineSounds
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
@@ -230,6 +231,7 @@ private fun LazyListScope.rhythmTab(
         EntryDefaultsSettings(preferences.entryDefaults, busy) { onAction(TimelineAction.SaveEntryDefaults(it)) }
     }
     item(key = "settings-feedback") {
+        val sounds = LocalRoutineSounds.current
         Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
             SettingRow(
                 title = stringResource(R.string.settings_haptics),
@@ -242,7 +244,12 @@ private fun LazyListScope.rhythmTab(
                 title = stringResource(R.string.settings_sound),
                 description = stringResource(R.string.settings_sound_hint),
                 control = {
-                    RoutineSwitch(preferences.soundEffectsEnabled, { onAction(TimelineAction.SetSoundEffects(it)) }, enabled = !busy)
+                    RoutineSwitch(preferences.soundEffectsEnabled, { on ->
+                        onAction(TimelineAction.SetSoundEffects(on))
+                        // The switch answers with the sound itself the moment it turns on, so the
+                        // reader hears immediately what they just enabled.
+                        if (on) sounds.preview()
+                    }, enabled = !busy)
                 },
             )
             SettingRow(
