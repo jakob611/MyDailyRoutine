@@ -86,3 +86,27 @@ for file in (root / 'app/src/main/java/com/example/mydailyroutine/features').rgl
     if '/data/' in str(file):
         code=file.read_text()
         assert not re.search(r'^import com\.example\.mydailyroutine\.(?:features\.[^.]+\.presentation|app\.presentation)',code,re.M), file
+
+# Palette audit includes launcher artwork, notification resources, all XML qualifiers and JVM code.
+# User-supplied Color(subject.colorHex) is data, not a hardcoded theme; numeric constructors aren't.
+for file in main_files:
+    if '/designsystem/theme/' not in str(file):
+        code = file.read_text()
+        assert not re.search(r'\bColor\s*\(\s*(?:0[xX]|\d)', code), f'Numeric colour outside palette: {file}'
+        assert not re.search(r'["\']#[0-9a-fA-F]{3,8}["\']', code), f'Hex string outside palette: {file}'
+for file in res.rglob('*.xml'):
+    if file == res / 'values/colors.xml':
+        continue
+    literals = re.findall(r'(?:color|Color)="(#[0-9a-fA-F]{3,8})"', file.read_text())
+    # Android recolours this one monochrome notification alpha mask; it is not visible white ink.
+    if file.name == 'ic_notification.xml':
+        assert set(literals) <= {'#FFFFFFFF'}, file
+    else:
+        assert not literals, f'XML colour outside generated palette: {file}: {literals}'
+
+# Regression: text must not fade just because an item is completed or outside the selected month.
+overview = (ui_root / 'features/timeline/presentation/overview/OverviewScreens.kt').read_text()
+goals = (ui_root / 'features/goals/presentation/GoalsScreen.kt').read_text()
+assert '.alpha(if (inMonth)' not in overview
+assert 'Modifier.alpha(0.55f)' not in goals
+print('Palette source checks passed: no literal UI colours outside the palette/XML mirror.')

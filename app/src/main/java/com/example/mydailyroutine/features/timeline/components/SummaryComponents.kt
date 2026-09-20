@@ -95,7 +95,7 @@ fun DayLoadBar(items: List<ResolvedTimelineItem>, modifier: Modifier = Modifier)
     val description = stringResource(R.string.day_load_description)
     Row(
         modifier.fillMaxWidth().height(RoutineSpacing.sm).clip(RoutineShapes.Pill)
-            .background(RoutineColors.Surface2).semantics { contentDescription = description },
+            .background(RoutineColors.SurfaceLowest).semantics { contentDescription = description },
     ) {
         allocation.forEach { slice ->
             Box(Modifier.weight(slice.minutes.toFloat()).fillMaxHeight().background(categoryStyle(slice.category).accent))
@@ -177,7 +177,7 @@ fun MetricTile(label: String, value: String, modifier: Modifier = Modifier) {
     Surface(
         modifier.fillMaxHeight(),
         shape = RoutineShapes.Card,
-        color = RoutineColors.Surface1,
+        color = RoutineColors.SurfaceContainer,
         border = BorderStroke(1.dp, RoutineColors.CardBorder),
     ) {
         Column(

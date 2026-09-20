@@ -84,11 +84,11 @@ fun TimeGutter(
             style = style,
             color = when {
                 emphasized -> RoutineColors.TextPrimary
-                muted -> RoutineColors.TextMuted
+                muted -> RoutineColors.TextSecondary
                 else -> RoutineColors.TextSecondary
             },
         )
-        if (end != null) RoutineLabel(end, style = style, color = RoutineColors.TextMuted)
+        if (end != null) RoutineLabel(end, style = style, color = RoutineColors.TextSecondary)
     }
 }
 
@@ -134,16 +134,16 @@ fun NowBand(
                 ) {
                     Box(
                         Modifier.size(RoutineMetrics.NowDotSize).alpha(pulse)
-                            .background(RoutineColors.Crimson, CircleShape),
+                            .background(RoutineColors.Timer, CircleShape),
                     )
                     Box(
-                        Modifier.weight(1f).height(RoutineMetrics.SpineWidth).background(RoutineColors.Crimson),
+                        Modifier.weight(1f).height(RoutineMetrics.SpineWidth).background(RoutineColors.Timer),
                     )
                     RoutineLabel(
                         text = time,
                         modifier = Modifier.alpha(pulse).padding(horizontal = RoutineSpacing.xs),
                         style = MaterialTheme.typography.labelSmall,
-                        color = RoutineColors.Crimson,
+                        color = RoutineColors.Timer,
                     )
                 }
             }

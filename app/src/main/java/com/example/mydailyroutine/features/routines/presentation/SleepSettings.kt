@@ -113,7 +113,7 @@ fun SleepSettings(schedule: SleepSchedule, busy: Boolean, onAction: (TimelineAct
             RoutineText(
                 text = stringResource(R.string.sleep_planned_duration, durationLabel(nominalMinutes(start, end))),
                 style = MaterialTheme.typography.labelMedium,
-                color = RoutineColors.Sage,
+                color = RoutineColors.RecoveryAccent,
                 maxLines = RoutineTextDefaults.Body,
             )
         }
