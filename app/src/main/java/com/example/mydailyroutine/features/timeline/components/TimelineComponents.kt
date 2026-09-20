@@ -2,14 +2,9 @@ package com.example.mydailyroutine.features.timeline.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -89,6 +84,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.example.mydailyroutine.core.designsystem.motion.LocalPulse
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
@@ -537,22 +533,15 @@ fun NowMarker(time: String, modifier: Modifier = Modifier, pulse: Float = pulseA
     }
 }
 
+/**
+ * The breathing of the NOW indicator, read from the app's one shared clock ([LocalPulse], provided
+ * at the root). Each indicator used to carry its own infinite transition — a dozen overlapping
+ * loops on a busy day, every one restarted or stopped as cards scrolled in and out, and that churn
+ * is what made a fast fling stutter. One clock: every indicator breathes in phase, and the loop
+ * never starts at all under the system's remove-animations setting.
+ */
 @Composable
-fun pulseAlpha(): Float {
-    // A breathing indicator is the one animation here the reader never asked for, so it is the first
-    // to go: under remove-animations it holds its brightest value and the loop never starts.
-    if (LocalReduceMotion.current) return 1f
-    val transition = rememberInfiniteTransition(label = "gentle-indicator")
-    // A 200 ms reverse loop is a 2.5 Hz strobe, which reads as an alarm, not as "now". iOS Calendar's
-    // indicator does not blink at all; the closest honest analogue is one slow sine breath per ~3 s,
-    // shallow enough to notice only when you look for it.
-    val alpha by transition.animateFloat(
-        0.78f, 1f,
-        infiniteRepeatable(tween(2800, easing = CubicBezierEasing(0.37f, 0f, 0.63f, 1f)), RepeatMode.Reverse),
-        label = "indicator-alpha",
-    )
-    return alpha
-}
+fun pulseAlpha(): Float = LocalPulse.current
 
 @Composable
 fun MilestoneCard(

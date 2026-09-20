@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,10 +13,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,11 +41,20 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.core.designsystem.glass.GlassRole
+import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
+import com.example.mydailyroutine.core.designsystem.glass.LocalRoutineBackdrop
+import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
+import com.example.mydailyroutine.core.designsystem.glass.routineGlass
+import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.glassMorphSpec
 import com.example.mydailyroutine.core.designsystem.motion.glassTouchSpec
 import com.example.mydailyroutine.core.designsystem.theme.PopSpring
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
+import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
+import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import kotlinx.coroutines.launch
 
 /**
@@ -261,4 +274,95 @@ fun LiquidSlider(
                 .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.25f), CircleShape),
         )
     }
+}
+
+/**
+ * The liquid glass buttons, in the literal sense: the control is **itself** a pane of glass —
+ * the same blur, lens, rim and touch behaviour as the floating chrome — instead of a transparent
+ * clickable painted on top of a glass frame.
+ *
+ * Two rules from the glass layer carry over:
+ *
+ * * Every pane samples the *window's* backdrop through [LocalRoutineBackdrop], never a backdrop of
+ *   its own. The pane is a sibling of the content layer it refracts, so what it shows is what is
+ *   actually scrolling under the chrome it lives in, not the frame it sits on.
+ * * [rememberGlassTouch] gives the pane the interactive-glass behaviour of Apple's `.interactive()`:
+ *   a few percent of scale under the finger, a light bloom at the touch point, a sprung release.
+ *   The Material ripple is switched off — the scale *is* the state layer, and a second answer on
+ *   top of it would contradict the first.
+ */
+@Composable
+fun GlassIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: CornerBasedShape = RoutineShapes.GlassChip,
+    role: GlassRole = GlassRole.Chip,
+    icon: @Composable () -> Unit,
+) {
+    val backdrop = LocalRoutineBackdrop.current
+    val touch = rememberGlassTouch(LocalReduceMotion.current)
+    Box(
+        modifier
+            .size(RoutineMetrics.GlassControlSize)
+            .routineGlassTouch(touch, shape)
+            .routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current)
+            .clip(shape)
+            .clickable(interactionSource = touch.source, indication = null, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { icon() }
+}
+
+/** A text control as its own glass pane: the "Danes" style of button, one raised piece of glass. */
+@Composable
+fun GlassChipButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: CornerBasedShape = RoutineShapes.GlassChip,
+    role: GlassRole = GlassRole.Chip,
+    contentColor: Color = RoutineColors.TextPrimary,
+) {
+    val backdrop = LocalRoutineBackdrop.current
+    val touch = rememberGlassTouch(LocalReduceMotion.current)
+    Box(
+        modifier
+            .routineGlassTouch(touch, shape)
+            .routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current)
+            .clip(shape)
+            .clickable(interactionSource = touch.source, indication = null, role = Role.Button, onClick = onClick)
+            .padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.sm),
+        contentAlignment = Alignment.Center,
+    ) {
+        RoutineLabel(label, style = MaterialTheme.typography.labelLarge, color = contentColor)
+    }
+}
+
+/**
+ * A glass pane of arbitrary width carrying its own content — the wide date chip of the period
+ * navigator. The pane sizes to its content; the content owns its padding.
+ */
+@Composable
+fun GlassContentChip(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: CornerBasedShape = RoutineShapes.GlassChip,
+    role: GlassRole = GlassRole.Chip,
+    label: String? = null,
+    content: @Composable () -> Unit,
+) {
+    val backdrop = LocalRoutineBackdrop.current
+    val touch = rememberGlassTouch(LocalReduceMotion.current)
+    Box(
+        modifier
+            .routineGlassTouch(touch, shape)
+            .routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current)
+            .clip(shape)
+            .clickable(
+                onClickLabel = label,
+                interactionSource = touch.source,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            ),
+    ) { content() }
 }

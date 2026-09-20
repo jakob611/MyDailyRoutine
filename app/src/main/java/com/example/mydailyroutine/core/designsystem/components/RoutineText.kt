@@ -456,9 +456,12 @@ fun RoutineSheetScaffold(
 ) {
     SheetShell(title, modifier, closeLabel, onClose, subtitle, footer) { backdrop, header ->
         // Wrap, don't fill: the sheet Box is capped at the space the column has left, so a short
-        // sheet still hugs its content instead of growing to the full window height.
+        // sheet still hugs its content instead of growing to the full window height. The fling
+        // stabilizer sits *above* the scrollable in the chain: a nested scroll node only sees the
+        // scrolling of the nodes below it, so it must be the scrollable's ancestor to intercept
+        // the fling before the sheet's own drag logic, one level up, ever receives it.
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).layerBackdrop(backdrop)
+            Modifier.fillMaxWidth().sheetFlingStabilizer().verticalScroll(rememberScrollState()).layerBackdrop(backdrop)
                 .padding(horizontal = RoutineSpacing.xl)
                 .padding(top = header + RoutineSpacing.lg, bottom = RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
@@ -482,7 +485,7 @@ fun RoutineSheetListScaffold(
 ) {
     SheetShell(title, modifier, closeLabel, onClose, subtitle, footer) { backdrop, header ->
         LazyColumn(
-            Modifier.fillMaxWidth().layerBackdrop(backdrop),
+            Modifier.fillMaxWidth().layerBackdrop(backdrop).sheetFlingStabilizer(),
             contentPadding = PaddingValues(RoutineSpacing.xl, header + RoutineSpacing.lg,
                 RoutineSpacing.xl, RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
