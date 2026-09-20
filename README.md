@@ -156,9 +156,9 @@ No Internet or network-state permission survives manifest merging. No analytics/
 
 ## Test APK publication
 
-PR verification uploads `debug-apk`, **`release-apk`** and test reports. A manual run of
-**Android verification** on the desired branch additionally publishes `test-<commit>` as a GitHub
+PR verification uploads `debug-apk`, **`release-apk`** and test reports. A same-repository PR or manual run of
+**Android verification** additionally publishes `test-<commit>` as a GitHub
 prerelease, **only after both build and emulator jobs succeed**, with a release APK and SHA-256.
 The release variant is minified/shrunk but signed with the existing test/debug signing configuration,
-not a production key. Runner-generated keys may differ: export a backup before uninstalling an old
+not a production key. PR APKs use the verified merge commit. Runner-generated keys may differ: export a backup before uninstalling an old
 build if Android refuses an update. The old `debug-latest` rolling release is not updated by this flow.

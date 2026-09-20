@@ -165,10 +165,12 @@ jobs:
             app/build/ui-audit/
 
   publish-test-release:
-    # Never label a build as verified before emulator tests have passed too. PRs upload artifacts;
-    # a manual run publishes an immutable prerelease without replacing someone else's rolling APK.
+    # Only trusted same-repository PRs/manual runs may publish; forks keep read-only artifacts.
+    # Never publish before both jobs pass, or replace another branch's rolling APK.
     needs: [build, device-tests]
-    if: github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
       contents: write

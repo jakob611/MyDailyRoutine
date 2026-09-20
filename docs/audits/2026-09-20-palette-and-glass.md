@@ -117,7 +117,7 @@ Primeri iz avtomatskega izračuna (sRGB kompozicija; GPU slika je ločeno prever
 - Bar/Sheet nad čisto belim backdropom + maksimalnim tilt highlightom:
   TextPrimary **9,59 : 1**, TextSecondary **4,95 : 1**, Primary **5,64 : 1**.
 - Control nad belim + tilt + touch: TextSecondary **4,97 : 1**, Primary **5,67 : 1**.
-- `#718096` ni uporabljena za drobne vsebinske napise: na SurfaceHighest je približno **3,15 : 1**.
+- `#718096` ni uporabljena za drobne vsebinske napise: na SurfaceHighest je približno **3,17 : 1**.
 
 `check_contrast.py` pokriva 215 kombinacij: vse glavne površine, akcente, šest kategorij, tinted
 kartice z belim/črnim user accentom, ambient, heatmap, pulziranje, vse glass role in fallback.
@@ -140,8 +140,9 @@ in 19 SQLite integrity testov. Dodani so štirje Kotlin testi za Material vloge,
 swatche in glass fallback; te izvrši GitHub CI skupaj z obstoječimi JVM/Android testi.
 
 GitHub workflow gradi debug in **R8 release**, izvaja core/app unit teste, lint in API 35 emulator
-suite s screenshot artefakti. Ročni workflow objavi `test-<commit>` prerelease + SHA-256 šele po
-uspehu **obeh** jobov. PR sam ne prepisuje več globalnega `debug-latest`.
+suite s screenshot artefakti. Interni PR ali ročni workflow objavi `test-<commit>` prerelease + SHA-256 šele po
+uspehu **obeh** jobov. Fork PR nima dovoljenja za objavo; interni PR dobi lastno testno izdajo
+iz preverjenega merge commita, ne prepisuje globalnega `debug-latest`.
 
 APK uporablja obstoječi testni/debug podpis. To ni produkcijsko podpisana trgovinska izdaja.
 Ključ runnerja se lahko spremeni: če posodobitev ni mogoča, najprej izvoz backup, nato odstranitev
