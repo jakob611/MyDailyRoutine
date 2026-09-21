@@ -24,3 +24,10 @@ local.properties
 **/__pycache__/
 *.pyc
 ci-*.log
+
+# Repository hygiene (audit 2026-09-21, K9): the repo is for code. Workspace snapshots, screen
+# recordings and export archives belong in a release or on disk, not in every clone forever.
+workspace-*.zip
+all.zip
+clicks.zip
+/uploads/
