@@ -53,7 +53,7 @@ object Diagnostics {
 
     private fun record(line: String) {
         synchronized(entries) {
-            entries.add(0, "${LocalTime.now().format(clock)} · $line")
+            entries.add(0, "${stamp()} · $line")
             while (entries.size > Capacity) entries.removeAt(entries.lastIndex)
             _recent.value = entries.toList()
         }
