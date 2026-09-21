@@ -555,6 +555,11 @@
     <string name="timetable_import_hint">Copy the timetable rows from your school’s site (e.g. ManageBac) and paste them here. I recognise shapes like “Mon 08:00–08:50 Maths” and “Monday 8:00-8:50 Math”; each row becomes a weekly lesson block without a reminder.</string>
     <string name="timetable_import_settings_hint">A one-off import of a timetable copied from ManageBac. Nothing goes to the cloud — the timetable stays your local setting.</string>
     <string name="timetable_import_open">Paste and import a timetable</string>
+    <string name="timetable_import_pdf">Import from a PDF file</string>
+    <string name="timetable_import_pdf_hint">Pick a PDF with your timetable (a ManageBac export, for example). The text is read on the device — the file goes nowhere.</string>
+    <string name="timetable_import_pdf_done">Read from the PDF: %1$d rows. Check the preview.</string>
+    <string name="timetable_import_pdf_empty">I cannot read a timetable out of this PDF. It most likely uses a font this device cannot decode: open the PDF, select all and paste the text above.</string>
+    <string name="timetable_import_pdf_failed">The file could not be opened.</string>
     <string name="timetable_import_paste">Copied timetable rows</string>
     <string name="timetable_import_preview">Preview</string>
     <string name="timetable_import_none">I could not recognise any lesson — every row needs a day, a range (e.g. 08:00–08:50) and a subject name.</string>

@@ -554,6 +554,11 @@
     <string name="timetable_import_hint">Z spletne strani šole (npr. ManageBac) kopiraj vrste razporeda in prilepi sem. Prepoznam oblike »Pon 08:00–08:50 Matematika« in »Monday 8:00-8:50 Math«; iz vsake vrste nastane tedenski blok pouka brez opomnika.</string>
     <string name="timetable_import_settings_hint">Enkraten uvoz kopiranega razporeda iz ManageBaca. Povezave ni v oblaku — urnik ostane tvoja lokalna nastavitev.</string>
     <string name="timetable_import_open">Prilepi in uvozi urnik</string>
+    <string name="timetable_import_pdf">Uvozi iz PDF datoteke</string>
+    <string name="timetable_import_pdf_hint">Izberi PDF z urnikom (na primer izvoz iz ManageBaca). Besedilo preberem na napravi — datoteka ne gre nikamor.</string>
+    <string name="timetable_import_pdf_done">Iz PDF-a prebrano: %1$d vrstic. Preveri predogled.</string>
+    <string name="timetable_import_pdf_empty">Iz tega PDF-a ne znam prebrati razporeda. Najverjetneje uporablja pisavo, ki je na napravi ne morem prebrati: odpri PDF, izberi vse in besedilo prilepi zgoraj.</string>
+    <string name="timetable_import_pdf_failed">Datoteke ni bilo mogoče odpreti.</string>
     <string name="timetable_import_paste">Kopirane vrste urnika</string>
     <string name="timetable_import_preview">Predogled</string>
     <string name="timetable_import_none">Nisem prepoznal nobene ure — vsaka vrsta potrebuje dan in razpon (npr. 08:00–08:50) ter naziv predmeta.</string>

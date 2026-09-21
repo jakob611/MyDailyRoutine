@@ -678,10 +678,14 @@ private fun GoalGantt(
                             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
                             Box(Modifier.size(6.dp).clip(CircleShape)
                                 .background(goalCategoryStyle(if (lane.kind == "CAS") "CREATIVITY" else "STAGE").accent))
+                            // A lane label names a project, so it wraps to a second line instead of
+                            // ending in an ellipsis: "Extended essay" is two words in a 64 dp column,
+                            // and losing the second one would leave the reader with "Extended ...".
                             RoutineLabel(
                                 lane.name,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = if (lane.id == selectedId) RoutineColors.TextPrimary else RoutineColors.TextSecondary,
+                                maxLines = RoutineTextDefaults.Body,
                             )
                         }
                     }

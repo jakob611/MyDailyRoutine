@@ -57,6 +57,8 @@ class TimelineUiTest {
         compose.onNodeWithText(text(R.string.demo_heading)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(text(R.string.threshold_focus)).assertDoesNotExist()
         captureTag("06-settings-data", "settings-sheet")
+        // The whole sheet, from the tab strip down: the five tabs are the thing the audit reads.
+        captureTag("12-settings", "settings-sheet")
     }
     @Test fun menusAreSplitIntoTabsInsteadOfOneLongScroll() {
         compose.onNodeWithContentDescription(text(R.string.planning_open)).performClick()
@@ -156,8 +158,17 @@ class TimelineUiTest {
     @Test fun goalsAreSplitIntoTabsInsteadOfOneLongScroll() {
         compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()
         awaitText(R.string.goals_empty_body)
+        // Both starters, offered at once: this screenshot is what the audit reads for the goals entry.
+        compose.onNodeWithText(text(R.string.goals_seed_cas)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.goals_seed_ee)).assertIsDisplayed()
+        capture("08-goals")
         compose.onNodeWithText(text(R.string.goals_seed_cas)).performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithTag("goal-tab-activities").fetchSemanticsNodes().isNotEmpty() }
+        // The other starter stays on offer after the first one exists — the chip sits in the project
+        // row, so a student who started with CAS can still add EE a week later, and the two coexist.
+        compose.onNodeWithTag("goal-seed-EE").assertIsDisplayed().performClick()
+        awaitAnyText(R.string.goals_seed_ee_name)
+        compose.onNodeWithTag("goal-seed-CAS").assertDoesNotExist()
         compose.onNodeWithTag("goal-tab-activities").performClick()
         compose.onNodeWithText(text(R.string.goals_add_activity)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(text(R.string.goals_gantt)).assertDoesNotExist()
@@ -213,47 +224,9 @@ class TimelineUiTest {
             else compose.onRoot(useUnmergedTree=true).captureToImage()
         save(name, image)
     }
-    /**
-     * Persists a screenshot where CI can still find it after the run.
-     *
-     * Gradle uninstalls both APKs once `connectedDebugAndroidTest` finishes, which deletes the
-     * app's `Android/data` and `files` dirs, so the primary copy goes to `Pictures/ui-audit`
-     * through MediaStore: that is public storage, survives the uninstall and needs no permission.
-     * The app-private dirs are kept as a fallback for local `adb pull` runs.
-     */
-    private fun save(name: String, image: ImageBitmap) {
-        val activity = compose.activity
-        val bitmap = image.asAndroidBitmap()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            runCatching {
-                val values = ContentValues().apply {
-                    put(MediaStore.Images.Media.DISPLAY_NAME, "$name.png")
-                    put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/ui-audit")
-                }
-                val resolver = activity.contentResolver
-                val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)) {
-                    "MediaStore refused $name.png"
-                }
-                resolver.openOutputStream(uri).use { output ->
-                    requireNotNull(output) { "no output stream for $name.png" }
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-                }
-            }.onFailure { error -> println("ui-audit: MediaStore save failed for $name: $error") }
-        }
-        val testOutput = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
-        val targets = listOfNotNull(
-            testOutput?.let { File(it) },
-            activity.getExternalFilesDir(null)?.let { File(it, "ui-audit") },
-            File(activity.filesDir, "ui-audit")
-        )
-        for (directory in targets) {
-            directory.mkdirs()
-            runCatching {
-                File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            }.onFailure { error -> println("ui-audit: failed to write $name into $directory: $error") }
-        }
-    }
+    /** Persists a screenshot where CI can still find it after the run; see [saveUiAudit]. */
+    private fun save(name: String, image: ImageBitmap) = saveUiAudit(compose.activity, name, image)
+
     /**
      * Waits for a string to be **on screen**, not merely composed. During a transition the node
      * exists while it is still sliding in or fading up, and asserting `isDisplayed` the instant it

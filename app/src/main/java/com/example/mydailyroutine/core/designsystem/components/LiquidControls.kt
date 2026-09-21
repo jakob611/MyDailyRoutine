@@ -236,7 +236,9 @@ fun LiquidSlider(
     Box(
         modifier
             .fillMaxWidth()
-            .height(32.dp)
+            // The track is 6 dp and the thumb 20; the row the finger meets is a full touch target,
+            // because a slider that is hard to grab is a setting the reader gives up on.
+            .height(RoutineMetrics.TouchTarget)
             .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
             .onSizeChanged { widthPx = it.width.toFloat() }
             .pointerInput(enabled, valueRange, widthPx) {
@@ -349,6 +351,7 @@ fun GlassChipButton(
             .routineGlassTouch(touch, shape)
             .routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current)
             .clip(shape)
+            .defaultMinSize(minHeight = RoutineMetrics.TouchTarget)
             .clickable(interactionSource = touch.source, indication = null, role = Role.Button, onClick = onClick)
             .padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.sm),
         contentAlignment = Alignment.Center,
@@ -377,6 +380,7 @@ fun GlassContentChip(
             .routineGlassTouch(touch, shape)
             .routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current)
             .clip(shape)
+            .defaultMinSize(minHeight = RoutineMetrics.TouchTarget)
             .clickable(
                 onClickLabel = label,
                 interactionSource = touch.source,

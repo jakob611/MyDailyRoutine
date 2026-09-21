@@ -15,6 +15,10 @@
  */
 package com.example.mydailyroutine.features.entry.presentation
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,9 +35,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -49,6 +55,10 @@ import com.example.mydailyroutine.domain.model.Subject
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.platform.uiLocale
+import com.example.mydailyroutine.domain.import.PdfTextExtractor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.presentation.TimetableRow
@@ -124,8 +134,44 @@ fun TimetableImportSheet(
     onImport: (List<TimetableRow>) -> Unit,
 ) {
     val haptics = LocalRoutineHaptics.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var text by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf<List<TimetableRow>?>(null) }
+    // Where a PDF import leaves its answer: how many rows came out, or why none did.
+    var pdfNotice by remember { mutableStateOf<PdfNotice?>(null) }
+    var reading by remember { mutableStateOf(false) }
+
+    fun review(candidate: String) {
+        val parsed = TimetablePasteParser.parse(candidate)
+        preview = parsed
+        if (parsed.isNullOrEmpty()) haptics.warning() else haptics.confirm()
+    }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            reading = true
+            val extracted = runCatching { readTimetablePdf(context, uri) }.getOrNull()
+            reading = false
+            if (extracted == null) {
+                pdfNotice = PdfNotice.FAILED
+                haptics.warning()
+                return@launch
+            }
+            val rowsFound = TimetablePasteParser.parse(extracted.text).size
+            if (rowsFound == 0) {
+                // Nothing readable in the file: say so and leave the paste box alone, because the
+                // reader can still select all in the PDF and paste it here by hand.
+                pdfNotice = PdfNotice.EMPTY
+                haptics.warning()
+            } else {
+                pdfNotice = PdfNotice.ROWS(rowsFound)
+                text = extracted.text
+                review(extracted.text)
+            }
+        }
+    }
     val rows = preview
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoutineShapes.Sheet,
         containerColor = RoutineColors.SheetSurface, tonalElevation = 0.dp) {
@@ -156,16 +202,31 @@ fun TimetableImportSheet(
                 maxLines = 10,
                 shape = RoutineShapes.Card,
             )
+            // The second way in: the school's own PDF, read on the device. The file never leaves the
+            // phone and the text lands in the same paste box, so there is exactly one review path.
+            RoutineText(stringResource(R.string.timetable_import_pdf_hint), style = MaterialTheme.typography.bodySmall,
+                color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
+            SheetSecondaryButton(
+                label = stringResource(R.string.timetable_import_pdf),
+                enabled = !reading,
+                onClick = { haptics.press(); picker.launch(arrayOf("application/pdf")) },
+            )
+            when (val notice = pdfNotice) {
+                is PdfNotice.ROWS -> RoutineText(stringResource(R.string.timetable_import_pdf_done, notice.count),
+                    style = MaterialTheme.typography.bodySmall, color = RoutineColors.Success,
+                    maxLines = RoutineTextDefaults.Paragraph)
+                PdfNotice.EMPTY -> RoutineText(stringResource(R.string.timetable_import_pdf_empty),
+                    style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning,
+                    maxLines = RoutineTextDefaults.Paragraph)
+                PdfNotice.FAILED -> RoutineText(stringResource(R.string.timetable_import_pdf_failed),
+                    style = MaterialTheme.typography.bodySmall, color = RoutineColors.Warning,
+                    maxLines = RoutineTextDefaults.Paragraph)
+                null -> Unit
+            }
             SheetSecondaryButton(
                 label = stringResource(R.string.timetable_import_preview),
                 enabled = text.isNotBlank(),
-                onClick = {
-                    val parsed = TimetablePasteParser.parse(text)
-                    preview = parsed
-                    // Apple's notification family, used the way it is meant to be: success when the
-                    // paste yielded rows, warning when it did not.
-                    if (parsed.isNullOrEmpty()) haptics.warning() else haptics.confirm()
-                },
+                onClick = { review(text) },
             )
             if (rows != null) {
                 if (rows.isEmpty()) {
@@ -217,3 +278,38 @@ private fun normalizeToken(value: String): String = value.lowercase()
     .replace("č", "c").replace("š", "s").replace("ž", "z")
     .replace("ć", "c").replace("đ", "d")
     .trim()
+
+/**
+ * What the last PDF import had to say. Kept as three explicit cases instead of a string, so the
+ * screen cannot end up showing a message that belongs to a different file.
+ */
+private sealed interface PdfNotice {
+    data class ROWS(val count: Int) : PdfNotice
+    data object EMPTY : PdfNotice
+    data object FAILED : PdfNotice
+}
+
+/**
+ * Reads a timetable PDF through the system file picker. Bounded on purpose: a picker can hand back a
+ * 200 MB scan, and the reader has no use for more than a few megabytes of content streams.
+ */
+private suspend fun readTimetablePdf(context: Context, uri: Uri): PdfTextExtractor.Result =
+    withContext(Dispatchers.IO) {
+        val bytes = context.contentResolver.openInputStream(uri)?.use { stream ->
+            val buffer = java.io.ByteArrayOutputStream()
+            val chunk = ByteArray(64 * 1024)
+            var total = 0
+            while (true) {
+                val read = stream.read(chunk)
+                if (read <= 0) break
+                total += read
+                if (total > MaxPdfBytes) throw IllegalArgumentException("PDF too large")
+                buffer.write(chunk, 0, read)
+            }
+            buffer.toByteArray()
+        } ?: throw IllegalArgumentException("no stream")
+        PdfTextExtractor.extract(bytes)
+    }
+
+/** Sixteen megabytes: far more than a timetable needs, far less than a phone can choke on. */
+private const val MaxPdfBytes = 16 * 1024 * 1024
