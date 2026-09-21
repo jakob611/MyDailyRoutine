@@ -26,7 +26,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,6 +48,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -82,19 +83,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.semantics.Role
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.motion.LocalPulse
@@ -238,8 +242,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     }
     val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(now.toLocalDate()) }
     val reduceMotion = rememberReduceMotion()
-    // The "Dodaj blok" container transform measures its endpoints in window pixels: the pill the
-    // finger just pressed and the window the sheet slides into.
+    // The "Dodaj blok" container transform measures its endpoints in root pixels: the pill the
+    // finger just pressed and the window-sized root the pane is laid out inside. Measuring and
+    // placing in the same space is what keeps the growing pane glued to the pill it starts from.
     var windowPx by remember { mutableStateOf(IntSize.Zero) }
     var pillBoundsPx by remember { mutableStateOf(Rect.Zero) }
     CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalRoutineSounds provides sounds,
@@ -495,7 +500,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         .height(56.dp).testTag("fast-add")
                         // The container transform's origin: the pane that grows into the sheet
                         // starts exactly where this pill sits, so it is measured, not estimated.
-                        .onGloballyPositioned { coordinates -> pillBoundsPx = coordinates.boundsInWindow() }
+                        // Root pixels, because root is the space the morph lays the pane out in —
+                        // the no-arg boundsInWindow() is hidden-deprecated in this Compose version.
+                        .onGloballyPositioned { coordinates -> pillBoundsPx = coordinates.boundsInRoot() }
                         .routineGlassTouch(fastAddTouch, RoutineShapes.Pill)
                         .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control,
                             tilt = LocalGlassTilt.current)
@@ -663,7 +670,7 @@ private fun AddBlockMorph(
         // nothing is just a flicker. The sheet opens normally instead.
         if (reduceMotion || backdrop == null || window.width == 0 || pill.width <= 0f) return@LaunchedEffect
         progress = 0f
-        animateFloat(0f, 1f, tween(420, easing = FastOutSlowInEasing)) { progress = it }
+        animate(0f, 1f, animationSpec = tween(420, easing = FastOutSlowInEasing)) { value, _ -> progress = value }
         // The sheet owns the surface now; leave composition entirely so the pane stops sampling.
         progress = 0f
     }
@@ -674,12 +681,11 @@ private fun AddBlockMorph(
     val sheetTop = window.height * 0.08f
     val sheetTopRadius = with(density) { 24.dp.toPx() }
     val pillRadius = pill.height / 2f
-    val topPx = lerp(pill.top, sheetTop, p)
-    val left = with(density) { (pill.left * (1f - p)).toDp() }
-    val top = with(density) { topPx.toDp() }
     // Pixel precision for the growing pane: Dp would round through density and lose half a pixel.
-    val width = lerp(pill.width, window.width.toFloat(), p).roundToInt()
-    val height = (window.height - topPx).roundToInt()
+    val paneLeft = (pill.left * (1f - p)).roundToInt()
+    val paneTop = lerp(pill.top, sheetTop, p).roundToInt()
+    val paneWidth = lerp(pill.width, window.width.toFloat(), p).roundToInt().coerceAtLeast(0)
+    val paneHeight = (window.height - paneTop).coerceAtLeast(0)
     val shape = RoundedCornerShape(
         topStart = with(density) { lerp(pillRadius, sheetTopRadius, p).toDp() },
         topEnd = with(density) { lerp(pillRadius, sheetTopRadius, p).toDp() },
@@ -691,9 +697,14 @@ private fun AddBlockMorph(
             // Visible for the first 55% of the morph, then gone — the handover hides the point
             // where the sheet's own spring and the morph's easing stop agreeing.
             .graphicsLayer { alpha = 1f - ((p - 0.55f) / 0.45f).coerceIn(0f, 1f) }
-            .padding(start = left, top = top)
-            .width(width)
-            .height(height)
+            // Measured placement: the pane is laid out at its pixel rectangle inside the window
+            // instead of being nudged there, which is the layout invariant the whole app keeps.
+            .layout { measurable, constraints ->
+                val pane = measurable.measure(Constraints.fixed(paneWidth, paneHeight))
+                layout(constraints.constrainWidth(window.width), constraints.constrainHeight(window.height)) {
+                    pane.place(paneLeft, paneTop)
+                }
+            }
             .routineGlass(backdrop, shape, GlassRole.Bar, specular = true, tilt = LocalGlassTilt.current)
             .background(RoutineColors.Primary.copy(alpha = 0.16f), shape)
             .clip(shape),
