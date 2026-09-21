@@ -111,10 +111,10 @@ object RoutineShapes {
     val Sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     /**
      * Glass shapes. The lens effect refracts by the corner radius, so every glass shape keeps a
-     * minimum radius of at least 12 dp on the corners the reader can actually see; corners that sit
-     * at the screen edge may be square because their refraction is off-screen anyway.
+     * minimum radius of at least 12 dp on the corners the reader can actually see. The top bar
+     * is a floating pane with real space above and beside it, so all of its corners are rounded
+     * and the pane can never read as a panel stuck to the screen edge.
      */
-    val GlassTopBar = RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)
     val GlassBar = RoundedCornerShape(22.dp)
     val GlassPanel = RoundedCornerShape(28.dp)
     val GlassChip = RoundedCornerShape(14.dp)
@@ -160,6 +160,8 @@ object RoutineMetrics {
     val MinLabelHeight = 20.dp
     /** Minimum touch width for anything that reads as a button. */
     val ActionMinWidth = 48.dp
+    /** Compact liquid-glass control: the icon buttons and chips that live in the floating chrome. */
+    val GlassControlSize = 40.dp
     /** Categorical chips are capped so one long label cannot own a whole card line. */
     val ChipMaxWidth = 190.dp
     /** Geometry of the NOW band drawn over the running block. */

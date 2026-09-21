@@ -2,7 +2,6 @@ package com.example.mydailyroutine.features.timeline.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +18,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
@@ -35,6 +33,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
+import com.example.mydailyroutine.core.designsystem.components.GlassChipButton
+import com.example.mydailyroutine.core.designsystem.components.GlassContentChip
+import com.example.mydailyroutine.core.designsystem.components.GlassIconButton
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
@@ -48,7 +49,11 @@ import com.example.mydailyroutine.domain.health.categoryAllocation
 import com.example.mydailyroutine.domain.model.CalendarEntry
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 
-/** Adapted from agent3's component library; uses the canonical core model and shared OLED palette. */
+/**
+ * The period navigator. The bar behind it is glass, but the controls are **not** transparent click
+ * targets painted on the frame: every one of them is its own pane of liquid glass that refracts
+ * the content scrolling under the bar. The date itself is the wide middle pane — it is the picker.
+ */
 @Composable
 fun DateNavigator(
     title: String,
@@ -60,31 +65,32 @@ fun DateNavigator(
 ) {
     val pickLabel = stringResource(R.string.choose_date)
     Row(
-        modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.xs),
+        modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
     ) {
-        IconButton(onClick = onPrevious) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.previous_period))
+        GlassIconButton(onPrevious) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.previous_period), Modifier.size(20.dp))
         }
         // The title is the date picker: one control instead of a fourth icon competing for width.
-        Row(
-            Modifier.weight(1f).clip(RoutineShapes.Chip).clickable(onClickLabel = pickLabel, onClick = onPick)
-                .padding(vertical = RoutineSpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
-        ) {
-            RoutineText(
-                text = title,
-                modifier = Modifier.weight(1f, fill = false),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = RoutineTextDefaults.Body,
-            )
-            Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(16.dp), tint = RoutineColors.TextSecondary)
+        GlassContentChip(onClick = onPick, modifier = Modifier.weight(1f), label = pickLabel) {
+            Row(
+                Modifier.padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+            ) {
+                RoutineText(
+                    text = title,
+                    modifier = Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = RoutineTextDefaults.Body,
+                )
+                Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(16.dp), tint = RoutineColors.TextSecondary)
+            }
         }
-        TextButton(onClick = onToday) { RoutineLabel(stringResource(R.string.today), style = MaterialTheme.typography.labelLarge) }
-        IconButton(onClick = onNext) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.next_period))
+        GlassChipButton(stringResource(R.string.today), onToday)
+        GlassIconButton(onNext) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.next_period), Modifier.size(20.dp))
         }
     }
 }

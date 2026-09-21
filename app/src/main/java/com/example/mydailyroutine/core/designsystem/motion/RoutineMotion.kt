@@ -1,8 +1,13 @@
 package com.example.mydailyroutine.core.designsystem.motion
 
 import android.provider.Settings
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -133,3 +138,26 @@ fun <T> glassTouchSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
 fun <T> glassMorphSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
     if (reduceMotion) snap<T>()
     else appleSpring<T>(AppleMotion.GlassMorphDuration, AppleMotion.BouncyBounce)
+
+/**
+ * The app's one breathing indicator.
+ *
+ * The NOW bands and the health badges used to each spin their own `rememberInfiniteTransition`,
+ * so a busy day view carried a dozen overlapping loops, every one writing its own state every
+ * frame and restarted or stopped on every card that scrolled in and out. During a fast fling the
+ * churn spent the frame budget and read as stutter. One clock serves every indicator — they all
+ * breathe in phase, which is what a live "now" should do anyway — and under the system's
+ * remove-animations setting the loop never starts and the value holds its brightest state.
+ */
+val LocalPulse = staticCompositionLocalOf { 1f }
+
+@Composable
+fun rememberAppPulse(reduceMotion: Boolean = LocalReduceMotion.current): Float {
+    if (reduceMotion) return 1f
+    val transition = rememberInfiniteTransition(label = "app-pulse")
+    return transition.animateFloat(
+        0.78f, 1f,
+        infiniteRepeatable(tween(2800, easing = CubicBezierEasing(0.37f, 0f, 0.63f, 1f)), RepeatMode.Reverse),
+        label = "app-pulse-value",
+    ).value
+}

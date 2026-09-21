@@ -24,7 +24,10 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -76,12 +79,16 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -90,10 +97,13 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.semantics.Role
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
+import com.example.mydailyroutine.core.designsystem.motion.LocalPulse
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.effectSpec
+import com.example.mydailyroutine.core.designsystem.motion.rememberAppPulse
 import com.example.mydailyroutine.core.designsystem.motion.rememberReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
+import com.example.mydailyroutine.core.designsystem.components.GlassIconButton
 import com.example.mydailyroutine.core.designsystem.glass.LocalRoutineBackdrop
 import com.example.mydailyroutine.core.designsystem.glass.RoutineAmbientBackground
 import com.example.mydailyroutine.core.designsystem.glass.RoutineBackdropProvider
@@ -108,9 +118,11 @@ import com.example.mydailyroutine.features.goals.presentation.GoalsScreen
 import com.example.mydailyroutine.features.settings.presentation.NotificationAccess
 import com.example.mydailyroutine.features.settings.presentation.SettingsSheet
 import com.example.mydailyroutine.core.designsystem.theme.*
+import com.kyant.backdrop.Backdrop
 import java.time.ZonedDateTime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -226,8 +238,13 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     }
     val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(now.toLocalDate()) }
     val reduceMotion = rememberReduceMotion()
+    // The "Dodaj blok" container transform measures its endpoints in window pixels: the pill the
+    // finger just pressed and the window the sheet slides into.
+    var windowPx by remember { mutableStateOf(IntSize.Zero) }
+    var pillBoundsPx by remember { mutableStateOf(Rect.Zero) }
     CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalRoutineSounds provides sounds,
-        LocalHapticFeedback provides gatedHaptics, LocalReduceMotion provides reduceMotion) {
+        LocalHapticFeedback provides gatedHaptics, LocalReduceMotion provides reduceMotion,
+        LocalPulse provides rememberAppPulse(reduceMotion)) {
       // One backdrop for the window: the content layer records into it and the floating chrome —
       // the top bar, the fast-add control — refracts it. They have to stay siblings of the layer,
       // never inside it, or a panel draws itself into itself.
@@ -264,7 +281,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         // would leave nothing for the glass to refract. Here the content fills the window and the
         // floating chrome sits on top of it — as siblings of the layer, never inside it, or a panel
         // would draw itself into itself.
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().onSizeChanged { windowPx = it }) {
             Box(Modifier.fillMaxSize().nestedScroll(headerScroll).routineBackdropLayer(backdrop)) {
                 RoutineAmbientBackground(Modifier.fillMaxSize())
                 AnimatedContent(targetState = state.panels.showGoals, label = "goals-switch",
@@ -322,57 +339,65 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     }
                 }
                 }
-            RoutineGlassSurface(
-                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().testTag("app-top-bar")
-                    // Only the expanded bar sets the inset. Content clears the *tall* bar, so when it
-                    // folds mid-scroll the lists keep their padding and nothing jumps; scrolled items
-                    // simply travel up through the space the folded bar no longer covers, under glass.
+            // The floating top bar: its own rounded glass pane with real space between the pane and
+            // the status bar — nothing glued to the screen edge, the way the rest of the chrome
+            // floats. The wrapper (status inset + gap + pane) is what the content has to clear, so
+            // the wrapper is what gets measured; only the expanded bar sets the inset, and content
+            // clears the *tall* bar, so when it folds mid-scroll the lists keep their padding and
+            // nothing jumps — scrolled items simply travel up through the space the folded bar no
+            // longer covers, under glass.
+            Column(
+                Modifier.align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = RoutineSpacing.md, start = RoutineSpacing.md, end = RoutineSpacing.md)
                     .onSizeChanged { size ->
                         if (!collapsed) topInset = with(density) { size.height.toDp() }
                     },
-                shape = RoutineShapes.GlassTopBar,
-                role = GlassRole.Bar,
-                // Its top edge is the screen edge, under the status bar: a specular hairline there has
-                // nothing above it to catch and reads as a stray bright pixel.
-                specular = false,
             ) {
-                Column {
-                    TopAppBar(
-                        title = {
+                RoutineGlassSurface(
+                    modifier = Modifier.fillMaxWidth().testTag("app-top-bar"),
+                    shape = RoutineShapes.GlassBar,
+                    role = GlassRole.Bar,
+                    // There is real space above the pane now, so its top edge can catch the light.
+                    specular = true,
+                ) {
+                    Column {
+                        Row(
+                            Modifier.fillMaxWidth().height(56.dp).padding(horizontal = RoutineSpacing.sm),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+                        ) {
                             if (state.panels.showGoals) {
+                                GlassIconButton(onClick = { onAction(TimelineAction.CloseGoals) }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back), Modifier.size(20.dp))
+                                }
                                 RoutineLabel(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge)
+                                Spacer(Modifier.weight(1f))
                             } else {
-                                // Expanded: the app. Folded: the period being read, because that is
-                                // the only thing in the bar still worth the space.
-                                AnimatedContent(targetState = collapsed, label = "header-title",
-                                    transitionSpec = { ContentTransform(fadeIn(effectSpec<Float>(reduceMotion)), fadeOut(effectSpec<Float>(reduceMotion)), sizeTransform = SizeTransform(clip = false)) }) { isCollapsed ->
-                                    if (isCollapsed) {
-                                        RoutineLabel(periodTitle(data), style = MaterialTheme.typography.titleLarge)
-                                    } else {
-                                        // The brand answers the door: the LockIn mark with its wordmark
-                                        // lives where the plain app-name text used to sit. This is the
-                                        // screen the app opens on — deliberately not a splash screen.
-                                        Image(
-                                            painter = painterResource(R.drawable.logo_lockin),
-                                            contentDescription = stringResource(R.string.app_name),
-                                            modifier = Modifier.height(28.dp),
-                                        )
+                                Row(Modifier.weight(1f).padding(horizontal = RoutineSpacing.xs)) {
+                                    // Expanded: the app. Folded: the period being read, because that is
+                                    // the only thing in the bar still worth the space.
+                                    AnimatedContent(targetState = collapsed, label = "header-title",
+                                        transitionSpec = { ContentTransform(fadeIn(effectSpec<Float>(reduceMotion)), fadeOut(effectSpec<Float>(reduceMotion)), sizeTransform = SizeTransform(clip = false)) }) { isCollapsed ->
+                                        if (isCollapsed) {
+                                            RoutineLabel(periodTitle(data), style = MaterialTheme.typography.titleLarge)
+                                        } else {
+                                            // The brand answers the door: the LockIn mark with its wordmark
+                                            // lives where the plain app-name text used to sit. This is the
+                                            // screen the app opens on — deliberately not a splash screen.
+                                            Image(
+                                                painter = painterResource(R.drawable.logo_lockin),
+                                                contentDescription = stringResource(R.string.app_name),
+                                                modifier = Modifier.height(28.dp),
+                                            )
+                                        }
                                     }
                                 }
-                            }
-                        },
-                        navigationIcon = {
-                            if (state.panels.showGoals) {
-                                IconButton(onClick = { onAction(TimelineAction.CloseGoals) }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back))
-                                }
-                            }
-                        },
-                        actions = {
-                            if (!state.panels.showGoals) {
-                                IconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open)) }
+                                // One pane of glass per action: each button is a piece of glass itself,
+                                // not a transparent click target painted on the bar's frame.
+                                GlassIconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open), Modifier.size(20.dp)) }
                                 Box {
-                                    IconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open)) }
+                                    GlassIconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open), Modifier.size(20.dp)) }
                                     // The badge is the one hero moment allowed a bounce — and the one
                                     // animation that disappears entirely under remove-animations.
                                     val badgeEnter: EnterTransition =
@@ -380,46 +405,44 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                         else scaleIn(PopSpring, initialScale = 0.4f) + fadeIn(tween<Float>(120))
                                     val badgeExit: ExitTransition =
                                         fadeOut(if (reduceMotion) snap<Float>() else tween<Float>(120))
-                                    // Fully qualified on purpose: inside Box{} the RowScope receiver of
-                                    // actions is DslMarker-restricted, so the scope extension is not a
-                                    // candidate and the compiler wants the top-level one named explicitly.
+                                    // Fully qualified on purpose: inside Box{} the RowScope receiver is
+                                    // DslMarker-restricted, so the scope extension is not a candidate and
+                                    // the compiler wants the top-level one named explicitly.
                                     androidx.compose.animation.AnimatedVisibility(visible = overdueTasks > 0,
                                         modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
                                         enter = badgeEnter, exit = badgeExit) {
                                         Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Error))
                                     }
                                 }
-                                IconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open)) }
-                                IconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings)) }
+                                GlassIconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open), Modifier.size(20.dp)) }
+                                GlassIconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings), Modifier.size(20.dp)) }
                             }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                    )
-                    // The marketing line does not earn 18 dp of every screen forever: it moved to the
-                    // empty-day state, where there is room and it reads as an invitation.
-                    AnimatedVisibility(
-                        visible = !state.panels.showGoals && !collapsed,
-                        enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
-                        exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
-                    ) {
-                        DateNavigator(periodTitle(data), onPrevious = { onAction(TimelineAction.Shift(-1)) }, onNext = { onAction(TimelineAction.Shift(1)) },
-                            onToday = { onAction(TimelineAction.Today) }, onPick = { haptics.tap(); choosingDate = true })
-                    }
-                    AnimatedVisibility(
-                        visible = !state.panels.showGoals,
-                        enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
-                        exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
-                    ) {
-                        // Kyant0's LiquidBottomTabs pattern at segment scale: one capsule of accent
-                        // wash that slides between the cells on the spatial spring, instead of four
-                        // backgrounds blinking at each other. The cells themselves stay transparent
-                        // and clickable; the label colour flips as the capsule arrives.
-                        BoxWithConstraints(
-                            Modifier.fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .padding(bottom = 8.dp)
-                                .height(40.dp),
+                        }
+                        // The marketing line does not earn 18 dp of every screen forever: it moved to the
+                        // empty-day state, where there is room and it reads as an invitation.
+                        AnimatedVisibility(
+                            visible = !state.panels.showGoals && !collapsed,
+                            enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
+                            exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                         ) {
+                            DateNavigator(periodTitle(data), onPrevious = { onAction(TimelineAction.Shift(-1)) }, onNext = { onAction(TimelineAction.Shift(1)) },
+                                onToday = { onAction(TimelineAction.Today) }, onPick = { haptics.tap(); choosingDate = true })
+                        }
+                        AnimatedVisibility(
+                            visible = !state.panels.showGoals,
+                            enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
+                            exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
+                        ) {
+                            // Kyant0's LiquidBottomTabs pattern at segment scale: one capsule of accent
+                            // wash that slides between the cells on the spatial spring, instead of four
+                            // backgrounds blinking at each other. The cells themselves stay transparent
+                            // and clickable; the label colour flips as the capsule arrives.
+                            BoxWithConstraints(
+                                Modifier.fillMaxWidth()
+                                    .padding(horizontal = RoutineSpacing.sm)
+                                    .padding(bottom = RoutineSpacing.sm)
+                                    .height(40.dp),
+                            ) {
                             val count = TimelineMode.entries.size
                             val cell = maxWidth / count
                             val slide by animateDpAsState(
@@ -451,6 +474,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                     }
                                 }
                             }
+                            }
                         }
                     }
                 }
@@ -469,6 +493,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                 Box(
                     Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(RoutineSpacing.lg)
                         .height(56.dp).testTag("fast-add")
+                        // The container transform's origin: the pane that grows into the sheet
+                        // starts exactly where this pill sits, so it is measured, not estimated.
+                        .onGloballyPositioned { coordinates -> pillBoundsPx = coordinates.boundsInWindow() }
                         .routineGlassTouch(fastAddTouch, RoutineShapes.Pill)
                         .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control,
                             tilt = LocalGlassTilt.current)
@@ -486,6 +513,15 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     }
                 }
             }
+            // Composed after the pill so the growing pane covers it — the morph is the pill
+            // itself, not a second element next to it. It sits above the content it refracts and
+            // below the sheet's window, which slides in to take the surface over.
+            AddBlockMorph(
+                active = state.panels.showAdd,
+                pill = pillBoundsPx,
+                window = windowPx,
+                backdrop = backdrop,
+            )
             // The Scaffold used to keep the snackbar clear of the button; in a plain stack that has to
             // be done by hand, or the two overlap at the bottom of the screen.
             SnackbarHost(
@@ -593,6 +629,75 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             } })
       }
     }
+}
+
+/**
+ * The "Dodaj blok" container transform.
+ *
+ * While the editor sheet slides in from below, a pane of liquid glass grows out of the pill the
+ * finger just pressed — same backdrop, same accent wash, its corners unwinding from the capsule
+ * to the sheet's rounded top — and then hands the surface over: the pane fades away in the last
+ * half of the morph, exactly as the sheet's own glass arrives to take it over. The sheet lives in
+ * its own window and cannot share the pill's geometry, so the transform is drawn here, in the app
+ * window, as a sibling of the content layer it refracts.
+ *
+ * Under the system's remove-animations setting the morph never plays: the sheet simply appears,
+ * the way every other transition in the app behaves.
+ */
+@Composable
+private fun AddBlockMorph(
+    active: Boolean,
+    pill: Rect,
+    window: IntSize,
+    backdrop: Backdrop?,
+) {
+    val reduceMotion = LocalReduceMotion.current
+    val density = LocalDensity.current
+    var progress by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(active) {
+        if (!active) {
+            progress = 0f
+            return@LaunchedEffect
+        }
+        // First launch after a cold start: the pill has not been measured yet, and a morph from
+        // nothing is just a flicker. The sheet opens normally instead.
+        if (reduceMotion || backdrop == null || window.width == 0 || pill.width <= 0f) return@LaunchedEffect
+        progress = 0f
+        animateFloat(0f, 1f, tween(420, easing = FastOutSlowInEasing)) { progress = it }
+        // The sheet owns the surface now; leave composition entirely so the pane stops sampling.
+        progress = 0f
+    }
+    if (progress <= 0f) return
+    val p = progress
+    // The entry editor fills 92% of the window, anchored to the bottom: that is where the pane
+    // grows into, and its top corners come from the same shape the sheet uses.
+    val sheetTop = window.height * 0.08f
+    val sheetTopRadius = with(density) { 24.dp.toPx() }
+    val pillRadius = pill.height / 2f
+    val topPx = lerp(pill.top, sheetTop, p)
+    val left = with(density) { (pill.left * (1f - p)).toDp() }
+    val top = with(density) { topPx.toDp() }
+    // Pixel precision for the growing pane: Dp would round through density and lose half a pixel.
+    val width = lerp(pill.width, window.width.toFloat(), p).roundToInt()
+    val height = (window.height - topPx).roundToInt()
+    val shape = RoundedCornerShape(
+        topStart = with(density) { lerp(pillRadius, sheetTopRadius, p).toDp() },
+        topEnd = with(density) { lerp(pillRadius, sheetTopRadius, p).toDp() },
+        bottomStart = with(density) { lerp(pillRadius, 0f, p).toDp() },
+        bottomEnd = with(density) { lerp(pillRadius, 0f, p).toDp() },
+    )
+    Box(
+        Modifier.fillMaxSize()
+            // Visible for the first 55% of the morph, then gone — the handover hides the point
+            // where the sheet's own spring and the morph's easing stop agreeing.
+            .graphicsLayer { alpha = 1f - ((p - 0.55f) / 0.45f).coerceIn(0f, 1f) }
+            .padding(start = left, top = top)
+            .width(width)
+            .height(height)
+            .routineGlass(backdrop, shape, GlassRole.Bar, specular = true, tilt = LocalGlassTilt.current)
+            .background(RoutineColors.Primary.copy(alpha = 0.16f), shape)
+            .clip(shape),
+    )
 }
 
 /** Header text for the period being shown. Dates come from [RoutineDate] and never from an inline
