@@ -18,7 +18,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
-import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.platform.uiLocale
 import com.example.mydailyroutine.domain.routines.Weekdays
 import java.time.DayOfWeek
 import java.time.format.TextStyle
@@ -45,7 +45,7 @@ fun WeekdayPicker(mask: Int, enabled: Boolean, onChange: (Int) -> Unit) {
                     modifier = Modifier.testTag("weekday-${day.value}"),
                     // A day chip is a switch, so it gets the on/off pair rather than a generic tick.
                     onClick = { haptics.toggle((mask and bit) == 0); onChange(mask xor bit) },
-                    label = { RoutineLabel(day.getDisplayName(TextStyle.SHORT_STANDALONE, Slovenian)) },
+                    label = { RoutineLabel(day.getDisplayName(TextStyle.SHORT_STANDALONE, uiLocale())) },
                 )
             }
         }

@@ -25,7 +25,7 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.mydailyroutine.app.di.appGraph
-import com.example.mydailyroutine.core.platform.withSlovenianLocale
+import com.example.mydailyroutine.core.platform.withRoutineLocale
 import com.example.mydailyroutine.features.settings.presentation.NotificationAccess
 import com.example.mydailyroutine.core.designsystem.theme.MyDailyRoutineTheme
 import com.example.mydailyroutine.core.presentation.TimelineAction
@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase.withSlovenianLocale())
+        super.attachBaseContext(newBase.withRoutineLocale())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

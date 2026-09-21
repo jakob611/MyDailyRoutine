@@ -79,7 +79,9 @@ fun DateNavigator(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
             ) {
-                RoutineText(
+                // A label, not prose: it shrinks towards 11 sp to stay on one line and only then
+                // takes the second line, so a long Slovenian date keeps its year visible.
+                RoutineLabel(
                     text = title,
                     modifier = Modifier.weight(1f, fill = false),
                     style = MaterialTheme.typography.titleMedium,

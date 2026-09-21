@@ -48,7 +48,7 @@ import com.example.mydailyroutine.core.designsystem.components.SheetSecondaryBut
 import com.example.mydailyroutine.domain.model.Subject
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
-import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.platform.uiLocale
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.presentation.TimetableRow
@@ -189,7 +189,7 @@ fun TimetableImportSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 RoutineLabel(
-                                    text = row.day.getDisplayName(java.time.format.TextStyle.SHORT, Slovenian),
+                                    text = row.day.getDisplayName(java.time.format.TextStyle.SHORT, uiLocale()),
                                     modifier = Modifier.widthIn(min = 40.dp),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = if (matchesSubject) RoutineColors.School.content else RoutineColors.TextMuted,

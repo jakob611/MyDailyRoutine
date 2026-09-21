@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -109,7 +110,9 @@ fun RoutineSwitch(
 
     Box(
         modifier
-            .size(SwitchWidth, SwitchHeight)
+            // 52 x 32 dp of glass, 52 x 48 dp of finger: the switch is the one control in a
+            // settings list where a miss does not just fail, it flips a different setting.
+            .defaultMinSize(minWidth = RoutineMetrics.TouchTarget, minHeight = RoutineMetrics.TouchTarget)
             .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
             .toggleable(
                 value = checked,
@@ -118,31 +121,38 @@ fun RoutineSwitch(
                 interactionSource = interaction,
                 indication = null,
                 onValueChange = { onCheckedChange?.invoke(it) },
-            )
-            .pointerInput(enabled, reduceMotion, travelPx) {
-                if (!enabled) return@pointerInput
-                detectHorizontalDragGestures(
-                    onHorizontalDrag = { change, dragAmount ->
-                        val target = (position.value + dragAmount / travelPx).coerceIn(0f, 1f)
-                        scope.launch { position.snapTo(target) }
-                        change.consume()
-                    },
-                    onDragEnd = {
-                        val target = position.value >= 0.5f
-                        if (target != checked) onCheckedChange?.invoke(target)
-                        scope.launch {
-                            if (reduceMotion) position.snapTo(if (target) 1f else 0f)
-                            else position.animateTo(if (target) 1f else 0f, PopSpring)
-                        }
-                    },
-                    onDragCancel = {
-                        scope.launch {
-                            if (reduceMotion) position.snapTo(if (checked) 1f else 0f)
-                            else position.animateTo(if (checked) 1f else 0f, PopSpring)
-                        }
-                    },
-                )
-            },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        // The visible pane keeps the 52 x 32 dp of a switch; the drag lives on it, so a horizontal
+        // drag anywhere on the pane still rides the knob.
+        Box(
+            Modifier
+                .size(SwitchWidth, SwitchHeight)
+                .pointerInput(enabled, reduceMotion, travelPx) {
+                    if (!enabled) return@pointerInput
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, dragAmount ->
+                            val target = (position.value + dragAmount / travelPx).coerceIn(0f, 1f)
+                            scope.launch { position.snapTo(target) }
+                            change.consume()
+                        },
+                        onDragEnd = {
+                            val target = position.value >= 0.5f
+                            if (target != checked) onCheckedChange?.invoke(target)
+                            scope.launch {
+                                if (reduceMotion) position.snapTo(if (target) 1f else 0f)
+                                else position.animateTo(if (target) 1f else 0f, PopSpring)
+                            }
+                        },
+                        onDragCancel = {
+                            scope.launch {
+                                if (reduceMotion) position.snapTo(if (checked) 1f else 0f)
+                                else position.animateTo(if (checked) 1f else 0f, PopSpring)
+                            }
+                        },
+                    )
+                },
         contentAlignment = Alignment.CenterStart,
     ) {
         val track = RoundedCornerShape(percent = 50)
@@ -183,6 +193,7 @@ fun RoutineSwitch(
                 .background(RoutineColors.TextPrimary)
                 .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.25f), CircleShape),
         )
+    }
     }
 }
 
@@ -301,15 +312,24 @@ fun GlassIconButton(
 ) {
     val backdrop = LocalRoutineBackdrop.current
     val touch = rememberGlassTouch(LocalReduceMotion.current)
+    // The gesture lives on the larger box, the glass keeps its own size: Compose derives the pointer
+    // area from the node that owns the gesture, so a 40 dp pane can still be a 48 dp button. Both
+    // boxes share one interaction source, which is what keeps the press state (squash, glow) on the
+    // pane the finger cannot quite see.
     Box(
         modifier
-            .size(RoutineMetrics.GlassControlSize)
-            .routineGlassTouch(touch, shape)
-            .routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current)
-            .clip(shape)
+            .size(RoutineMetrics.TouchTarget)
             .clickable(interactionSource = touch.source, indication = null, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { icon() }
+    ) {
+        Box(
+            Modifier.size(RoutineMetrics.GlassControlSize)
+                .routineGlassTouch(touch, shape)
+                .routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current)
+                .clip(shape),
+            contentAlignment = Alignment.Center,
+        ) { icon() }
+    }
 }
 
 /** A text control as its own glass pane: the "Danes" style of button, one raised piece of glass. */

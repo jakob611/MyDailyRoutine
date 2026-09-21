@@ -11,7 +11,7 @@ import com.example.mydailyroutine.domain.health.WarningType
 import com.example.mydailyroutine.domain.model.RoutineCategory
 import com.example.mydailyroutine.domain.presets.PresetKind
 import com.example.mydailyroutine.domain.presets.QuickAddPreset
-import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.platform.uiLocaleFor
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -19,10 +19,66 @@ import java.time.ZonedDateTime
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-val clockFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Slovenian)
+/**
+ * The language the interface is currently in. Read once per process from the process default, which
+ * `RoutineApplication` sets from the same decision the resources use: a language change recreates the
+ * process, so nothing here can go stale while a screen is on.
+ */
+internal val interfaceLocale: Locale = uiLocaleFor(Locale.getDefault().language)
+
+/** True when the interface speaks Slovenian, which is also what decides the date patterns below. */
+private val slovenianInterface: Boolean = interfaceLocale.language == "sl"
+
+/**
+ * The patterns behind [RoutineDate], one set per language.
+ *
+ * Slovenian writes dates with trailing dots and a space (`16. sep`), English without them
+ * (`16 Sep`); an English interface with Slovenian patterns reads like a translation that stopped
+ * halfway, and a Slovenian interface with English patterns reads as broken. Everything else about a
+ * date — how short a form is, which one a screen uses — is shared, so there is still exactly one
+ * place in the app that decides how a date is written.
+ */
+private class DatePatterns(
+    val tight: String,
+    val dayNumber: String,
+    val normal: String,
+    val withWeekday: String,
+    val weekdayTight: String,
+    val full: String,
+    val spoken: String,
+    val monthAndYear: String,
+    val monthTight: String,
+    val monthYearTight: String,
+    val normalYear: String,
+    val weekdayNormalYear: String,
+    val weekdayName: String,
+    val weekdayFull: String,
+    val axisDay: String,
+)
+
+private val slovenianPatterns = DatePatterns(
+    tight = "d. M.", dayNumber = "d.", normal = "d. MMM", withWeekday = "EEE, d. MMM",
+    weekdayTight = "EEE d", full = "d. MMMM yyyy", spoken = "EEEE, d. MMMM yyyy",
+    monthAndYear = "LLLL yyyy", monthTight = "MMM", monthYearTight = "LLL yy",
+    normalYear = "d. MMM yyyy", weekdayNormalYear = "EEE, d. MMM yyyy",
+    weekdayName = "EEEE", weekdayFull = "EEEE d. MMMM", axisDay = "d/M",
+)
+
+private val englishPatterns = DatePatterns(
+    tight = "d MMM", dayNumber = "d", normal = "d MMM", withWeekday = "EEE, d MMM",
+    weekdayTight = "EEE d", full = "d MMMM yyyy", spoken = "EEEE, d MMMM yyyy",
+    monthAndYear = "LLLL yyyy", monthTight = "MMM", monthYearTight = "LLL yy",
+    normalYear = "d MMM yyyy", weekdayNormalYear = "EEE, d MMM yyyy",
+    weekdayName = "EEEE", weekdayFull = "EEEE d MMMM", axisDay = "d/M",
+)
+
+private val patterns: DatePatterns = if (slovenianInterface) slovenianPatterns else englishPatterns
+
+val clockFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", interfaceLocale)
 fun LocalTime.clockLabel(): String = format(clockFormat)
-fun minuteLabel(minute: Int): String = String.format(Slovenian, "%02d:%02d", minute / 60, minute % 60)
+fun minuteLabel(minute: Int): String = String.format(interfaceLocale, "%02d:%02d", minute / 60, minute % 60)
 
 /**
  * The only place in the app that decides how a date is written.
@@ -37,22 +93,22 @@ fun minuteLabel(minute: Int): String = String.format(Slovenian, "%02d:%02d", min
  * exist as their own steps instead of being improvised per screen.
  */
 object RoutineDate {
-    private val tightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d. M.", Slovenian)
-    private val normalFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d. MMM", Slovenian)
-    private val weekdayNormalFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, d. MMM", Slovenian)
-    private val weekdayTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d", Slovenian)
-    private val fullFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d. MMMM yyyy", Slovenian)
-    private val spokenFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, d. MMMM yyyy", Slovenian)
-    private val monthAndYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("LLLL yyyy", Slovenian)
-    private val monthTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM", Slovenian)
-    private val monthYearTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("LLL yy", Slovenian)
-    private val dayNumberFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d.", Slovenian)
-    private val normalYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d. MMM yyyy", Slovenian)
-    private val weekdayNormalYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, d. MMM yyyy", Slovenian)
-    private val weekdayNameFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE", Slovenian)
-    private val weekdayFullFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE d. MMMM", Slovenian)
-    private val axisDayFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d/M", Slovenian)
-    private val clockFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Slovenian)
+    private val tightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.tight, interfaceLocale)
+    private val normalFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.normal, interfaceLocale)
+    private val weekdayNormalFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.withWeekday, interfaceLocale)
+    private val weekdayTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.weekdayTight, interfaceLocale)
+    private val fullFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.full, interfaceLocale)
+    private val spokenFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.spoken, interfaceLocale)
+    private val monthAndYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.monthAndYear, interfaceLocale)
+    private val monthTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.monthTight, interfaceLocale)
+    private val monthYearTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.monthYearTight, interfaceLocale)
+    private val dayNumberFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.dayNumber, interfaceLocale)
+    private val normalYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.normalYear, interfaceLocale)
+    private val weekdayNormalYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.weekdayNormalYear, interfaceLocale)
+    private val weekdayNameFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.weekdayName, interfaceLocale)
+    private val weekdayFullFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.weekdayFull, interfaceLocale)
+    private val axisDayFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.axisDay, interfaceLocale)
+    private val clockFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.clock, interfaceLocale)
 
     /** `16. 9.` — grid cells, gutters, chips: the shortest form that is still unambiguous. */
     fun tight(date: LocalDate): String = date.format(tightFormat)

@@ -64,7 +64,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
-import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.platform.uiLocale
 import com.example.mydailyroutine.core.presentation.TimelineContent
 import com.example.mydailyroutine.core.presentation.TimelineMode
 import com.example.mydailyroutine.core.presentation.PeriodRanges
@@ -313,7 +313,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                 Row(Modifier.fillMaxWidth()) {
                     DayOfWeek.values().forEach {
                         RoutineLabel(
-                            it.getDisplayName(TextStyle.NARROW_STANDALONE, Slovenian),
+                            it.getDisplayName(TextStyle.NARROW_STANDALONE, uiLocale()),
                             Modifier.weight(1f),
                             style = MaterialTheme.typography.labelMedium,
                             color = RoutineColors.TextSecondary,

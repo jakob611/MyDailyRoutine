@@ -55,7 +55,7 @@ jobs:
       - run: yes | sdkmanager --licenses > /dev/null || true
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - name: "Static gates: schema, presentation invariants, WCAG contrast"
-        run: python3 tools/derive_palette.py --check && python3 tools/check_sqlite_integrity.py && python3 tools/check_presentation.py && python3 tools/check_contrast.py
+        run: python3 tools/derive_palette.py --check && python3 tools/check_sqlite_integrity.py && python3 tools/check_translations.py && python3 tools/check_presentation.py && python3 tools/check_contrast.py
       - name: Build, unit tests and lint
         run: |
           set -o pipefail

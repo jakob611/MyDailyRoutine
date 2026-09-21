@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
@@ -60,6 +61,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -77,6 +80,7 @@ import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
@@ -129,10 +133,15 @@ fun RoutineText(
     overflow: TextOverflow = TextOverflow.Ellipsis,
     softWrap: Boolean = true,
     autoSize: TextAutoSize? = null,
+    /**
+     * Marks the text as a heading for TalkBack. A screen reader can then jump between sections the
+     * way it does in any other app instead of reading one long column of unrelated strings.
+     */
+    heading: Boolean = false,
 ) {
     Text(
         text = text,
-        modifier = modifier,
+        modifier = if (heading) modifier.semantics { heading() } else modifier,
         style = style,
         color = color,
         fontSize = fontSize,
@@ -169,6 +178,7 @@ fun RoutineLabel(
     textAlign: TextAlign? = null,
     maxLines: Int = 1,
     autoSize: TextAutoSize? = null,
+    heading: Boolean = false,
 ) {
     val designed = if (style.fontSize.isSpecified) style.fontSize else MaterialTheme.typography.labelMedium.fontSize
     RoutineText(
@@ -186,6 +196,7 @@ fun RoutineLabel(
             maxFontSize = designed,
             stepSize = RoutineTextDefaults.LabelStep,
         ),
+        heading = heading,
     )
 }
 
@@ -220,7 +231,7 @@ fun SectionHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) {
-        RoutineText(title, Modifier.weight(1f), style = style, maxLines = RoutineTextDefaults.Body)
+        RoutineText(title, Modifier.weight(1f), style = style, maxLines = RoutineTextDefaults.Body, heading = true)
         action?.invoke(this)
     }
 }
@@ -288,6 +299,9 @@ fun CollapsibleSection(
     Column(modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().clip(RoutineShapes.Chip)
+                // A folding header is a button, so it gets a button's touch height even though it
+                // looks like a line of text.
+                .defaultMinSize(minHeight = RoutineMetrics.TouchTarget)
                 .clickable(role = Role.Button, onClick = onToggle)
                 .padding(vertical = RoutineSpacing.sm, horizontal = RoutineSpacing.xs)
                 .then(if (tag != null) Modifier.testTag(tag) else Modifier),

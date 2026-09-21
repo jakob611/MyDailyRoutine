@@ -1,5 +1,6 @@
 package com.example.mydailyroutine.features.goals.presentation
 
+import android.content.Context
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -118,6 +119,29 @@ import kotlin.math.roundToInt
 /** Width of the project-name column in the Gantt; the timeline itself scrolls when it needs more. */
 private val GanttLaneLabel = 84.dp
 
+/** The two starter projects the app knows how to lay out, in the order the empty state offers them. */
+private val StarterKinds = listOf("CAS", "EE")
+
+/**
+ * The action that creates the CAS or EE starter plan. Shared by the empty state and by the "the other
+ * one is still missing" chip, so both paths produce exactly the same project — the reason a student
+ * who started with CAS can still get EE a week later.
+ */
+private fun starterAction(context: Context, kind: String): TimelineAction = when (kind) {
+    "EE" -> TimelineAction.SeedGoalProject(
+        kind, context.getString(R.string.goals_seed_ee_name),
+        listOf(R.string.ee_stage_1, R.string.ee_stage_2, R.string.ee_stage_3, R.string.ee_stage_4,
+            R.string.ee_stage_5, R.string.ee_stage_6).map { context.getString(it) },
+        listOf(R.string.ee_milestone_1, R.string.ee_milestone_2, R.string.ee_milestone_3,
+            R.string.ee_milestone_4, R.string.ee_milestone_5).map { context.getString(it) },
+    )
+    else -> TimelineAction.SeedGoalProject(
+        "CAS", context.getString(R.string.goals_seed_cas_name), emptyList(),
+        listOf(R.string.goals_cas_meeting_1, R.string.goals_cas_meeting_2, R.string.goals_cas_meeting_3,
+            R.string.goals_cas_statement).map { context.getString(it) },
+    )
+}
+
 /**
  * Full-screen long-term planner for CAS/EE: status, month plan, activities, milestones.
  *
@@ -152,6 +176,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                 GoalEmptyState(busy, onAction) { haptics.press(); addingProject = true }
             }
         } else {
+            val context = LocalContext.current
             Column(Modifier.fillMaxSize()) {
                 // Projects scroll sideways: a wrapping chip row grew to four lines with three projects.
                 LazyRow(
@@ -167,6 +192,24 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                             shape = RoutineShapes.Chip,
                             modifier = Modifier.testTag("goal-project-${candidate.id}"),
                             label = { RoutineLabel(candidate.name, style = MaterialTheme.typography.labelLarge) },
+                        )
+                    }
+                    // Whatever starter is still missing keeps its offer here, in the same row the
+                    // reader uses to move between projects. Without this, a student who made CAS on
+                    // the first screen could never find the EE plan again.
+                    val missing = StarterKinds.filter { kind -> goals.projects.none { it.kind == kind } }
+                    items(missing, key = { "seed-$it" }) { kind ->
+                        SuggestionChip(
+                            onClick = { haptics.press(); onAction(starterAction(context, kind)) },
+                            enabled = !busy,
+                            shape = RoutineShapes.Chip,
+                            modifier = Modifier.testTag("goal-seed-$kind"),
+                            label = {
+                                RoutineLabel(
+                                    stringResource(R.string.goals_add_starter, kind),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            },
                         )
                     }
                     item {
@@ -391,30 +434,13 @@ private fun GoalEmptyState(busy: Boolean, onAction: (TimelineAction) -> Unit, on
             maxLines = RoutineTextDefaults.Body)
         RoutineText(stringResource(R.string.goals_empty_body), style = MaterialTheme.typography.bodyMedium,
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
-        SheetPrimaryButton(
-            label = stringResource(R.string.goals_seed_cas),
-            enabled = !busy,
-            onClick = {
-                onAction(
-                    TimelineAction.SeedGoalProject("CAS", context.getString(R.string.goals_seed_cas_name), emptyList(),
-                        listOf(R.string.goals_cas_meeting_1, R.string.goals_cas_meeting_2, R.string.goals_cas_meeting_3,
-                            R.string.goals_cas_statement).map { context.getString(it) }),
-                )
-            },
-        )
-        SheetPrimaryButton(
-            label = stringResource(R.string.goals_seed_ee),
-            enabled = !busy,
-            onClick = {
-                onAction(
-                    TimelineAction.SeedGoalProject("EE", context.getString(R.string.goals_seed_ee_name),
-                        listOf(R.string.ee_stage_1, R.string.ee_stage_2, R.string.ee_stage_3, R.string.ee_stage_4,
-                            R.string.ee_stage_5, R.string.ee_stage_6).map { context.getString(it) },
-                        listOf(R.string.ee_milestone_1, R.string.ee_milestone_2, R.string.ee_milestone_3,
-                            R.string.ee_milestone_4, R.string.ee_milestone_5).map { context.getString(it) }),
-                )
-            },
-        )
+        StarterKinds.forEach { kind ->
+            SheetPrimaryButton(
+                label = stringResource(if (kind == "EE") R.string.goals_seed_ee else R.string.goals_seed_cas),
+                enabled = !busy,
+                onClick = { onAction(starterAction(context, kind)) },
+            )
+        }
         SheetSecondaryButton(label = stringResource(R.string.goals_new_project), enabled = !busy, onClick = onNewCustom)
         Spacer(Modifier.weight(1f))
     }
@@ -907,10 +933,13 @@ private fun MilestoneList(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
                         RoutineText(milestone.title, style = MaterialTheme.typography.titleSmall,
                             maxLines = RoutineTextDefaults.Body)
-                        RoutineLabel(
-                            "${RoutineDate.normal(milestone.dueDate)} · ${goalRelative(milestone.dueDate)}",
+                        // A date and its "in 3 weeks" belong together: if the row is narrow the line
+                        // wraps rather than cutting the relative day off the end.
+                        RoutineText(
+                            text = "${RoutineDate.normal(milestone.dueDate)} · ${goalRelative(milestone.dueDate)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = RoutineColors.TextSecondary,
+                            maxLines = RoutineTextDefaults.Body,
                         )
                     }
                     TextButton(enabled = !busy, onClick = { onEdit(milestone) }) {

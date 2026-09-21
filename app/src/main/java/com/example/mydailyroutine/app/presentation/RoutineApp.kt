@@ -63,6 +63,7 @@ import com.example.mydailyroutine.features.subjects.presentation.SubjectEditorDi
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheet
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
+import com.example.mydailyroutine.core.designsystem.components.swipeToShift
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.haptics.*
@@ -303,7 +304,14 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         alpha = 1f - 0.30f * progress
                     }) { GoalsScreen(state.goals, state.panels.isSaving, onAction, topInset = topInset) }
                     else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
-                        modifier = Modifier.fillMaxSize(), transitionSpec = {
+                        // Swipe sideways for the next or previous period — the same Shift the date
+                        // arrows fire, so both paths end in exactly one place. Day, week and month:
+                        // the year is a summary nobody flicks through, and a horizontal drag there
+                        // belongs to the month grid's own gestures.
+                        modifier = Modifier.fillMaxSize().swipeToShift(
+                            enabled = !state.panels.showGoals && data.mode != TimelineMode.YEAR,
+                            onShift = { direction -> onAction(TimelineAction.Shift(direction)) },
+                        ), transitionSpec = {
                             // Moving through time slides along a shared horizontal axis in the
                             // direction of travel; changing scale (day -> week) shares no geometry
                             // with what it replaces, so it cross-fades instead of pretending to slide.
@@ -385,7 +393,11 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                     AnimatedContent(targetState = collapsed, label = "header-title",
                                         transitionSpec = { ContentTransform(fadeIn(effectSpec<Float>(reduceMotion)), fadeOut(effectSpec<Float>(reduceMotion)), sizeTransform = SizeTransform(clip = false)) }) { isCollapsed ->
                                         if (isCollapsed) {
-                                            RoutineLabel(periodTitle(data), style = MaterialTheme.typography.titleLarge)
+                                            // Two lines, then still the auto-shrink inside RoutineLabel: the bar can be
+                                            // narrow with four actions beside it, and the period it
+                                            // names is the one thing that must never read "sreda, 16. sep…".
+                                            RoutineLabel(periodTitle(data), style = MaterialTheme.typography.titleLarge,
+                                                maxLines = RoutineTextDefaults.Body, heading = true)
                                         } else {
                                             // The brand answers the door: the LockIn mark with its wordmark
                                             // lives where the plain app-name text used to sit. This is the
@@ -446,7 +458,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 Modifier.fillMaxWidth()
                                     .padding(horizontal = RoutineSpacing.sm)
                                     .padding(bottom = RoutineSpacing.sm)
-                                    .height(40.dp),
+                                    // The strip is as tall as a finger needs, the capsule inside it keeps
+                                    // the 40 dp the design asked for.
+                                    .height(RoutineMetrics.TouchTarget),
                             ) {
                             val count = TimelineMode.entries.size
                             val cell = maxWidth / count
@@ -457,6 +471,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                             )
                             Box(
                                 Modifier.width(cell).fillMaxHeight()
+                                    .padding(vertical = 4.dp)
                                     // Draw-phase translation, not layout offset: the capsule glides
                                     // without re-measuring the row on every spring frame.
                                     .graphicsLayer { translationX = slide.toPx() }
@@ -590,7 +605,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         }
         state.panels.editingSubject?.let { editing -> SubjectEditorDialog(editing, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) },
             onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) },
-            onDelete = if (editing.id == 0L) null else { { onAction(TimelineAction.DeleteSubject(editing.id)); onAction(TimelineAction.CloseSubjectEditor) } }) }
+            onDelete = if (editing.id == 0L) null else { { onAction(TimelineAction.DeleteSubject(editing.id)); onAction(TimelineAction.CloseSubjectEditor) } },
+            // A new subject takes a colour no other subject is using; see SubjectPalette.firstFree.
+            takenColors = data.subjects.map { it.colorHex }) }
         state.panels.pendingDelete?.let { item ->
             val recurring = item is ResolvedTimelineItem.Block && !item.isOneOff
             val group = (item as? ResolvedTimelineItem.Block)?.takeIf { it.parentRoutineId == null && it.origin == com.example.mydailyroutine.domain.routines.RoutineOrigin.USER }?.seriesKey

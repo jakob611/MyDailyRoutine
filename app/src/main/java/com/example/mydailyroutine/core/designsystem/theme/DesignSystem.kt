@@ -160,6 +160,13 @@ object RoutineMetrics {
     val MinLabelHeight = 20.dp
     /** Minimum touch width for anything that reads as a button. */
     val ActionMinWidth = 48.dp
+    /**
+     * The smallest a *touch target* may be, independent of how large the thing looks. Material's
+     * own components enforce this through `minimumInteractiveComponentSize`; the app's hand-built
+     * glass controls do not, so they wrap their 40 dp pane in a box of this size instead. A control
+     * that looks smaller than it can be hit is the cheapest way to make an app feel unreliable.
+     */
+    val TouchTarget = 48.dp
     /** Compact liquid-glass control: the icon buttons and chips that live in the floating chrome. */
     val GlassControlSize = 40.dp
     /** Categorical chips are capped so one long label cannot own a whole card line. */

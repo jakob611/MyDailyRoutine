@@ -295,7 +295,7 @@ class RoutineViewModel(
                 messages.send(TimelineEffect.Message(R.string.message_deleted))
             } }
             is TimelineAction.EditSubject -> panels.update {
-                it.copy(editingSubject = action.subject ?: Subject(name = "", colorHex = RoutineColors.subjectSwatches.first(), defaultDurationMinutes = state.value.preferences.entryDefaults.lessonDurationMinutes))
+                it.copy(editingSubject = action.subject ?: Subject(name = "", colorHex = SubjectPalette.firstFree(state.value.content.subjects.map { subject -> subject.colorHex }), defaultDurationMinutes = state.value.preferences.entryDefaults.lessonDurationMinutes))
             }
             TimelineAction.CloseSubjectEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingSubject = null) }
             is TimelineAction.SaveSubject -> perform {

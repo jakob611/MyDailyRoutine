@@ -34,7 +34,7 @@ import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
-import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.platform.uiLocale
 import com.example.mydailyroutine.core.platform.withSlovenianLocale
 import com.example.mydailyroutine.core.designsystem.theme.OledColorScheme
 import com.example.mydailyroutine.core.designsystem.theme.CategoryStyle

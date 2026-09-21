@@ -22,6 +22,17 @@ for name in ('widget_text.xml', 'widget_text_bold.xml', 'widget_text_single.xml'
 # Widget labels are read at arm's length: tabular digits, a line cap and never below 11sp.
 for name in ('widget_text.xml', 'widget_text_bold.xml', 'widget_text_single.xml'):
     assert 'android:maxLines=' in (res / 'layout' / name).read_text(), name
+# The subject picker pairs its labels with the swatch shelf one for one: a name that drifts a place
+# out of step with its colour is a picker that lies about what the reader just chose.
+palette = root / 'core/src/main/kotlin/com/example/mydailyroutine/domain/model/SubjectPalette.kt'
+dialog = root / 'app/src/main/java/com/example/mydailyroutine/features/subjects/presentation/SubjectEditorDialog.kt'
+palette_text = palette.read_text()
+shelf = palette_text[palette_text.index('val swatches'):]
+swatches = len(re.findall(r'0x[0-9A-Fa-f]{8}L', shelf))
+labels = len(re.findall(r'R\.string\.color_\w+', dialog.read_text()))
+assert swatches == labels, f'Subject swatch/label mismatch: {swatches} colours, {labels} labels'
+assert swatches >= 12, f'Too few subject colours to tell a school year apart: {swatches}'
+
 widget = root / 'app/src/main/java/com/example/mydailyroutine/widget/AgendaWidget.kt'
 widget_sizes = [float(size) for size in re.findall(r'\b(\d+(?:\.\d+)?)f\b', widget.read_text())]
 assert widget_sizes and min(widget_sizes) >= 11.0, f'Widget text below 11sp: {min(widget_sizes)}sp'
