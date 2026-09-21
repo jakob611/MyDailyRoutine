@@ -34,8 +34,7 @@ import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.scheduling.OccurrenceTimes
-import com.example.mydailyroutine.core.platform.uiLocale
-import com.example.mydailyroutine.core.platform.withSlovenianLocale
+import com.example.mydailyroutine.core.platform.withRoutineLocale
 import com.example.mydailyroutine.core.designsystem.theme.OledColorScheme
 import com.example.mydailyroutine.core.designsystem.theme.CategoryStyle
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
@@ -63,7 +62,7 @@ class AgendaWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(DpSize(250.dp, 180.dp), DpSize(300.dp, 300.dp), DpSize(360.dp, 420.dp)))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val localized = context.withSlovenianLocale()
+        val localized = context.withRoutineLocale()
         val graph = context.appGraph
         val initial = agendaFlow(graph, LocalDate.now()).first()
         provideContent {

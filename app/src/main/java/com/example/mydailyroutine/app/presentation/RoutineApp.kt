@@ -310,7 +310,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         // belongs to the month grid's own gestures.
                         modifier = Modifier.fillMaxSize().swipeToShift(
                             enabled = !state.panels.showGoals && data.mode != TimelineMode.YEAR,
-                            onShift = { direction -> onAction(TimelineAction.Shift(direction)) },
+                            onShift = { direction -> onAction(TimelineAction.Shift(direction.toLong())) },
                         ), transitionSpec = {
                             // Moving through time slides along a shared horizontal axis in the
                             // direction of travel; changing scale (day -> week) shares no geometry

@@ -5,11 +5,14 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -113,9 +116,10 @@ fun Modifier.swipeToShift(
                     tracker.reset()
                     return@awaitEachGesture
                 }
-                horizontalDrag(start.id) { change, dragAmount ->
+                horizontalDrag(start.id) { change ->
+                    val delta = change.positionChange().x
                     change.consume()
-                    if (tracker.add(dragAmount)) haptics.selection()
+                    if (tracker.add(delta)) haptics.selection()
                 }
                 val direction = tracker.commit()
                 // The page transition is the app's own motion; the drag layer is back at rest before

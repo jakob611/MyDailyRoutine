@@ -56,6 +56,7 @@ private class DatePatterns(
     val weekdayName: String,
     val weekdayFull: String,
     val axisDay: String,
+    val clock: String,
 )
 
 private val slovenianPatterns = DatePatterns(
@@ -64,6 +65,7 @@ private val slovenianPatterns = DatePatterns(
     monthAndYear = "LLLL yyyy", monthTight = "MMM", monthYearTight = "LLL yy",
     normalYear = "d. MMM yyyy", weekdayNormalYear = "EEE, d. MMM yyyy",
     weekdayName = "EEEE", weekdayFull = "EEEE d. MMMM", axisDay = "d/M",
+    clock = "HH:mm",
 )
 
 private val englishPatterns = DatePatterns(
@@ -72,6 +74,7 @@ private val englishPatterns = DatePatterns(
     monthAndYear = "LLLL yyyy", monthTight = "MMM", monthYearTight = "LLL yy",
     normalYear = "d MMM yyyy", weekdayNormalYear = "EEE, d MMM yyyy",
     weekdayName = "EEEE", weekdayFull = "EEEE d MMMM", axisDay = "d/M",
+    clock = "HH:mm",
 )
 
 private val patterns: DatePatterns = if (slovenianInterface) slovenianPatterns else englishPatterns

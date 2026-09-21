@@ -400,7 +400,7 @@ fun TimelineBlockCard(
                                         text = stringResource(
                                             R.string.repeat_days_summary,
                                             block.seriesDays.sortedBy { it.value }
-                                                .joinToString(", ") { it.getDisplayName(TextStyle.SHORT_STANDALONE, Slovenian) },
+                                                .joinToString(", ") { it.getDisplayName(TextStyle.SHORT_STANDALONE, uiLocale()) },
                                         ),
                                         style = MaterialTheme.typography.bodySmall,
                                         maxLines = RoutineTextDefaults.Body,
