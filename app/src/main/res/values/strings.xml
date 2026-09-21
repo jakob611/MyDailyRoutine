@@ -589,6 +589,10 @@
     <string name="periodic_break_every">Odmor vsakih (min)</string>
     <string name="periodic_break_len">Dolžina odmora (min)</string>
     <string name="periodic_break_hint">Odmori se predlagajo le tam, kjer ni že naravnega počitka (kosilo, prosta ura ali daljši odmor). Zadnji del ni označen.</string>
+    <string name="diagnostics_title">Zadnje napake na napravi</string>
+    <string name="diagnostics_description">Kratek seznam tega, kar je šlo narobe. Ostane samo v pomnilniku in nikamor ne potuje — pomaga ti povedati, kaj se je zgodilo, brez ugibanja.</string>
+    <string name="diagnostics_empty">Ni zabeleženih napak.</string>
+    <string name="diagnostics_clear">Počisti seznam</string>
     <string name="backup_heading">Varnostna kopija (JSON)</string>
     <string name="backup_description">Izvozi urnik v datoteko JSON, ki jo lahko kadarkoli uvoziš nazaj. Ustrezen format lahko pripravi tudi AI iz slike tvojega šolskega urnika.</string>
     <string name="backup_export">Izvozi urnik (JSON)</string>

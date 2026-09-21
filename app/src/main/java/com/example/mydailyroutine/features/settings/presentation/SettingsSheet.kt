@@ -33,6 +33,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,6 +56,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.CategoryTabs
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
+import com.example.mydailyroutine.core.platform.Diagnostics
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheetListScaffold
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
@@ -552,7 +554,51 @@ private fun LazyListScope.dataTab(
             ) { RoutineLabel(stringResource(R.string.backup_import), style = MaterialTheme.typography.labelLarge) }
         }
     }
+    item(key = "settings-diagnostics") {
+        DiagnosticsSection()
+    }
     item(key = "settings-divider") { HorizontalDivider(color = RoutineColors.Border) }
+}
+
+/**
+ * The last few things that went wrong, on the device they went wrong on.
+ *
+ * Nothing here is uploaded: the app has no network at all. The point is that a vague "could not
+ * save" stops being the end of the story — the reader can see whether it happened once, ten minutes
+ * ago, or twenty times this week, and can say so out loud instead of guessing.
+ */
+@Composable
+private fun DiagnosticsSection() {
+    val recent by Diagnostics.recent.collectAsState()
+    Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+        RoutineText(stringResource(R.string.diagnostics_title), style = MaterialTheme.typography.titleLarge,
+            maxLines = RoutineTextDefaults.Body)
+        RoutineText(stringResource(R.string.diagnostics_description), style = MaterialTheme.typography.bodySmall,
+            color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+        if (recent.isEmpty()) {
+            RoutineText(stringResource(R.string.diagnostics_empty), style = MaterialTheme.typography.bodyMedium,
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
+        } else {
+            OutlinedCard(
+                shape = RoutineShapes.Card,
+                border = BorderStroke(1.dp, RoutineColors.Border),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(RoutineSpacing.md),
+                    verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+                ) {
+                    recent.forEach { line ->
+                        RoutineText(line, style = MaterialTheme.typography.bodySmall,
+                            color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
+                    }
+                }
+            }
+            TextButton(onClick = { Diagnostics.clear() }) {
+                RoutineLabel(stringResource(R.string.diagnostics_clear), style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
 }
 
 @Composable

@@ -590,6 +590,10 @@
     <string name="periodic_break_every">Break every (min)</string>
     <string name="periodic_break_len">Break length (min)</string>
     <string name="periodic_break_hint">Breaks are suggested only where no natural rest already exists (lunch, a free period or a longer break). The last part of a block is not marked.</string>
+    <string name="diagnostics_title">Recent failures on this device</string>
+    <string name="diagnostics_description">A short list of what went wrong. It stays in memory, travels nowhere, and helps you say what happened instead of guessing.</string>
+    <string name="diagnostics_empty">No failures recorded.</string>
+    <string name="diagnostics_clear">Clear the list</string>
     <string name="backup_heading">Backup (JSON)</string>
     <string name="backup_description">Export the timetable into a JSON file you can import back at any time. An AI can also prepare a matching file from a photo of your school timetable.</string>
     <string name="backup_export">Export the timetable (JSON)</string>

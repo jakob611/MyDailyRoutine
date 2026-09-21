@@ -12,6 +12,7 @@ import com.example.mydailyroutine.domain.model.Milestone
 import com.example.mydailyroutine.domain.model.RoutineBlueprint
 import com.example.mydailyroutine.domain.model.RoutineCategory
 import com.example.mydailyroutine.domain.model.Subject
+import com.example.mydailyroutine.core.platform.Diagnostics
 import com.example.mydailyroutine.domain.model.SubjectPalette
 import com.example.mydailyroutine.domain.model.Task
 import com.example.mydailyroutine.domain.repository.ScheduleBackupRepository
@@ -267,7 +268,10 @@ class RoomBackupRepository(
 
     private fun mapCategory(name: String): RoutineCategory = try {
         RoutineCategory.valueOf(name.uppercase())
-    } catch (_: Exception) {
+    } catch (_: IllegalArgumentException) {
+        // An imported file may use its own vocabulary. That is not a failure, but the reader should
+        // be able to find out why a block came in as "School" rather than as itself.
+        Diagnostics.note("import", "unknown category \"$name\" mapped to SCHOOL")
         when (name.uppercase()) {
             "FOCUS", "STUDY", "WORK" -> RoutineCategory.FOCUS_ANALYTICAL
             "BREAK", "REST" -> RoutineCategory.REST_BUFFER
@@ -279,7 +283,8 @@ class RoomBackupRepository(
 
     private fun mapDay(name: String): DayOfWeek = try {
         DayOfWeek.valueOf(name.uppercase())
-    } catch (_: Exception) {
+    } catch (_: IllegalArgumentException) {
+        Diagnostics.note("import", "unknown day \"$name\" mapped to Monday")
         DayOfWeek.MONDAY
     }
 

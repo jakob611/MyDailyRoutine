@@ -10,6 +10,7 @@ import com.example.mydailyroutine.domain.health.*
 import com.example.mydailyroutine.domain.presets.PresetFactory
 import com.example.mydailyroutine.domain.repository.PlanningRepository
 import com.example.mydailyroutine.domain.repository.GoalsRepository
+import com.example.mydailyroutine.core.platform.Diagnostics
 import com.example.mydailyroutine.domain.model.nominalMinutes
 import com.example.mydailyroutine.domain.routines.*
 import com.example.mydailyroutine.domain.repository.ExampleDataRepository
@@ -195,7 +196,10 @@ class RoutineViewModel(
                     if (executionRepository.synchronize(state.value.preferences.planning, state.value.preferences.automaticHealingEnabled))
                         messages.send(TimelineEffect.Message(R.string.execution_boundary))
                 } catch (error: CancellationException) { throw error }
-                catch (_: Exception) { messages.send(TimelineEffect.Message(R.string.error_save)) }
+                catch (error: Exception) {
+                    Diagnostics.warn("save", error)
+                    messages.send(TimelineEffect.Message(R.string.error_save))
+                }
             }
             TimelineAction.OpenPlanning -> panels.update { it.copy(showPlanning = true, showAdd = false, showSettings = false) }
             TimelineAction.ClosePlanning -> if (!panels.value.isSaving) panels.update { it.copy(showPlanning = false) }
@@ -575,7 +579,10 @@ class RoutineViewModel(
                     }))
                 }
                 catch (_: IllegalArgumentException) { messages.send(TimelineEffect.Message(R.string.error_values)) }
-                catch (_: Exception) { messages.send(TimelineEffect.Message(R.string.error_save)) }
+                catch (error: Exception) {
+                    Diagnostics.warn("save", error)
+                    messages.send(TimelineEffect.Message(R.string.error_save))
+                }
                 finally {
                     panels.update { it.copy(isSaving = false) }
                 }

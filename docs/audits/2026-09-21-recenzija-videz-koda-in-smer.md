@@ -276,242 +276,429 @@ Namesti APK iz [izdaje `debug-latest`](https://github.com/jakob611/MyDailyRoutin
 
 1. **Kdo je uporabnik?** samo ti / ti + sošolci / slovenski dijaki / širše. (Določa M4–M8 in vprašanje iOS.)
 2. **iOS kdaj?** nikoli / v enem letu / zdaj. (Če »v enem letu«, naj Compose Multiplatform izvedljivostna študija steče vzporedno **zdaj**, ne takrat.)
-3. **AI**: nikoli / lokalno (brez mreže) / v oblaku. (Če »nikoli« — rabimo pozicionirno besedilo, glej prompt 8.7.)
+3. **AI**: nikoli / lokalno (brez mreže) / v oblaku. (Če »nikoli« — rabimo pozicionirno besedilo, glej prompt 8.8.)
 4. **Ali app ostane zaseben projekt ali gre na Google Play?** (Play pomeni: politika zasebnosti, starostna oznaka, `targetSdk` vzdrževanje, testiranje na več napravah.)
 
 ---
-
 ## 8. Prompti za druge AI (pripravljeni za kopiranje)
 
-> Vsak prompt je samostojen. Kjer piše **【PRILOGA】**, priloži navedeno. Vsi so napisani tako, da odgovor zahtevajo v strukturi, s katero lahko delaš naprej.
-
-### 8.1 Deep research: trg in pozicioniranje (za model z dostopom do spleta)
-
-```
-Ti si produktni raziskovalec specializiran za izobraževalne in produktivnostne mobilne aplikacije.
-Datum: september 2026. Jezik odgovora: slovenščina (izrazi v angleščini v oklepaju, kjer je izraz strokoven).
-
-KONTEKST PRODUKTA (dejstva, ne spreminjaj jih):
-- Android aplikacija, Slovenija, slovenski jezik, v celoti na napravi: brez računa, brez oblaka,
-  brez mrežnega dovoljenja (INTERNET je na manifestu odstranjen), podatki v lokalni bazi Room.
-- Ciljni uporabnik: dijak mednarodne mature (IB) v Sloveniji, 16–19 let.
-- Jedro: dnevna časovnica s časovnimi bloki, ponavljanje po dnevih v tednu, šolski koledar 2026/27
-  (počitnice, prazniki, matura), karierne/IB roke (CAS, EE, TOK), čakalnik (backlog), merjenje
-  dejanskega časa izvedbe, samodejna poravnava ob zamudi, razpored ponovitev (spaced repetition
-  planiranje, ne kartice), widget za domači zaslon, opomniki (exact alarm) z akcijama
-  "Začni" in "Zabeleži dejansko".
-- Brez AI. Brez sin­hronizacije med napravami. Trenutno samo Android.
-
-NALOGA (v tem vrstnem redu):
-1. Preglej 2026 stanje na trgu aplikacij za šolske urnike in time-blocking za dijake (naknadno
-   omeni tudi: Structured, Tiimo, Power Planner, MyStudyLife, Shovel, Notion Calendar, TickTick,
-   Reclaim, Motion, Sunsama). Za vsako: model, cena, platforme, kaj uporabniki hvalijo/grajajo
-   v zadnjih 12 mesecih (recenzije!), in ali pozna lokalne šolske sisteme.
-2. Poišči specifično: obstaja kdo, ki pokriva IB (CAS/EE/TOK, roke, 8 tednov pred rokom)?
-   Če obstaja, kdo, kako, koliko. Če ne, to izrecno zapiši.
-3. Poišči podatke o tem, KAJ dijaki v resnici uporabljajo (ne, kar trg ponuja): ankete, Reddit/forum
-   niti (r/IBO, r/Slovenia, r/ApplyingToCollege), šolske raziskave. Navedi vir in leto.
-4. Izpelji 3 pozicioniranja za ta produkt, vsako v 1 stavku, z navedbo, proti komu je obrambno
-   in kaj bi moral produkt NAREDITI, da bi pozicioniranje držalo (max 3 stvari).
-5. Ocena trga: velikost IB populacije v Sloveniji in v EU (z viri, jasno označi negotovost).
-
-ZAHTEVE:
-- Vsaka netrivialna trditev ima vir (URL + datum). Brez vira = označi "brez vira, sklep".
-- Loči: DEJSTVO / SKLEP / PRIPOROČILO.
-- Ne ponavljaj mojega konteksta nazaj; začni z ugotovitvami.
-- Na koncu: 5 vprašanj, na katera bi moral odgovoriti lastnik produkta, preden doda funkcijo.
-```
-
-### 8.2 Deep research: znanstvena podlaga in merilni načrt učinka
+> **Prepisano 21. 9. 2026 (druga izdaja).** Prejšnja različica je od modelov zahtevala delo s kodo
+> (Compose, Room, SQLDelight). Ti prompti tega ne počnejo več. Noben model, ki ga boš uporabil, ne vidi
+> tvoje kode — zato vsak prompt nosi **opis aplikacije v besedah**: barve, steklo, razporeditev gumbov,
+> poti med zasloni in vrsto uporabnika. Vprašanje v vseh osmih je isto, le gledano z različnih strani:
+> **ali je to primerno dati noter, ali je na pravem mestu, ali je psihološko dobro in ali je privlačno.**
+>
+> Vsak prompt je samostojen (kontekst je ponovljen, da ga lahko kopiraš samega). Kjer piše
+> **【PRILOGA】**, priloži navedeno — pri slikah je priloga tisto, kar model res potrebuje.
+>
+> Skupni kontekst, ki ga vsi prompti ponavljajo (da ti ni treba sestavljati uvodov):
 
 ```
-Ti si raziskovalec kognitivne psihologije učenja in vedenjske ekonomije.
-Jezik: slovenščina. Namen: preveriti, ali ima produkt "LockIn" (planer časovnih blokov za dijake)
-znanstveno podlago, in kako izmeriti njegov učinek pri enem uporabniku brez spleta.
+APLIKACIJA: LockIn — osebni dnevni ritem za dijaka mednarodne mature (IB) v Sloveniji, 16–19 let.
+Platforma: Android, samo v slovenščini in angleščini, brez računa, brez povezave v omrežje
+(dovoljenje za internet je odstranjeno), brez analitike; podatki ostanejo na telefonu.
+Uporabniki: najprej avtor sam, nato sošolci, morda širše.
 
-TRDITVE, KI JIH MORAŠ PREVERITI (in popraviti, če so napačne):
-- Implementacijske namere: d = 0,65 (Gollwitzer & Sheeran, 2006; 94 študij); novejša meta-analiza
-  (Sheeran, Listrom & Gollwitzer, 2024) čez 642 testov navaja razpon d = 0,27–0,66.
-- Samoregulirano učenje: treningi g = 0,36; največji učinek pri "planning and goal setting" (~0,55).
-- Razmik ponovitev: RCT 2025 porast rezultata 11,42 → 16,24 od 20 proti kontrolni skupini.
-- Upravljanje časa: korelacija z uspehom le r ≈ 0,14–0,22.
+Videz: temna tema, skoraj črn podlagi podoben slate (#090D16), kartice #151C2E, tanke bele
+hairline obrobe (10–14 %), mehki vogali; vse, kar lebdi nad vsebino (zgornja vrstica, gumbi,
+plošče, spodnji listi), je pravo steklo: refrakcija vsebine pod sabo, svetel rob zgoraj, odsev
+ob nagibu telefona. Poudarki: primarni turkizno-zelen #2DD4BF, šolska ura/časovnik #67E8F9,
+fokus #A78BFA, počitek/obnova #34D399, opozorilo #FBBF24, napaka/rok #FB7185. Besedilo
+#F1F5F9 (primarno), #A8B3C2 (sekundarno), #718096 (tiho). Pisava: Roboto Flex z optično
+velikostjo, lestvica po zgledu Applovih Dynamic Type velikosti (naslov zaslona 34 → oznaka 12 sp);
+številke v vrstah so poravnane v stolpce. Vsi odmiki so iz ene lestvice (4/8/12/16/24 dp), vse
+tarče za dotik so visoke vsaj 48 dp.
 
-NALOGE:
-1. Za vsako trditev: vir, velikost učinka, meje veljavnosti, kje popularni viri pretiravajo.
-2. Kaj od tega lahko APP naredi ZA uporabnika (ne, kar mora uporabnik naučiti sam)? Razvrsti po
-   razmerju učinek/trud: (a) prikaz if-then namigov, (b) opomniki s konkretnim dejanjem,
-   (c) merjenje dejanskih časov in kalibracija ocen, (d) dnevni povzetek, (e) zaščita počitka,
-   (f) razporejanje ponovitev. Kaj od tega sploh NE pomaga (dokaži ali zavrzi).
-3. Oblikuj MERILNI NAČRT (n=1, brez mreže, vse lokalno v aplikaciji): kaj meriti, kako izračunati,
-   koliko tednov za signal, in kako ločiti učinek aplikacije od učinka novega šolskega leta.
-   Vključi kontrolni teden.
-4. Kje tvega produkt škodo: pretirano načrtovanje, občutek krivde ob neizvedenih blokih,
-   "planning fallacy" v lastnih ocenah. Predlagaj 3 zasnove v UI, ki to ublažijo.
+Zasloni in poti: spodaj ni nobene navigacijske vrstice. Zgoraj lebdi zaobljena steklena vrstica
+z znakom aplikacije (ali, ko se seznam pomakne, z imenom obdobja), desno v njej so štirje
+stekleni ikonski gumbi: načrtovalnik in čakalna vrsta, naloge (z majhno rdečo piko, če je kaj
+zapadlo), cilji (CAS/EE), nastavitve. Pod vrstico je vrstica z datumom: puščica nazaj, širok
+steklen čip z datumom in ikono koledarja (dotik odpre izbirnik datuma), čip »Danes«, puščica
+naprej. Pod tem so štirje enako široki zavihki časa — Dan, Teden, Mesec, Leto — na katerih se
+poudarek pelje kot ena sama kapsula. Spodaj desno lebdi pilula »Dodaj blok« (56 dp visoka, z
+ikono plus), iz nje se plošča odpre tako, da se sama razširi v spodnji list. Vsi vnosi in
+nastavitve so spodnji listi: steklena glava (naslov, podnaslov, križec) in lepljiva steklena noga
+z enim polnim in enim obrobljenim gumbom.
 
-ZAHTEVE: vsaka trditev z virom in letom; jasno označi, kjer so dokazi šibki; brez morale.
-```
+Vsebina po zavihkih: Dan = urnik od 7. do 21. ure s karticami blokov (levi barvni rob nosi
+kategorijo, naslov, vrstica »8:20–9:05 · 45 min«), rdeča utripajoča črta »zdaj«, kartica
+predlogov za ravnotežje (»＋10 min pavze«), dnevni povzetek, preskočeni bloki z gumbom »Obnovi«.
+Teden = mreža sedmih dni, ki se pomika vodoravno; bloki so barvne plošče, besedilo se pokaže le,
+če je plošča dovolj velika; dotik stolpca odpre dan. Mesec = mreža dni, kjer močnejša barva
+pomeni več načrtovanega fokusa, rdeče pike pomenijo teste in roke, zelenkasta barva pouka prost
+dan; spodaj legenda. Leto = kartica s številom dni do konca pouka in tremi zložljivimi razdelki
+(ravnotežje po mesecih, radar rokov IB, prostor za počitek). Cilji = vrstica čipov s projekti
+(CAS, EE, lastni), zavihki Pregled / Aktivnosti / Mejniki / Napredek, časovnica po mesecih.
+Nastavitve = pet zavihkov: Ritem, Opomniki, Načrt, Pravila, Podatki.
 
-### 8.3 Vizualna kritika posnetkov (za model z vidom — GPT/Gemini/Claude s slikami)
-
-```
-Si art director za mobilne aplikacije, specializiran za Android/Material 3 in temne OLED teme.
-Dobil boš 6 posnetkov zaslona aplikacije (dnevna časovnica, tedenski grid, mesečni pregled,
-zaslon ciljev z Ganttovim diagramom, odprt spodnji list "Dodaj blok", in dnevni pogled pri
-največji sistemski pisavi).
-
-OKVIR ZNAMKE (ne predlagaj spremembe identitete, razen če je nekaj objektivno napačno):
-- Temna tema ("Deep Oceanic Slate"), površine #090D16 / #151C2E / #26324F, poudarki #2DD4BF (teal),
-  #67E8F9, #A78BFA, #34D399, #FBBF24, #FB7185; besedilo #F1F5F9 / #A8B3C2 / #718096.
-- Vrhnja vrstica je lebdeča plošča iz "liquid glass" (zameglitev 4–6 dp, 22 dp zaobljeni vogali),
-  pod njo teče vsebina.
-- Tipografija: Appleova Dynamic Type lestvica, Roboto Flex.
-
-NALOGA (za vsak posnetek posebej, nato skupno):
-1. Hierarhija: kaj oko vidi prvo? Je to pravo? Kaj je preglasno / preslabotno?
-2. Gostota: kje je vrstica s 3+ elementi, kjer bi morala biti dva? Kje je praznega prostora preveč
-   (kartica z veliko praznine na dnu)?
-3. Poravnave: poišči vse, kar ni poravnano na skupno mrežo (levi robovi, bazne linije, razmiki).
-4. Barve: kje barva nosi pomen, ki ga besedilo ne pove (barvna slepota)? Kje se dva odtenka
-   zlijeta?
-5. Kontrast v resničnih razmerah: preberi najmanjše besedilo, povej, kje bi ob soncu odpovedalo.
-6. Zadnji krog: 10 najcenejših popravkov (vsak v eni vrstici: kaj, kje, zakaj, ocena 15 min–2 h),
-   razvrščenih po razmerju učinek/trud. Brez estetskih preferenc, ki niso utemeljene.
-
-IZHOD: tabela Popravek | Posnetek | Zakaj | Ocena | Tveganje. Ni uvodnih vljudnosti.
-```
-
-### 8.4 Pregled zmogljivosti (Compose) — za model, ki bere kodo
-
-```
-Si inženir za Jetpack Compose, specializiran za zmogljivost in recomposition.
-Repozitorij: android app "MyDailyRoutine" (Kotlin 2.2.10, Compose BOM 2025.09.01, Room, Glance).
-
-ZNANO STANJE (preverjeno):
-- 147 .kt datotek, ~19.800 vrstic; datoteka app/presentation/RoutineApp.kt ima 508-vrstični
-  @Composable RoutineApp; GoalsScreen.kt ima 1.416 vrstic.
-- RoutineViewModel drži en velik TimelineUiState, sestavljen iz combine() nad 6+ tokovi.
-- V celem projektu 0 x derivedStateOf, 16 x graphicsLayer, Lazy list 10 x s ključi.
-- app/build.gradle.kts že podpira -PcomposeReports=true (compose compiler reports + metrics).
-- Ni poenotenega Stable/Immutable označevanja razen app/compose-stability.conf za domenske tipe.
-
-NALOGE:
-1. Opiši natančen mehanizem, kako sprememba PanelsState.isSaving (npr. med shranjevanjem bloka)
-   vpliva na recomposition drevesa v tem arhitekturnem vzorcu (kateri scope se invalidira, kaj
-   Compose preskoči zaradi stabilnih parametrov, kje skippability odpove).
-2. Poišči 5 najverjetnejših mest za "ne-skippable" composable in 5 za nepotrebno recomposition
-   v tem repozitoriju (utemelji z vzorci: lambda parametri brez remember, List/Map namesto
-   ImmutableList, brain-dead state reads v velikih composable-ih).
-3. Napiši konkretne ukrepe (ne splošne "uporabite remember"): kaj spremeniti v kateri datoteki,
-   v kakšnem vrstnem redu, in s kakšnim merljivim kriterijem uspeha.
-4. Pripravi načrt merjenja: kako uporabiti Compose compiler metrics (composables that are not
-   skippable, unstable classes) + Macrobenchmark (frame timing) v CI, in katere pragove postaviti.
-5. Kaj od tega se NE izplača optimizirati (z argumentom).
-
-ZAHTEVE: vsak ukrep v obliki "datoteka:linija → sprememba → pričakovan učinek → tveganje".
-Brez predpostavk o kodi, ki je ne vidiš; kjer potrebuješ vpogled, napiši, kaj bi prebral.
-```
-
-### 8.5 Pisanje testov (naprava, dostopnost, velika pisava) — za agenta v repozitoriju
-
-```
-Napiši inštrumentacijske teste (androidTest, Compose UI test) za app MyDailyRoutine.
-Obstoječe: app/src/androidTest/.../TimelineUiTest.kt (275 vrstic, vzorec capture(name), awaitText(...)).
-Pravila repozitorija: besedila samo prek R.string (brez literalov), testTag za vozle, "measured layouts"
-(brez .offset), vsak klikljiv node mora imeti contentDescription ali besedilo.
-
-Naloge:
-1. Test pri povečani pisavi: uporabi `DeviceConfigurationOverride`/`LocalDensity` z fontScale 1,5 in
-   preveri: (a) tarča vsakega gumba v vrhnji vrstici (`touchBoundsInRoot`) je vsaj 48 × 48 dp; (b) napisi zavihkov Dan/Teden/Mesec/Leto
-   ostanejo v eni vrstici; (c) kartica bloka ne preseže 1,6 x višine, izmerjene pri fontScale 1,0.
-2. Test dostopnosti: vsi klikljivi vozli imajo razrešen opis (semantics contentDescription ali besedilo),
-   naslovi imajo Heading semantiko, kartica bloka ponuja vsaj eno custom akcijo.
-3. Test velikosti tarč: vsak node z Role.Button ima širino in višino >= 48 dp (z izjemami, ki jih
-   v kodi označiš).
-4. Test varnostne kopije: izvozi JSON, pokvari en dan ("day": "Sreda"), uvozi, in preveri, da app
-   POROČA napako (ne tihega popravka). (Ta test bo najprej rdeč — to je namen.)
-5. Test praznega stanja: sveža baza → prazna stran ponuja pot do prvega bloka v <= 3 tapih.
-
-Za vsak test napiši: kaj preverja, zakaj je to pomembno, in kaj bi pomenilo, če je rdeč.
-Ne spreminjaj produkcijske kode razen testTag/dostopnostnih oznak, kjer je to nujno za test.
-```
-
-### 8.6 Študija izvedljivosti: iOS prek Compose Multiplatform
-
-```
-Si mobilni arhitekt, ki pozna Kotlin Multiplatform / Compose Multiplatform (CMP) v 2026.
-Vprašanje: koliko dela je prenesti obstoječo Android aplikacijo "MyDailyRoutine" na iOS?
-
-DEJANSKO STANJE (preverjeno v repozitoriju):
-- Android-only: Jetpack Compose, Room (z 8 migracijami in schema JSON), DataStore Preferences,
-  Glance widget, AlarmManager + BroadcastReceiver, foreground-aware samodejna poravnava.
-- Knjižnica za "liquid glass" je github.com/Kyant0/Backdrop; projekt uporablja 1.0.0 (Android),
-  v gradle/libs.versions.toml je zapisano, da je 2.x že Compose Multiplatform na Kotlin 2.4.
-- 147 datotek, ~19.800 vrstic; domena (domain/*) in večina logike je čista Kotlin/JVM (brez Android API).
-- Uporabniška baza: dijaki v Sloveniji; iOS delež med mobilnimi napravami v SI je ~37 %.
-
-NALOGE:
-1. Razčleni prenos po plasteh: (a) domena čista, (b) podatki (Room → SQLDelight? Room KMP?),
-   (c) UI (Compose → CMP, kaj odpove: steklo/blur, haptika, senzorji), (d) platforma (alarmi,
-   obvestila z akcijami, widget, sistemske nastavitve). Za vsako plast: &lt; 1 teden / 1–4 tedne /
-   &gt; 1 mesec, s seznamom konkretnih tveganj.
-2. Kaj v arhitekturi tega app-a boš moral PONOVNO NAPISATI, tudi če je domena čista?
-3. Kaj so realne alternative CMP-ju in kdaj bi bile boljše (npr. obdržati Android + spletna
-   aplikacija z lokalno bazo? native iOS z SwiftUI?).
-4. Priporočilo: naprej ali ne, in če naprej — kaj narediti v prvih dveh tednih (seznam).
-5. Kateri deli kode so "prenosljivi" (meri v vrsticah po mapah) — daj oceno v odstotkih.
-
-ZAHTEVE: nobenih marketinških fraz; če je odgovor "ne", povej in utemelji; vsak teden ocene
-označi kot grobo (Fermi) in povej, kaj bi jo spremenilo.
-```
-
-### 8.7 Pozicioniranje in besedilo za trgovino (Play Store + SL copy)
-
-```
-Si pisec besedil za izdelke (product copy), specializiran za slovenski trg, ki zna spoštovati
-zasebnost uporabnika in ne obljublja čudežev.
-
-PRODUKT: "LockIn" (v repozitoriju MyDailyRoutine) — planer za dijake IB v Sloveniji.
-Dejstva: vse na napravi; brez računa; brez dovoljenja za internet (tehnično); slovenski šolski
-koledar; IB roki (CAS/EE/TOK); časovni bloki; ponavljanje; merjenje dejanskega časa; zaščita
-počitka in samodejna poravnava ob zamudi; widget; temna tema; brez AI; brez sin­hronizacije.
-
-NALOGE:
-1. Naslov (max 30 znakov) in podnaslov (max 80) — 3 različice, vsaka za drugo pozicioniranje:
-   (a) "urnik, ki se popravi sam", (b) "za IB", (c) "nič ne zapusti telefona".
-2. Kratek opis (max 80 besed) — 1 različica, ki ne obljubi več, kot je res.
-3. 5 "feature bullets", vsak z mejno vrednostjo (npr. "Planiraj blok v 3 dotikih").
-4. Kaj NIKOLI ne smemo napisati (seznam fraz, ki jih uporabljajo konkurenti in so prazne).
-5. Odgovori na 5 tipičnih vprašanj/prepovedi uporabnikov: "Kaj bo, če izgubim telefon?",
-   "Zakaj ni za iPhone?", "Ali ima AI?", "Se sinhronizira z Google Calendar?", "Je zastonj?"
-6. Pravila glasu: kaj je prepovedano (vzkliki, "revolucionarno", "AI"), in ton (miren, točen,
-   kot dober sošolec).
-IZHOD: tabela za vsako točko; brez uvoda.
-```
-
-### 8.8 Robustnost: uvoz urnika in varnostne kopije (za agenta v repozitoriju)
-
-```
-Si inženir za kakovost podatkov. V repozitoriju MyDailyRoutine obstajata dva parserja:
-1. Uvoz urnika iz besedila (features/entry/presentation/TimetableImportSheet.kt + core/platform/ShareTextParser.kt)
-   — uporabnik prilepi kopijo iz ManageBac ali šolskega sistema.
-2. Varnostna kopija (features/backup/data/RoomBackupRepository.kt) — izvoz/uvoz JSON.
-
-NALOGE (samo analiza + predlogi, brez popravkov, razen če to izrecno zahtevam):
-1. Zberi 15 realnih oblik vhodnega besedila (urnik: z vezaji, brez, z "ura", z "1.-2.", z dvema
-   terminoma v vrstici, s predmetom v oklepaju, z malimi tiskanimi, s tabs, z nerazdeljnimi presledki,
-   z zapisi v angleščini, s ponedeljkom in "pon.", s časom 8.00 in 8:00, s "od 8 do 9.30",
-   z majhnimi tipkarskimi napakami) in za vsak zapis oceni, kaj bi tvoj parser naredil.
-2. Za vsak primer: pravilno / napačno / tiho napačno (najhujše). Za "tiho napačno" predlagaj,
-   kako ga spremeniti v "glasno napačno" (opozorilo v UI, ne v konzolo).
-3. Varnostna kopija: definiraj shemo datoteke (verzija, čas, kanonična imena), pravila za naprej/
-   nazaj združljivost, in politiko za neveljavne vrstice (nikoli tihega popravka). Napiši test-matrico
-   (10 primerov datotek, od popolnoma veljavne do namerno pokvarjene).
-4. Varnost: kje ta koda lahko poškoduje uporabnikove podatke (delni uvoz, ki ob polovici poči, in
-   pusti bazo v vmesnem stanju)? Predlagaj transakcijsko mejo in preverjanje pred potrditvijo.
-IZHOD: tabela primerov + matrika testov + seznam tveganj.
+Obnašanje: nič ne teče v ozadju; opomniki so sistemski alarmi z akcijama »Začni« in »Zabeleži
+minute«; vodoravno podrsanje po dnevih/tednih/mesecih premakne obdobje, navpično drsenje ostane
+drsenju; blok lahko povlečeš na drugo uro v korakih po 15 minut (z nežnim klikom); ob zamudi
+aplikacija sama poravna proste bloke, fiksnih obveznosti in počitka se ne dotakne; obvestila
+med poukom so tiha; značilnosti zvoka in vibracij lahko uporabnik izklopi.
 ```
 
 ---
+
+### 8.1 Vizualna kritika posnetkov — za model z vidom
+
+【PRILOGA】 6–10 posnetkov zaslona: dnevni pogled na vrhu in na sredini seznama, tedenski, mesečni in letni pogled, cilji (CAS), hitri vnos (spodnji list) in nastavitve. Posnetki naj bodo narejeni na pravem telefonu v temni sobi, ne v emulatorju.
+
+```
+Si art director za mobilne aplikacije, ki je vodil videz izdelkov, za katere ljudje rečejo
+"to pa je lepo narejeno", in obenem dovolj strog, da pove, kaj je videti slučajno.
+
+Priloženih je nekaj posnetkov zaslona aplikacije LockIn. Kontekst aplikacije je spodaj — preberi
+ga, preden gledaš slike, in ga ne spreminjaj.
+
+[KONTEKST]
+
+NALOGE (v tem vrstnem redu):
+1. Prvi vtis v treh stavkih: kaj ta aplikacija je in kako se počuti. Brez vljudnosti.
+2. Kaj izgleda SLUČAJNO in ne namerno: naštej največ 5 stvari, vsako s posnetkom in mestom na
+   njem ("na 3. posnetku levo zgoraj"). Za vsako: zakaj izgleda slučajno in kaj bi naredilo, da
+   bi izgledalo namerno.
+3. Hierarhija: na vsakem posnetku mi povej, kam gre oko najprej, kam drugič, in ali je to tisto,
+   kar uporabnik tisti trenutek potrebuje. Kjer se oko ustavi na napačnem mestu, povej, kaj bi
+   moralo biti tišje ali manjše.
+4. Kje je videti "poceni": prevelika pisava, premočna barva, preveč senc, neenaki odmiki, ikone
+   različnih debelin, barvni odtenki, ki se med sabo tepejo. Konkretno, po posnetkih.
+5. Privlačnost: kaj bi ta aplikacija potrebovala, da bi jo sošolec opisal kot "lepa"? Največ 3
+   predlogi, ki ne dodajajo novih funkcij.
+6. Kaj bi ODSTRANIL (največ 3 stvari). Vsaka odstranitev mora povedati, kaj se s tem izboljša.
+
+ZAHTEVE:
+- Vsaka trditev se sklicuje na posnetek in mesto na njem. Brez splošnih nasvetov o "dobrem UX-u".
+- Ne predlagaj novih funkcij, novih ikon, novih pisav ali sprememb blagovne znamke.
+- Ne piši kode in ne omenjaj programskih knjižnic: govori o videzu, teži in barvi.
+- Loči: "to je napaka" / "to je okus" / "to je vprašanje". Za "okus" povej, kdo bi se s tabo
+  ne strinjal.
+IZHOD: 1) prvi vtis, 2) tabela slučajno→predlog, 3) hierarhija po posnetkih, 4) poceni,
+5) trije predlogi za lepoto, 6) tri odstranitve.
+```
+
+---
+
+### 8.2 Prostor, razporeditev in gibanje palca — za mobilnega UX oblikovalca
+
+```
+Si oblikovalec mobilnih vmesnikov za telefone, ki jih ljudje držijo v eni roki, med hojo, med
+poukom, pod mizo. Tvoje merilo ni lepota, ampak: ali človek to zadene, ne da bi pogledal.
+
+Aplikacija: LockIn (kontekst spodaj, preberi in ga ne spreminjaj). Uporabnik jo odpira večkrat
+na dan po nekaj sekund: pogleda, kaj je naslednje, obkljuka, premakne, zapre.
+
+[KONTEKST]
+
+RAZPOREDITEV, KI JO PRESOJAŠ (opis, ne slika):
+- Zgoraj lebdi steklena vrstica, v njej 4 ikonski gumbi (načrtovalnik, naloge, cilji,
+  nastavitve), vsak 48 dp visok; levo je znak aplikacije oz. ime obdobja.
+- Pod njo vrstica z datumom: puščica nazaj · širok čip z datumom · čip "Danes" · puščica naprej.
+- Pod njo štirje zavihki časa (Dan, Teden, Mesec, Leto), vsak četrtino širine.
+- Spodaj desno pilula "Dodaj blok" (56 dp), spodaj levo ni ničesar.
+- Kartica bloka ima na desni tri tarče: puščico za razširitev, gumb za začetek dela in
+  potrditveni kvadratek; povlečeš jo lahko navpično, da jo premakneš na drugo uro.
+
+NALOGE:
+1. cona palca: katere od teh tarč so v dosegu, ko telefon držiš v eni roki, in katere so
+   nedosegljive. Razvrsti jih v tri skupine (zlahka / s preprijemom / nedosegljivo).
+2. Ali je na tem zaslonu PREVEČ tarč v zgornji tretjini? Če da, kaj bi premaknil dol in kaj bi
+   ostalo zgoraj, in zakaj.
+3. Tri tarče na kartici bloka: ali bi jih oblikovalec postavil tako? Predlagaj boljšo ureditev,
+   če obstaja, in povej, kaj se s tem pokvari (npr. hitrost obkljukanja).
+4. Podrsanje vodoravno (prejšnji/naslednji dan) proti navpičnemu drsenju seznama in vlečenju
+   kartice: kje bo uporabnik po nesreči premaknil dan, ko je hotel samo drseti? Kako pogost bi
+   bil ta spodrsljaj in kaj bi ga zmanjšalo (brez dodajanja gumbov).
+5. Gibanje: menjava obdobja drsi v smeri potovanja, sprememba merila (dan→teden) se prelije;
+   vstavljanje bloka se "rodi" iz pilule. Katero od teh gibanj bi oblikovalec opustil in katero
+   bi okrepil? Kje gibanje uporabnika zavaja o tem, od kod je prišel.
+6. Na koncu: če bi smel spremeniti natanko TRI stvari v razporeditvi, katere in zakaj.
+
+ZAHTEVE: vsak predlog mora povedati, kaj se POSLABŠA z njim (ni brezplačnih izboljšav).
+Ne omenjaj kode, knjižnic ali meritev, ki jih ne vidiš. Slovenščina; izraze v angleščini v oklepaju.
+IZHOD: 1) cone palca (tabela), 2) preveč zgoraj, 3) kartica, 4) spodrsljaji, 5) gibanje, 6) trije.
+```
+
+---
+
+### 8.3 Prvi zagon: pot do prvega uspeha — za oblikovalca + psihologa navad
+
+```
+Si oblikovalec vstopnih tokov in psiholog navad. Tvoja naloga ni "narediti onboarding", ampak
+narediti, da dijak v manj kot petih minutah dobi dan, v katerem vidi svoj prvi blok in ga
+obkljuka — in da se ob tem ne počuti, kot da je podpisal pogodbo.
+
+Izdelek: LockIn (kontekst spodaj, ne spreminjaj ga). Stanje ob prvem zagonu: prazna baza,
+prazen dan. Aplikacija ima pripravljeno predlogo šolskega urnika, ki se jo vklopi z enim
+klikom, in možnost, da se iz besedila prilepi urnik iz šolske strani (ManageBac) — oboje je
+trenutno zakopano v nastavitvah, pod zavihek Podatki.
+
+[KONTEKST]
+
+NALOGE:
+1. Zasnuj pot prvega zagona: največ 4 koraki, vsak s svojim namenom, besedilom in tem, kaj
+   uporabnik vidi. Za vsak korak: kaj uporabnik MORA izvedeti in kaj lahko izve pozneje.
+2. Za vsako vprašanje, ki ga želiš postaviti (ime, uporaba v oblaku, nekaj nastavitev):
+   - ali je primerno, da ga vprašaš TAKOJ (in ne pozneje),
+   - kaj se zgodi, če uporabnik ne odgovori (privzeto mora biti varno in koristno),
+   - kako ga vprašati, da ne zveni kot obrazec.
+   Posebej presodi vprašanje o varnostni kopiji: te funkcije še NI (načrtovana je pozneje,
+   uporabniško ime + geslo + obnovitev vseh nastavitev). Ali jo omeniti zdaj, kako in zakaj —
+   ali je bolje molčati, dokler ne dela.
+3. Kje naj se zgodi prvi uspeh: kaj naj bo prvi blok, s katerim dijak začne, in koliko dotikov
+   do njega. Povej tudi, kaj bi bilo premalo (da ne zapre aplikacije s praznim dnem) in kaj
+   preveč (da ne prebere treh zaslonov navodil).
+4. Kaj naj bo ob prvem zagonu VIDETI, da uporabnik ve, da je aplikacija živa: predlog za dan,
+   prazna kartica s klicem k dejanju, primer? Za vsako možnost povej, kaj sporoča.
+5. Zaključni zaslon: kakšno naj bo sporočilo, ko je prvi blok shranjen. Ne čestitaj prazno;
+   povej, kaj naj človek občuti, ko se vrne čez uro.
+6. Kaj bi iz onboardinga IZPUSTIL (največ 3 stvari, ki jih drugi izdelki silijo in so tu odveč).
+
+ZAHTEVE: vsaka odločitev ima en stavek psihološke utemeljitve (kognitivna obremenitev, občutek
+izgube, privzetek, občutek lastništva). Brez temnih vzorcev, brez umetnega ustvarjanja občutka
+krivde, brez pritiska "povabi prijatelje". Slovenščina; besedila, ki jih predlagaš, napiši v
+slovenščini in angleščini.
+IZHOD: 1) pot s 4 koraki (tabela), 2) vprašanja (tabela), 3) prvi uspeh, 4) kaj je videti,
+5) zaključek, 6) tri izpustitve.
+```
+
+---
+
+### 8.4 Psihološka presoja funkcij — štiri vprašanja za vsako — za vedenjskega znanstvenika
+
+```
+Si raziskovalec vedenjske ekonomije in psihologije navad, ki zna ločiti, kdaj je funkcija v
+resnici v pomoč, in kdaj samo "izgleda koristna". Tvoj odgovor mora biti uporaben tudi, ko je
+"ne, tega ne dodaj".
+
+Izdelek: LockIn (kontekst spodaj, ne spreminjaj ga). Vprašanje je za vsako od naštetih funkcij
+VEDNO isto, štiridelno:
+  (a) Je primerno, da je v aplikaciji za 16–19-letnika? (etika, občutljivost, starost)
+  (b) Je na optimalnem mestu v poteku dneva (kdaj in kje jo uporabnik sreča)?
+  (c) Je psihološko dobro: pomaga ali škodi (krivda, pritisk, napačna motivacija)?
+  (d) Je privlačno ponujena — bi dijak to stisnil sam od sebe?
+
+FUNKCIJE ZA PRESOJO:
+1. Blok z barvo kategorije in vrstico "8:20–9:05 · 45 min" (torej: kdaj in koliko).
+2. Predlogi za ravnotežje ("koncentracija traja več kot 100 minut — poskusi 10–15 min odmora"),
+   z gumbom, ki odmor vstavi sam; pouka, testov in osebnih obveznosti ne premakne.
+3. Samodejna poravnava zamude: ko se en blok zavleče, aplikacija prestavi proste bloke.
+4. Zapis dejanskih minut po opravljenem bloku (uporabnik potrdi, kako dolgo je res trajalo).
+5. Obkljukanje kot "opravljeno" in avtomatsko označevanje šolskih ur (ura se šteje za
+   opravljeno, ko mine, tudi če se je uporabnik ne dotakne).
+6. Tedenski in mesečni pregled, kjer močnejša barva pomeni več načrtovanega fokusa; mesečna
+   mreža pomeni "ritem, ne niz dosežkov".
+7. Ponavljanje snovi v razmikih (aplikacija sama izbere dneve in dolžino, največ 20 % dnevne
+   učne zmogljivosti).
+8. Tiha obvestila med poukom in opomniki z akcijama "Začni" in "Zabeleži minute".
+9. Merjenje navade: dnevi zaporedoma, kolikokrat odprto, zadnji zagon — vidno samo uporabniku,
+   nikoli poslano nikamor.
+10. Cilji CAS/EE z vnaprej pripravljenimi mejniki in merili (ure, besede, refleksije).
+
+ZA SVAKO funkcijo vrni štiri sodbe (a–d) plus največ eno konkretno spremembo, ki bi jo naredil,
+in eno tveganje, ki bi jo spremljalo. Kjer je odgovor "odstrani", povej, kaj se izgubi.
+
+Posebej se ustavt pri tveganjih:
+- vzbujanje krivde ali občutka neuspeha ob neopravljenem bloku;
+- primerjava s sošolci ali javno merjenje (tega v aplikaciji NI — ne predlagaj ga);
+- napačno zaupanje: da je "predlog" zdravstveni nasvet, ali da je samodejna poravnava vedno
+  pravilna;
+- zaslon, ki uporabnika uči, da je počitek izguba časa.
+
+ZAHTEVE: vsaka sodba v enem stavku, z oznako DEJSTVO/SKLEP/PRIPOROČILO. Sklicuj se na
+raziskave po imenu (avtor, leto) tam, kjer jih poznaš; kjer jih ne, napiši "brez vira, sklep".
+Slovenščina. Brez predlogov, ki bi zahtevali povezavo v omrežje ali zbiranje podatkov drugih ljudi.
+IZHOD: tabela 10 vrstic × 4 sodbe + sprememba + tveganje, nato največ 5 stvari, ki bi jih
+odstranil iz izdelka.
+```
+
+---
+
+### 8.5 Barve, kontrast in barvna slepota — za strokovnjaka za vizualno dostopnost
+
+```
+Si strokovnjak za barvo, kontrast in dostopnost v mobilnih vmesnikih. Tvoje vprašanje ni
+"ali so barve lepe", ampak "ali človek v resničnih razmerah (sonce, utrujene oči, barvna
+slepota) iz tega prebere, kar mora".
+
+Izdelek: LockIn (kontekst spodaj). Barve so zapisane v kontekstu; spodaj je še seznam barv
+predmetov, ki si jih uporabnik izbere sam.
+
+[KONTEKST]
+
+BARVE PREDMETOV (16, uporabnik jih izbere iz police; lahko vpiše tudi svojo):
+#67E8F9 cijan · #2DD4BF turkizna · #34D399 smaragdna · #4ADE80 zelena · #A3E635 limeta ·
+#FDE047 rumena · #FBBF24 jantarna · #FB923C oranžna · #F87171 rdeča · #FB7185 rožnata ·
+#F472B6 pink · #E879F9 fuksija · #A78BFA vijolična · #818CF8 indigo · #60A5FA modra ·
+#94A3B8 skrilasta
+
+NALOGE:
+1. Za vsako od šestih POMENSKIH poudarkov (primarni, časovnik, fokus, počitek, opozorilo,
+   napaka): ali je razlika med njimi dovolj velika, da jih človek loči, ko se pojavijo drug ob
+   drugem? Kje se poudarek opozorila in roka (jantarna proti rožnati) zamenjata?
+2. Za 16 barv predmetov: poišči pare, ki jih barvno slepi ljudje (protanopija, deuteranopija,
+   tritanopija) vidijo enako ali skoraj enako. Povej, koliko največ predmetov lahko človek
+   zanesljivo loči v enem urniku, in svetuj razporeditev na polici, ki to upošteva.
+3. Kje v aplikaciji barva nosi pomen, ki ga besedilo ne pove? (Npr. barva kategorije na levem
+   robu kartice, močnejša barva v mesečni mreži, rdeče pike za teste, zelenkasti dnevi brez
+   pouka.) Za vsako mesto povej, kaj naj naredi uporabnik, ki barv ne razlikuje, in kaj bi
+   dodali, da bi pomen ostal (brez odvzemanja barve tistim, ki jo vidijo).
+4. Kontrast v resničnih razmerah: kje bi najmanjše besedilo odpovedalo na soncu? Upoštevaj, da
+   sekundarno besedilo ni namenjeno dolgemu branju. Povej, kje bi morala biti pisava večja in
+   kje mora barva temnejša/svetlejša.
+5. Preveri dve trditvi lastnika: (a) "močnejša barva pomeni več načrtovanega fokusa" — je
+   stopnja razumljiva brez legende? (b) "tudi dnevi za počitek štejejo" — se iz barve vidi, da
+   je to dobro in ne prazno?
+6. Kaj bi naredil v prvih dveh urah, če bi imel na voljo le barve in pisave (brez dodajanja
+   ikon ali besedila)?
+
+ZAHTEVE: navajaj razmerja kontrasta (npr. 4,5 : 1) in jih izračunaj po WCAG, ne po občutku.
+Brez predlogov, ki bi podrli temno temo (svetla tema ni v načrtu). Slovenščina.
+IZHOD: 1) poudarki (tabela z razmerji), 2) pari barv predmetov (tabela), 3) barva kot pomen
+(tabela), 4) sonce (seznam), 5) dve trditvi (da/ne + zakaj), 6) dve uri dela (seznam).
+```
+
+---
+
+### 8.6 Mikrobesedila in ton v dveh jezikih — za pisca besedil in psihologa komunikacije
+
+```
+Si pisec vmesniških besedil, ki zna pisati v slovenščini in angleščini in ve, da je dobro
+vmesniško besedilo kratko, resnično in brez vzklikov. Pišeš za 16–19-letnika, ki je utrujen.
+
+Izdelek: LockIn (kontekst spodaj). Aplikacija govori v dveh jezikih: slovensko, če telefon ni
+angleški; angleško, če je. Vsa besedila so že prevedena in oba jezika sta preverjena v CI –
+tvoja naloga je presoditi, ali so PRAVA, ne prepisati vsega.
+
+[KONTEKST]
+
+BESEDILA ZA PRESOJO (izbrana, ker jih uporabnik vidi v najslabšem trenutku):
+- "Ni zabeleženih napak." (diagnostika v nastavitvah)
+- "Spremembe ni mogoče shraniti. Preveri podatke in poskusi znova."
+- "Zamuda je običajen del dneva. Najprej uporabimo prostor in rezerve; fiksne obveznosti
+  ostanejo."
+- "Fokus traja več kot 100 min brez prekinitve. Poskusi 10–15 minut mirnega odmora."
+- "Ni dovolj varnega prostora za odmor. Skrajšaj ali prestavi blok; urnik ni spremenjen."
+- "Priprava je že razporejena. Obstoječega načrta nismo podvojili."
+- "Za 15 min varnostne rezerve trenutno ni prostora. Načrt zato nima celotne predvidene
+  zaščite."
+- "Dan se začne s prostorom." (prazno stanje dneva)
+- "Prostor za pomembne stvari." (naslov praznega dne)
+- "Ritem, ne niz dosežkov." (mesečni pogled)
+- "Tvoj čas. Tvoj ritem." (podnaslov blagovne znamke)
+- "To so nastavljive matematične hevristike, ne meritev tvojega telesnega ritma ali medicinski
+  nasvet."
+
+NALOGE:
+1. Za vsako besedilo: kaj sporoča v resnici (ne kar je hotelo), in ali bi ga človek v tem
+   trenutku razumel. Označi tista, ki jih je treba spremeniti, in predlagaj novo različico v
+   OBEH jezikih (slovensko in angleško), z omejitvijo: slovensko največ 20 % daljše od
+   angleškega.
+2. Ton: kje aplikacija govori kot učitelj, kje kot starš in kje kot sošolec? Povej, kateri ton
+   naj bo prevladujoč in kje naj se spremeni (npr. ob napaki naj bo ton drugačen kot ob
+   opravljenem bloku).
+3. Napake: predlagaj pravilo za vse sporočbe o napakah (kaj mora vsaka povedati: kaj se je
+   zgodilo, ali so podatki varni, kaj naj uporabnik naredi). Preveri, ali obstoječa besedila
+   pravilo spoštujejo.
+4. Prazna stanja: predlagaj besedilo za prazno stanje nalog, ciljev CAS/EE in letnega pregleda,
+   tako da prazno NE izgleda kot napaka, ampak kot priložnost. Obe jeziki.
+5. Kaj nikoli ne smemo napisati: seznam fraz, ki jih uporabljajo druge aplikacije in so prazne
+   ("povečaj produktivnost", "premagaj odlašanje", "AI ti pomaga"), in zakaj vsaka škodi.
+6. Ali besedila ustrezajo staremu pravilu lastnika "aplikacija ne sme biti ovira"? Poišči vsaj
+   tri mesta, kjer besedilo uporabnika ustavi dlje, kot je treba, in jih skrajšaj.
+
+ZAHTEVE: vsak predlog v obeh jezikih; brez vzklikov, brez čustvenih okraskov, brez tujk, kjer
+obstaja slovenska beseda. Upoštevaj, da je vmesnik gosto postavljen in da dolga beseda zlomi
+vrstico. Slovenščina za razlago, obe besedili za predloge.
+IZHOD: 1) tabela besedilo→sodba→nova različica (SL/EN), 2) ton, 3) pravilo za napake,
+4) prazna stanja, 5) prepovedane fraze, 6) trije primeri, kjer besedilo ovira.
+```
+
+---
+
+### 8.7 Navada in motivacija brez pritiska — za oblikovalca vedenjskih sistemov
+
+```
+Si oblikovalec vedenjskih sistemov, ki zna narediti, da se človek vrača, ne da bi ga pri tem
+silil, in ki zna povedati, kdaj merjenje navade škodi.
+
+Izdelek: LockIn (kontekst spodaj). Lastnik je dijak, ki je aplikacijo naredil zase; njegovo
+merilo uspeha ni "dnevna aktivnost uporabnikov", ampak: ali mu aplikacija pomaga imeti dan, ki
+se ne sesuje, in ali se po dnevu počuti manj utrujen.
+
+[KONTEKST]
+
+NALOGE:
+1. Kaj naj aplikacija meri, da bi uporabniku RES pomagalo (in ne samo polnilo grafe)? Predlagaj
+   največ 5 meritev, vsaka mora povedati, kakšno odločitev uporabnik na njeni podlagi spremeni.
+   Primeri, ki jih presodi: dnevi zaporedoma z vsaj enim blokom; delež opravljenih blokov;
+   povprečna zamuda; koliko načrtovanega fokusa je bilo zares opravljenega.
+2. Kje merjenje navade škodi? Poišči tri načine, kako lahko meritev obrne človeka proti sebi
+   (prekinjen niz, slab teden, primerjava s prejšnjim tednom). Za vsakega povej, kako naj bo
+   meritev prikazana, da tega ne povzroči.
+3. Kje naj meritev živi: na praznem dnevu, v mesečnem pregledu, v nastavitvah pod "tvoja
+   navada"? Utemelji z obnašanjem ob vračanju v aplikacijo in s tem, kdaj človek potrebuje
+   spodbudo in kdaj samo tišino.
+4. Koristna vrnitev: kdaj naj aplikacija uporabnika prosi za odgovor (npr. "koliko časa ti je
+   vzelo v resnici?"), in kdaj naj molči. Predlagaj pravilo, ki upošteva, da je vsako
+   vprašanje dolg do uporabnika.
+5. Počitki: kako naj sistem "zaščiti počitek", ne da bi uporabnik izgubil občutek nadzora?
+   Predlagaj, kaj naj bo predlog, kaj samodejno in kaj nikoli.
+6. Česa v tej aplikaciji NE merimo in ne prikazujemo (največ 4 stvari, z razlogom).
+
+ZAHTEVE: vsaka trditev s psihološko utemeljitvijo (avtor+leto, kjer ga poznaš; sicer "brez
+vira, sklep"). Brez temnih vzorcev, brez obvestil, ki ustvarjajo krivdo, brez javnih nizov.
+Brez povezave v omrežje in brez zbiranja podatkov o drugih ljudeh — to je omejitev izdelka.
+Slovenščina.
+IZHOD: 1) pet meritev (tabela: meritev → odločitev, ki jo spremeni), 2) kje škodi, 3) kje živi,
+4) kdaj vprašati, 5) počitek, 6) česa ne merimo.
+```
+
+---
+
+### 8.8 Prvi vtis in ponudba v trgovini — za tržnika, ki ne sme pretiravati
+
+```
+Si pisec izdelčnih besedil in oblikovalec prvega vtisa v trgovini z aplikacijami. Znaš narediti,
+da človek ob pogledu na posnetke reče "to hočem", in obenem veš, da pretiravanje ubije zaupanje
+pri dijakih, ki preberejo vse.
+
+Izdelek: LockIn (kontekst spodaj). Omejitve, ki jih ne smeš prekoračiti: aplikacija je zdaj samo
+za Android in v slovenščini + angleščini; brez povezave v omrežje; brez računa; varnostna kopija
+v oblaku še ne obstaja. Ni še v trgovini — to je priprava, ne izdaja.
+
+[KONTEKST]
+
+NALOGE:
+1. Naslov (največ 30 znakov) in podnaslov (največ 80): tri različice za tri različna
+   pozicioniranja — (a) "urnik, ki se popravi, ko se dan sesuje", (b) "za dijaka IB v
+   Sloveniji", (c) "nič ne zapusti telefona". Vsakič povej, koga s tem izgubiš.
+2. Prvi posnetek zaslona (tisti, ki odloči): kateri od zaslonov naj bo, kaj naj bo na njem v
+   prvem planu in katero besedilo naj stoji zraven. Utemelji z 2–3 sekundami pozornosti, ki jih
+   imaš.
+3. Kratki opis (največ 80 besed) in pet točk z značilnostmi, vsaka z mejno vrednostjo
+   ("blok v treh dotikih", "teden na enem zaslonu"). Nobena točka ne sme obljubiti česa, česar
+   aplikacija ne zna.
+4. Kaj napišeš o zasebnosti, da bo resnično in hkrati privlačno (internetno dovoljenje je
+   odstranjeno — kaj to pomeni človeku, ne razvijalcu).
+5. Pet vprašanj, ki jih bo dijak res postavil (izguba telefona, iPhone, Google Calendar, AI,
+   cena), in pošteni odgovori, dolgi največ dva stavka.
+6. Kaj bi moral lastnik narediti PRED izdajo, da bi bil prvi vtis v trgovini pošten (največ 3
+   stvari, vsaka merljiva: npr. posnetki v slovenščini in angleščini, preverjen koledar).
+
+ZAHTEVE: brez vzklikov, brez velikih obljub, brez besede "revolucionarno", brez "AI" kot
+prodajne točke. Ton: miren, točen, kot dober sošolec, ki ti ne prodaja nič. Slovenščina; angleške
+različice priloži tam, kjer bi jih potreboval (naslov, opis, točke).
+IZHOD: tabela za vsako točko (1–6), brez uvoda.
+```
+
+---
+
+> **Kako te prompte uporabiti.** 8.1 potrebuje posnetke (naredi jih na telefonu, v temni sobi,
+> osvetlitev zaslona na sredini). 8.2–8.7 delujejo brez prilog — kontekst je dovolj. 8.8 je
+> priprava za pozneje, ko se odločiš za trgovino. Pri vsakem velja: če model začne pisati kodo
+> ali predlagati nove funkcije, ga ustavi z opombo iz konteksta — odgovor mora ostati pri videzu,
+> razporeditvi, psihologiji in privlačnosti.
 
 ## 9. Viri
 
