@@ -72,9 +72,10 @@
     <string name="academic_year">%1$d/%2$d</string>
     <string name="day_heading">Room for what matters.</string>
     <string name="metric_focus">Focus</string>
+    <string name="value_none">—</string>
     <string name="metric_recovery">Rest</string>
     <string name="metric_completed">Done</string>
-    <string name="completed_count">%1$d/%2$d</string>
+    <string name="completed_count">%1$d of %2$d</string>
     <string name="day_load_description">Planned time: lessons, focus, rest, projects and personal commitments.</string>
     <string name="empty_day_title">The day starts with room.</string>
     <string name="empty_day_body">Add lessons, study or real rest. Your timetable stays on this device only.</string>

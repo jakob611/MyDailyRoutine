@@ -282,6 +282,11 @@ Namesti APK iz [izdaje `debug-latest`](https://github.com/jakob611/MyDailyRoutin
 ---
 ## 8. Prompti za druge AI (pripravljeni za kopiranje)
 
+> **Nadomeščeno 22. 9. 2026:** aktualna različica promptov je v
+> [`2026-09-22-prompti-za-zunanje-ai.md`](2026-09-22-prompti-za-zunanje-ai.md) — bolj
+> strukturirana, z natančnimi barvami, razporeditvijo gumbov in potmi med zasloni, in z
+> merili, po katerih se odgovor da preveriti. Spodnja izdaja ostaja za zgodovino.
+
 > **Prepisano 21. 9. 2026 (druga izdaja).** Prejšnja različica je od modelov zahtevala delo s kodo
 > (Compose, Room, SQLDelight). Ti prompti tega ne počnejo več. Noben model, ki ga boš uporabil, ne vidi
 > tvoje kode — zato vsak prompt nosi **opis aplikacije v besedah**: barve, steklo, razporeditev gumbov,

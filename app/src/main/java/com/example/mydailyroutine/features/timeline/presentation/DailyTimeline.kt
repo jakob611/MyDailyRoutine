@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.testTag
@@ -96,6 +97,27 @@ fun DailyTimeline(
 ) {
     val today = day.date == now.toLocalDate()
     val nowMinute = now.hour * 60 + now.minute
+    // A day with nothing in it has no summary: three zeros, an empty load bar, "0 min of reserve"
+    // and two buttons that would do nothing are the loudest thing on the screen a reader sees first.
+    // The empty-day card below already says everything, and it says it once.
+    val hasItems = day.items.isNotEmpty()
+    // Healing is offered when the day has actually slipped (a block that should have ended and is
+    // neither done nor set aside) or when the queue holds something. On a tidy day both buttons
+    // would be no-ops, and a no-op button is worse than no button.
+    val slipped = today && day.items.filterIsInstance<ResolvedTimelineItem.Block>().any {
+        !it.isCompleted && !it.isSuppressed && it.endMinute <= nowMinute
+    }
+    val offerHealing = slipped || backlogCount > 0
+    val noValue = stringResource(R.string.value_none)
+    val completedValue = if (day.metrics.blockCount == 0) noValue
+    else stringResource(R.string.completed_count, day.metrics.completedCount, day.metrics.blockCount)
+    val completedColor = when {
+        day.metrics.blockCount == 0 || day.metrics.completedCount == 0 -> RoutineColors.TextMuted
+        day.metrics.completedCount == day.metrics.blockCount -> RoutineColors.Success
+        else -> RoutineColors.TextPrimary
+    }
+    val focusValue = if (day.metrics.focusMinutes == 0) noValue else durationLabel(day.metrics.focusMinutes)
+    val recoveryValue = if (day.metrics.recoveryMinutes == 0) noValue else durationLabel(day.metrics.recoveryMinutes)
     val activeKey = remember(day.items, now) {
         if (!today) null else day.items.filterIsInstance<ResolvedTimelineItem.Block>().firstOrNull {
             val window = OccurrenceTimes.window(it, now.zone)
@@ -119,7 +141,7 @@ fun DailyTimeline(
                     // reader jump straight to the day instead of walking through the summary tiles.
                     heading = true,
                 )
-                Surface(
+                if (hasItems) Surface(
                     Modifier.fillMaxWidth(),
                     shape = RoutineShapes.Card,
                     color = RoutineColors.Surface1,
@@ -132,22 +154,25 @@ fun DailyTimeline(
                         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                             MetricTile(
                                 stringResource(R.string.metric_focus),
-                                durationLabel(day.metrics.focusMinutes),
+                                focusValue,
                                 Modifier.weight(1f).fillMaxHeight(),
+                                valueColor = if (day.metrics.focusMinutes == 0) RoutineColors.TextMuted else Color.Unspecified,
                             )
                             MetricTile(
                                 stringResource(R.string.metric_recovery),
-                                durationLabel(day.metrics.recoveryMinutes),
+                                recoveryValue,
                                 Modifier.weight(1f).fillMaxHeight(),
+                                valueColor = if (day.metrics.recoveryMinutes == 0) RoutineColors.TextMuted else Color.Unspecified,
                             )
                             MetricTile(
                                 stringResource(R.string.metric_completed),
-                                stringResource(R.string.completed_count, day.metrics.completedCount, day.metrics.blockCount),
+                                completedValue,
                                 Modifier.weight(1f).fillMaxHeight(),
+                                valueColor = completedColor,
                             )
                         }
                         DayLoadBar(day.items)
-                        Row(
+                        if (day.metrics.reserveMinutes > 0 || day.warnings.isNotEmpty()) Row(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
@@ -231,7 +256,7 @@ fun DailyTimeline(
                         }
                     }
                 }
-                ActionRow {
+                if (offerHealing) ActionRow {
                     FilledTonalButton(
                         enabled = !busy && day.items.isNotEmpty() && day.date >= LocalDate.now(),
                         onClick = {
@@ -246,7 +271,7 @@ fun DailyTimeline(
                         RoutineLabel(stringResource(R.string.backlog_count, backlogCount), style = MaterialTheme.typography.labelLarge)
                     }
                 }
-                RoutineText(
+                if (offerHealing) RoutineText(
                     text = stringResource(R.string.auto_heal_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = RoutineColors.TextSecondary,

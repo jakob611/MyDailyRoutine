@@ -73,7 +73,16 @@ class AccessibilityTest {
     }
 
     @Test fun aNumberIsAnnouncedWithTheLabelItBelongsTo() {
-        // "3/9" on a summary tile means nothing on its own; the tile states "Opravljeno: 3/9"
+        // A summary tile only exists on a day that has something in it — an empty day states the
+        // invitation instead of three dashes — so the test first asks for the example day, which is
+        // one tap and the shortest honest route to a day with blocks in it.
+        if (compose.onAllNodesWithText(text(R.string.plan_first_block)).fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithText(text(R.string.onboarding_start_demo)).performClick()
+            compose.waitUntil(10000) {
+                compose.onAllNodesWithText(text(R.string.metric_focus)).fetchSemanticsNodes().isNotEmpty()
+            }
+        }
+        // "3 of 9" on a summary tile means nothing on its own; the tile states "Opravljeno: 3 od 9"
         // instead, and the same holds for the two durations beside it.
         val stated = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription))
             .fetchSemanticsNodes()
@@ -84,6 +93,18 @@ class AccessibilityTest {
                 stated.any { it.contains(text(id)) },
             )
         }
+    }
+
+    @Test fun anEmptyDayDoesNotShoutZeroes() {
+        // The first screen a new reader sees. Three dashes, "0 min of reserve" and two buttons that
+        // would do nothing are the loudest thing on it; the invitation card is the only thing that
+        // belongs there. When another test has already filled the day this has nothing to prove, so
+        // it steps aside rather than inventing a failure from a shared database.
+        if (compose.onAllNodesWithText(text(R.string.plan_first_block)).fetchSemanticsNodes().isEmpty()) return
+        compose.onAllNodesWithText(text(R.string.metric_focus)).assertCountEquals(0)
+        compose.onAllNodesWithText(text(R.string.metric_completed)).assertCountEquals(0)
+        compose.onAllNodesWithText(text(R.string.auto_heal)).assertCountEquals(0)
+        compose.onAllNodesWithText(text(R.string.empty_day_title)).assertCountEquals(1)
     }
 
     @Test fun aTimeFieldStatesWhichTimeItHolds() {

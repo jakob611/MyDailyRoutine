@@ -182,7 +182,17 @@ fun CalendarNoticeCard(entries: List<CalendarEntry>) {
  * duration can neither truncate nor make the row ragged.
  */
 @Composable
-fun MetricTile(label: String, value: String, modifier: Modifier = Modifier) {
+fun MetricTile(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    /**
+     * The value's colour, decided by the caller because only the caller knows whether the number is
+     * real. A day with nothing in it states a dash in the muted tone instead of shouting "0 min" in
+     * the same white as a day with four hours behind it.
+     */
+    valueColor: Color = Color.Unspecified,
+) {
     Surface(
         // A tile is a label and a number that only mean something together: "3/9" read on its own
         // tells a screen reader nothing about what was counted. The tile states the pair as one
@@ -198,8 +208,12 @@ fun MetricTile(label: String, value: String, modifier: Modifier = Modifier) {
             Modifier.fillMaxWidth().padding(RoutineSpacing.md),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
         ) {
-            RoutineText(value, style = MaterialTheme.typography.titleMedium, color = RoutineColors.TextPrimary,
-                maxLines = RoutineTextDefaults.Body)
+            RoutineText(
+                value,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (valueColor == Color.Unspecified) RoutineColors.TextPrimary else valueColor,
+                maxLines = RoutineTextDefaults.Body,
+            )
             RoutineLabel(label, style = MaterialTheme.typography.labelMedium, color = RoutineColors.TextSecondary)
         }
     }
