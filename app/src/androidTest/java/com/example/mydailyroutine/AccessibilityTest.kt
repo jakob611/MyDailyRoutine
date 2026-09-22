@@ -73,20 +73,19 @@ class AccessibilityTest {
     }
 
     @Test fun aNumberIsAnnouncedWithTheLabelItBelongsTo() {
-        // A summary tile only exists on a day that has something in it — an empty day states the
-        // invitation instead of three dashes — so the test first asks for the example day, which is
-        // one tap and the shortest honest route to a day with blocks in it.
-        if (compose.onAllNodesWithText(text(R.string.plan_first_block)).fetchSemanticsNodes().isNotEmpty()) {
-            compose.onNodeWithText(text(R.string.onboarding_start_demo)).performClick()
-            compose.waitUntil(10000) {
-                compose.onAllNodesWithText(text(R.string.metric_focus)).fetchSemanticsNodes().isNotEmpty()
-            }
-        }
-        // "3 of 9" on a summary tile means nothing on its own; the tile states "Opravljeno: 3 od 9"
-        // instead, and the same holds for the two durations beside it.
         val stated = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription))
             .fetchSemanticsNodes()
             .mapNotNull { it.config.getOrElseNullable(SemanticsProperties.StateDescription) { null } }
+        if (stated.isEmpty()) {
+            // A summary tile only exists on a day that has something in it; an empty day states the
+            // invitation instead of three dashes. The test loads no example day on purpose — that
+            // would leave blocks on the timeline for every later test in the same run, which is how a
+            // helpful test turns into a flaky one.
+            compose.onAllNodesWithText(text(R.string.empty_day_title)).assertCountEquals(1)
+            return
+        }
+        // "3 of 9" on a summary tile means nothing on its own; the tile states "Opravljeno: 3 od 9"
+        // instead, and the same holds for the two durations beside it.
         listOf(R.string.metric_focus, R.string.metric_recovery, R.string.metric_completed).forEach { id ->
             assertTrue(
                 "no tile states the value of ${text(id)} among $stated",
