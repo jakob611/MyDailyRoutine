@@ -32,6 +32,43 @@ class PdfTimetableImportTest {
     /** The same text as the file draws it: one hex pair per glyph code. */
     private fun hex(text: String): String = text.map { "%02X".format(code(it)) }.joinToString("")
 
+    /**
+     * The font's own glyph-code map, written the way a real subset writes it: a glyph run that happens
+     * to be consecutive in both code and letter goes into a `bfrange`, the scattered ones into a
+     * `bfchar`. Reading a range as a pair of single glyphs is what turns the digits of a time into
+     * letters, so the fixture has to contain both kinds.
+     */
+    private fun cmapStream(): String {
+        val ranges = StringBuilder()
+        val singles = StringBuilder()
+        var rangeCount = 0
+        var singleCount = 0
+        var index = 0
+        while (index < glyphs.length) {
+            val first = index + 1
+            val target = glyphs[index].code
+            var span = 1
+            while (index + span < glyphs.length && glyphs[index + span].code == target + span) span++
+            if (span >= 3) {
+                ranges.append("<%04X> <%04X> <%04X>\n".format(first, first + span - 1, target))
+                rangeCount++
+                index += span
+            } else {
+                singles.append("<%02X> <%04X>\n".format(first, target))
+                singleCount++
+                index++
+            }
+        }
+        return buildString {
+            append("/CIDInit /ProcSet findresource begin 12 dict begin begincmap\n")
+            append("/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n")
+            append("1 begincodespacerange <00> <FF> endcodespacerange\n")
+            append("$rangeCount beginbfrange\n$ranges" + "endbfrange\n")
+            append("$singleCount beginbfchar\n$singles" + "endbfchar\n")
+            append("endcmap\nend\n")
+        }
+    }
+
     private fun Tj(text: String, x: Int, y: Int, font: String = "F1", size: String = "9"): String =
         "BT /$font $size Tf $x $y Td <${hex(text)}> Tj ET\n"
 
@@ -76,14 +113,7 @@ class PdfTimetableImportTest {
      * map, F3 announces MacRoman and ships the zero widths a subset often has.
      */
     private fun fixture(): ByteArray {
-        val cMap = buildString {
-            append("/CIDInit /ProcSet findresource begin 12 dict begin begincmap\n")
-            append("/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n")
-            append("1 begincodespacerange <00> <FF> endcodespacerange\n")
-            append("${glyphs.length} beginbfchar\n")
-            glyphs.forEachIndexed { index, char -> append("<%02X> <%04X>\n".format(index + 1, char.code)) }
-            append("endbfchar\nendcmap\nend\n")
-        }
+        val cMap = cmapStream()
         val page1 = pageOne().toByteArray(Charsets.ISO_8859_1)
         val page2 = pageTwo().toByteArray(Charsets.ISO_8859_1)
         val cmapBytes = deflate(cMap.toByteArray(Charsets.ISO_8859_1))
@@ -246,12 +276,7 @@ class PdfTimetableImportTest {
         pages.forEach { body -> objects += "<< /Length ${body.length} >> stream\n$body\nendstream" }
         objects += "<< /Type /Font /Subtype /TrueType /BaseFont /PXAAAA+Helvetica /FirstChar 1 /LastChar ${glyphs.length} " +
             "/Widths [${"600 ".repeat(glyphs.length)}] /ToUnicode $cmapId 0 R >>"
-        val cmap = buildString {
-            append("/CIDInit /ProcSet findresource begin begincmap\n1 begincodespacerange <00> <FF> endcodespacerange\n")
-            append("${glyphs.length} beginbfchar\n")
-            glyphs.forEachIndexed { index, char -> append("<%02X> <%04X>\n".format(index + 1, char.code)) }
-            append("endbfchar\nendcmap\nend\n")
-        }.toByteArray(Charsets.ISO_8859_1)
+        val cmap = cmapStream().toByteArray(Charsets.ISO_8859_1)
         objects += "<< /Length ${cmap.size} /Filter /FlateDecode >> stream\n${String(cmap, Charsets.ISO_8859_1)}\nendstream"
         val out = StringBuilder("%PDF-1.4\n")
         objects.forEachIndexed { index, body -> out.append("${index + 1} 0 obj\n$body\nendobj\n") }

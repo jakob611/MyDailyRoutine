@@ -227,20 +227,26 @@ object PdfTextExtractor {
     /** `beginbfrange` / `beginbfchar` tables: glyph code to the character it stands for. */
     private fun parseCMap(text: String): Map<Int, Char> {
         val table = mutableMapOf<Int, Char>()
-        for (block in BFRANGE.findAll(text)) {
-            val low = block.groupValues[1].toIntOrNull(16) ?: continue
-            val high = block.groupValues[2].toIntOrNull(16) ?: continue
-            val target = block.groupValues[3].toIntOrNull(16) ?: continue
-            if (high < low || high - low > 0xFFFF) continue
-            for (code in low..high) {
-                val value = target + (code - low)
-                if (value in 1..0x10FFFF) table[code] = value.toChar()
+        // Each table is read inside its own block, because `<01> <0F> <0020>` reads as two groups of
+        // a bfchar entry as well - and believing that would map a glyph to the wrong letter.
+        for (block in BFRANGE_BLOCK.findAll(text)) {
+            for (entry in BFRANGE.findAll(block.value)) {
+                val low = entry.groupValues[1].toIntOrNull(16) ?: continue
+                val high = entry.groupValues[2].toIntOrNull(16) ?: continue
+                val target = entry.groupValues[3].toIntOrNull(16) ?: continue
+                if (high < low || high - low > 0xFFFF) continue
+                for (code in low..high) {
+                    val value = target + (code - low)
+                    if (value in 1..0x10FFFF) table[code] = value.toChar()
+                }
             }
         }
-        for (block in BFCHAR.findAll(text)) {
-            val code = block.groupValues[1].toIntOrNull(16) ?: continue
-            val target = block.groupValues[2].toIntOrNull(16) ?: continue
-            if (target in 1..0x10FFFF) table[code] = target.toChar()
+        for (block in BFCHAR_BLOCK.findAll(text)) {
+            for (entry in BFCHAR.findAll(block.value)) {
+                val code = entry.groupValues[1].toIntOrNull(16) ?: continue
+                val target = entry.groupValues[2].toIntOrNull(16) ?: continue
+                if (target in 1..0x10FFFF) table[code] = target.toChar()
+            }
         }
         return table
     }
@@ -301,15 +307,18 @@ object PdfTextExtractor {
                         index = if (end < 0) content.length else end + 1
                     }
                     '/' -> {
-                        // A name (font, colour space, graphics state): read past it, keep no text.
+                        // A name: a font, a colour space, a graphics state. It carries no text, but
+                        // `/F1 9 Tf` is the only place the stream says which font it draws with, so
+                        // the name itself is the operand - without its slash, which is how the font
+                        // map is keyed.
                         var next = index + 1
                         while (next < content.length && !content[next].isWhitespace() &&
                             content[next] !in "()[]<>/{}%"
                         ) {
                             next++
                         }
-                        operands += "/name"
-                        index = next
+                        operands += content.substring(index + 1, next)
+                        index = maxOf(next, index + 1)
                     }
                     else -> {
                         if (char.isWhitespace() || char == '{' || char == '}') {
@@ -583,6 +592,8 @@ object PdfTextExtractor {
         RegexOption.DOT_MATCHES_ALL,
     )
     private val BFCHAR = Regex("<([0-9A-Fa-f]+)>\\s*<([0-9A-Fa-f]+)>")
+    private val BFRANGE_BLOCK = Regex("beginbfrange(.*?)endbfrange", RegexOption.DOT_MATCHES_ALL)
+    private val BFCHAR_BLOCK = Regex("beginbfchar(.*?)endbfchar", RegexOption.DOT_MATCHES_ALL)
 
     /**
      * The high half of MacRoman, in order from 0x80: the dashes, quotes and accented letters a school
