@@ -6,6 +6,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,6 +23,8 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TouchTargetsTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Before fun answerFirstRunIfShown() = compose.passOnboarding()
 
     private fun text(@StringRes id: Int) = compose.activity.getString(id)
 

@@ -237,8 +237,13 @@ data class SchedulePreferences(
      * interface then speaks without a name instead of inventing one.
      */
     val userName: String = "",
-    /** True once the first-run flow has been seen or skipped; a fresh install starts at `false`. */
-    val onboardingDone: Boolean = false,
+    /**
+     * True once the first-run flow has been seen or skipped. The default is "already seen" because
+     * this value is also the shape of the state before the first read from storage completes: a
+     * returning reader must never see the first-run screen flash while their settings load. A store
+     * with nothing in it is what raises the flow, and only [PreferencesRepository] can see that.
+     */
+    val onboardingDone: Boolean = true,
     val muteDuringSchoolHours: Boolean = true,
     /** A break starting is visible in the timeline; pinging for it is noise. Off by default. */
     val notifyRecovery: Boolean = false,

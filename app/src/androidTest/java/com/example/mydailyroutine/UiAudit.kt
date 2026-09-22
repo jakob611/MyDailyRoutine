@@ -7,6 +7,11 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
@@ -63,4 +68,26 @@ internal fun shell(command: String): String {
     return descriptor.use { parcel ->
         java.io.FileInputStream(parcel.fileDescriptor).use { input -> input.readBytes().toString(Charsets.UTF_8) }
     }
+}
+
+/**
+ * Answers the first-run screen when this install has never been used, so a test can reach the app
+ * behind it.
+ *
+ * The screen appears only while the app holds no preferences at all, which is the state a freshly
+ * installed test APK starts in — and it is a real answer, not a bypass: skipping writes "seen" the
+ * same way a reader's own tap does. Later tests in the same run find it already gone, which is why
+ * this looks before it clicks instead of asserting that the screen is there.
+ */
+@OptIn(ExperimentalTestApi::class)
+internal fun ComposeTestRule.passOnboarding() {
+    // The app settles on one of two screens and which one arrives first depends on how fast the
+    // settings are read, so waiting for either is what keeps this from racing the first frame.
+    waitUntil(10_000) {
+        onAllNodesWithTag("onboarding-skip").fetchSemanticsNodes().isNotEmpty() ||
+            onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty()
+    }
+    if (onAllNodesWithTag("onboarding-skip").fetchSemanticsNodes().isEmpty()) return
+    onNodeWithTag("onboarding-skip").performClick()
+    waitUntil(10_000) { onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
 }

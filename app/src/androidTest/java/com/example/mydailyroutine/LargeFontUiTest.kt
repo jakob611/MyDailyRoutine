@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
@@ -29,6 +30,8 @@ class LargeFontUiTest {
 
     @get:Rule
     val device: TestRule = RuleChain.outerRule(NarrowScreenWithLargeFont()).around(compose)
+
+    @Before fun answerFirstRunIfShown() = compose.passOnboarding()
 
     private fun text(id: Int) = compose.activity.getString(id)
 
