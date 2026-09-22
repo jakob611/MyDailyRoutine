@@ -38,7 +38,7 @@ class AccessibilityTest {
 
     /** The custom actions a node exposes, read the way a screen reader reads them. */
     private fun actionsOf(config: SemanticsConfiguration): List<CustomAccessibilityAction> {
-        val action = config.getOrNull(SemanticsActions.CustomActions) ?: return emptyList()
+        val action = config.getOrElseNullable(SemanticsActions.CustomActions) { null } ?: return emptyList()
         val found = mutableListOf<CustomAccessibilityAction>()
         action.action(found)
         return found
@@ -75,7 +75,7 @@ class AccessibilityTest {
         // instead, and the same holds for the two durations beside it.
         val stated = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription))
             .fetchSemanticsNodes()
-            .mapNotNull { it.config.getOrNull(SemanticsProperties.StateDescription) }
+            .mapNotNull { it.config.getOrElseNullable(SemanticsProperties.StateDescription) { null } }
         listOf(R.string.metric_focus, R.string.metric_recovery, R.string.metric_completed).forEach { id ->
             assertTrue(
                 "no tile states the value of ${text(id)} among $stated",
@@ -90,7 +90,7 @@ class AccessibilityTest {
         compose.onNodeWithTag("fast-add").performClick()
         awaitHeading(R.string.fast_add_title)
         val start = compose.onNodeWithTag("entry-start", useUnmergedTree = true).fetchSemanticsNode()
-        val description = start.config.getOrNull(SemanticsProperties.StateDescription)
+        val description = start.config.getOrElseNullable(SemanticsProperties.StateDescription) { null }
         assertTrue("the start field states \"$description\"", description?.contains(text(R.string.entry_start)) == true)
     }
 
