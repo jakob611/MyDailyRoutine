@@ -76,8 +76,10 @@ import java.time.format.TextStyle
 object TimetablePasteParser {
 
     // Times arrive both ways: a Slovenian page writes 24-hour, an English export writes "8:00 AM".
+    // The meridian is optional on both sides — "8:00 AM - 8:45 AM", "8:00-8:45 AM" and "08:00-08:50"
+    // are all the same kind of line, and only the first two mean anything about the clock.
     private val TimeRange = Regex(
-        "(\\d{1,2})[:.](\\d{2})\\s*([AaPp]\\.?[Mm]\\.?)?\\s*[-–—]\\s*(\\d{1,2})[:.](\\d{2})\\s*([AaPp]\\.?[Mm]\\.?)",
+        "(\\d{1,2})[:.](\\d{2})\\s*([AaPp]\\.?[Mm]\\.?)?\\s*[-–—]\\s*(\\d{1,2})[:.](\\d{2})\\s*([AaPp]\\.?[Mm]\\.?)?",
     )
 
     private val DayTokens: Map<String, DayOfWeek> = mapOf(
@@ -122,9 +124,10 @@ object TimetablePasteParser {
             index++
         }
         return kept.joinToString(" ")
-        .trim('-', '–', '—', ':', ';', ',')
-        .trim()
-        .replace(Regex("\\s{2,}"), " ")
+            .trim('-', '–', '—', ':', ';', ',')
+            .trim()
+            .replace(Regex("\\s{2,}"), " ")
+    }
 
     /** A clock time as minutes since midnight; a 12-hour time only means something with its meridian. */
     private fun clockMinutes(hour: String, minute: String, meridian: String): Int {

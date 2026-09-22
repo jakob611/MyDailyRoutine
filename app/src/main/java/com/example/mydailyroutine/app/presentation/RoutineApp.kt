@@ -220,6 +220,21 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         }
         viewModel.onAction(action)
     } }
+    // First run owns the whole window: two questions asked inside a sheet the reader can swipe away
+    // would be asked twice, and there is nothing behind it worth guarding — the app holds no data yet
+    // and every default the flow sets is already what the app ships with. It answers with the same
+    // haptics and sounds as the rest of the app, so the first tap already feels like this app.
+    if (!state.preferences.onboardingDone) {
+        CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalRoutineSounds provides sounds) {
+            OnboardingScreen(
+                userName = state.preferences.userName,
+                schoolStart = state.preferences.schoolStart,
+                schoolEnd = state.preferences.schoolEnd,
+                onAction = onAction,
+            )
+        }
+        return
+    }
     val snackbars = remember { SnackbarHostState() }
     val now by minuteClock()
     LaunchedEffect(now, state.execution?.startedAt) {
@@ -255,18 +270,6 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
       // One backdrop for the window: the content layer records into it and the floating chrome —
       // the top bar, the fast-add control — refracts it. They have to stay siblings of the layer,
       // never inside it, or a panel draws itself into itself.
-      // First run owns the whole window. Asking two questions behind a sheet the reader can swipe
-      // away would mean asking twice, and there is nothing behind it worth guarding: the app has no
-      // data yet, and every default the flow would set is already what the app ships with.
-      if (!state.preferences.onboardingDone) {
-          OnboardingScreen(
-              userName = state.preferences.userName,
-              schoolStart = state.preferences.schoolStart,
-              schoolEnd = state.preferences.schoolEnd,
-              onAction = onAction,
-          )
-          return
-      }
       RoutineBackdropProvider {
         val backdrop = LocalRoutineBackdrop.current
         val density = LocalDensity.current

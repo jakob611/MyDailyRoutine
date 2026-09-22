@@ -3,7 +3,6 @@ package com.example.mydailyroutine.features.entry.presentation
 import com.example.mydailyroutine.core.presentation.TimetableRow
 import com.example.mydailyroutine.domain.import.PdfTextExtractor
 import java.time.DayOfWeek
-import kotlin.math.floorMod
 
 /**
  * Rebuilds the week a school's PDF *draws*: a grid of day columns and period rows.
@@ -113,8 +112,10 @@ object TimetableGridParser {
     }
 
     /** Monday + 0 is Monday; the offset walks the week without ever leaving it. */
-    private fun weekdayAfter(first: DayOfWeek, offset: Int): DayOfWeek =
-        DayOfWeek.of((first.value - 1 + offset).floorMod(7) + 1)
+    private fun weekdayAfter(first: DayOfWeek, offset: Int): DayOfWeek {
+        val index = (first.value - 1 + offset) % 7
+        return DayOfWeek.of((if (index < 0) index + 7 else index) + 1)
+    }
 
     private class Column(val x: Float, val day: DayOfWeek?, val numbered: Boolean)
 

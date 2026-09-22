@@ -227,23 +227,31 @@ class PdfTimetableImportTest {
         assertTrue(rows.none { it.title.contains("Urška") || it.title.contains("Mojca") || it.title.contains("Marko") })
     }
 
+    /** A one-font file whose pages carry nothing but the given drawing instructions. */
     private fun pdf(pages: List<String>): ByteArray {
         val objects = mutableListOf<String>()
-        val pageObjectStart = 4
-        val kids = pages.indices.joinToString(" ") { "${pageObjectStart + it} 0 R" }
+        val count = pages.size
+        // Numbers are decided before the objects are written, so the page trees can point forward:
+        // one catalog, one page tree, a content stream per page, a page per stream, then the font.
+        val contentsIds = pages.indices.map { 3 + it }
+        val pageIds = pages.indices.map { 3 + count + it }
+        val fontId = 3 + 2 * count
+        val cmapId = fontId + 1
+        val kids = pageIds.joinToString(" ") { "$it 0 R" }
         objects += "<< /Type /Catalog /Pages 2 0 R >>"
-        objects += "<< /Type /Pages /Kids [$kids] /Count ${pages.size} /Resources << /Font << /F1 5 0 R >> >> >>"
-        objects += "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 3 0 R >>"
-        pages.indices.forEach { objects += "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents ${pageObjectStart + pages.size + it} 0 R >>" }
+        objects += "<< /Type /Pages /Kids [$kids] /Count $count /Resources << /Font << /F1 $fontId 0 R >> >> >>"
+        pages.indices.forEach { index ->
+            objects += "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents ${contentsIds[index]} 0 R >>"
+        }
+        pages.forEach { body -> objects += "<< /Length ${body.length} >> stream\n$body\nendstream" }
         objects += "<< /Type /Font /Subtype /TrueType /BaseFont /PXAAAA+Helvetica /FirstChar 1 /LastChar ${glyphs.length} " +
-            "/Widths [${"600 ".repeat(glyphs.length)}] /ToUnicode ${pageObjectStart + 2 * pages.size + 1} 0 R >>"
+            "/Widths [${"600 ".repeat(glyphs.length)}] /ToUnicode $cmapId 0 R >>"
         val cmap = buildString {
             append("/CIDInit /ProcSet findresource begin begincmap\n1 begincodespacerange <00> <FF> endcodespacerange\n")
             append("${glyphs.length} beginbfchar\n")
             glyphs.forEachIndexed { index, char -> append("<%02X> <%04X>\n".format(index + 1, char.code)) }
             append("endbfchar\nendcmap\nend\n")
         }.toByteArray(Charsets.ISO_8859_1)
-        pages.forEach { objects += "<< /Length ${it.length} >> stream\n$it\nendstream" }
         objects += "<< /Length ${cmap.size} /Filter /FlateDecode >> stream\n${String(cmap, Charsets.ISO_8859_1)}\nendstream"
         val out = StringBuilder("%PDF-1.4\n")
         objects.forEachIndexed { index, body -> out.append("${index + 1} 0 obj\n$body\nendobj\n") }
