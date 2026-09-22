@@ -20,6 +20,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
@@ -63,6 +66,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.presentation.TimetableRow
 import java.time.DayOfWeek
+import java.time.format.TextStyle
 
 /**
  * Parses timetable text copied out of ManageBac (web view or PDF select-all) into weekly blocks.
@@ -71,7 +75,10 @@ import java.time.DayOfWeek
  */
 object TimetablePasteParser {
 
-    private val TimeRange = Regex("(\\d{1,2})[:.](\\d{2})\\s*[-–—]\\s*(\\d{1,2})[:.](\\d{2})")
+    // Times arrive both ways: a Slovenian page writes 24-hour, an English export writes "8:00 AM".
+    private val TimeRange = Regex(
+        "(\\d{1,2})[:.](\\d{2})\\s*([AaPp]\\.?[Mm]\\.?)?\\s*[-–—]\\s*(\\d{1,2})[:.](\\d{2})\\s*([AaPp]\\.?[Mm]\\.?)",
+    )
 
     private val DayTokens: Map<String, DayOfWeek> = mapOf(
         "pon" to DayOfWeek.MONDAY, "ponedeljek" to DayOfWeek.MONDAY, "mon" to DayOfWeek.MONDAY, "montag" to DayOfWeek.MONDAY,
@@ -86,27 +93,58 @@ object TimetablePasteParser {
         .replace("č", "c").replace("š", "s").replace("ž", "z")
         .replace("ć", "c").replace("đ", "d")
 
-    internal fun dayOf(line: String): DayOfWeek? =
-        line.split(Regex("\\s+")).firstNotNullOfOrNull { token -> DayTokens[normalize(token)] }
+    internal fun dayOf(line: String, firstColumnDay: DayOfWeek = DayOfWeek.MONDAY): DayOfWeek? {
+        val tokens = line.split(Regex("\\s+"))
+        tokens.firstNotNullOfOrNull { token -> DayTokens[normalize(token)] }?.let { return it }
+        // "Day 3": a school that numbers its columns means the third column of its own week, and which
+        // weekday that is depends on the school — so the caller says where the first column starts.
+        tokens.forEachIndexed { index, token ->
+            if (normalize(token) !in setOf("day", "dan")) return@forEachIndexed
+            val number = tokens.getOrNull(index + 1)?.trim()?.toIntOrNull() ?: return@forEachIndexed
+            if (number in 1..7) return DayOfWeek.of((firstColumnDay.value - 1 + number - 1) % 7 + 1)
+        }
+        return null
+    }
 
-    internal fun subjectOf(segment: String): String = segment
-        .split(Regex("\\s+"))
-        .filterNot { it.isEmpty() || DayTokens.containsKey(normalize(it)) }
-        .joinToString(" ")
+    internal fun subjectOf(segment: String): String {
+        val words = segment.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        // A day marker is either a weekday name or the "Day 3" pair a numbered grid writes; neither
+        // belongs in the title that gets imported.
+        val kept = mutableListOf<String>()
+        var index = 0
+        while (index < words.size) {
+            val token = normalize(words[index])
+            if (token in setOf("day", "dan") && words.getOrNull(index + 1)?.toIntOrNull() != null) {
+                index += 2
+                continue
+            }
+            if (!DayTokens.containsKey(token)) kept += words[index]
+            index++
+        }
+        return kept.joinToString(" ")
         .trim('-', '–', '—', ':', ';', ',')
         .trim()
         .replace(Regex("\\s{2,}"), " ")
 
-    fun parse(text: String): List<TimetableRow> {
+    /** A clock time as minutes since midnight; a 12-hour time only means something with its meridian. */
+    private fun clockMinutes(hour: String, minute: String, meridian: String): Int {
+        var value = (hour.toIntOrNull() ?: 0) * 60 + (minute.toIntOrNull() ?: 0)
+        val flag = meridian.replace(".", "").lowercase()
+        if (flag == "pm" && value < 12 * 60) value += 12 * 60
+        if (flag == "am" && value >= 12 * 60) value -= 12 * 60
+        return value
+    }
+
+    fun parse(text: String, firstColumnDay: DayOfWeek = DayOfWeek.MONDAY): List<TimetableRow> {
         val rows = mutableListOf<TimetableRow>()
         text.lineSequence().forEach { raw ->
             val line = raw.trim()
             if (line.isEmpty()) return@forEach
-            val day = dayOf(line) ?: return@forEach
+            val day = dayOf(line, firstColumnDay) ?: return@forEach
             val matches = TimeRange.findAll(line).toList()
             matches.forEachIndexed { index, match ->
-                val start = match.groupValues[1].toInt() * 60 + match.groupValues[2].toInt()
-                val end = match.groupValues[3].toInt() * 60 + match.groupValues[4].toInt()
+                val start = clockMinutes(match.groupValues[1], match.groupValues[2], match.groupValues[3])
+                val end = clockMinutes(match.groupValues[4], match.groupValues[5], match.groupValues[6])
                 if (end > start && end <= 24 * 60) {
                     val after = match.range.last + 1
                     val until = matches.getOrNull(index + 1)?.range?.first ?: line.length
@@ -141,6 +179,25 @@ fun TimetableImportSheet(
     // Where a PDF import leaves its answer: how many rows came out, or why none did.
     var pdfNotice by remember { mutableStateOf<PdfNotice?>(null) }
     var reading by remember { mutableStateOf(false) }
+    // The file that was read, kept so the reader can re-map its columns without picking it again.
+    var document by remember { mutableStateOf<PdfTextExtractor.Document?>(null) }
+    // ManageBac numbers its columns ("Day 1", "Day 2") instead of naming weekdays, and the app cannot
+    // know the school's convention. Monday is the honest default; the row of days below the preview
+    // is how the reader says otherwise without leaving the sheet.
+    var firstColumnDay by remember { mutableStateOf(DayOfWeek.MONDAY) }
+    var numberedDays by remember { mutableStateOf(false) }
+
+    /** Reads the drawn grid first, and only falls back to plain text when there is no grid. */
+    fun reviewDocument(extracted: PdfTextExtractor.Document, day: DayOfWeek = firstColumnDay) {
+        val grid = TimetableGridParser.parse(extracted, day)
+        numberedDays = grid.numberedDays
+        val fromGrid = grid.rows
+        val fromText = if (fromGrid.isEmpty()) TimetablePasteParser.parse(extracted.text, day) else emptyList()
+        val rowsFound = if (fromGrid.isNotEmpty()) fromGrid else fromText
+        preview = rowsFound
+        pdfNotice = if (rowsFound.isEmpty()) PdfNotice.EMPTY else PdfNotice.ROWS(rowsFound.size)
+        if (rowsFound.isEmpty()) haptics.warning() else haptics.confirm()
+    }
 
     fun review(candidate: String) {
         val parsed = TimetablePasteParser.parse(candidate)
@@ -159,17 +216,22 @@ fun TimetableImportSheet(
                 haptics.warning()
                 return@launch
             }
-            val rowsFound = TimetablePasteParser.parse(extracted.text).size
-            if (rowsFound == 0) {
-                // Nothing readable in the file: say so and leave the paste box alone, because the
-                // reader can still select all in the PDF and paste it here by hand.
+            document = extracted
+            reviewDocument(extracted)
+            if (extracted.isEmpty) {
+                // Nothing readable in the file at all: leave the paste box alone, because the reader
+                // can still select all in the PDF and paste it here by hand.
+                pdfNotice = PdfNotice.EMPTY
+                return@launch
+            }
+            if (preview.isNullOrEmpty()) {
                 pdfNotice = PdfNotice.EMPTY
                 haptics.warning()
-            } else {
-                pdfNotice = PdfNotice.ROWS(rowsFound)
-                text = extracted.text
-                review(extracted.text)
+                return@launch
             }
+            // The text goes into the paste box as well: the grid is what gets imported, the lines are
+            // what the reader can see and fix if the school's file did something unexpected.
+            text = extracted.text
         }
     }
     val rows = preview
@@ -195,7 +257,13 @@ fun TimetableImportSheet(
         ) {
             OutlinedTextField(
                 value = text,
-                onValueChange = { value -> text = value; preview = null },
+                onValueChange = { value ->
+                    text = value
+                    preview = null
+                    document = null
+                    numberedDays = false
+                    pdfNotice = null
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = { RoutineText(stringResource(R.string.timetable_import_paste)) },
                 minLines = 5,
@@ -211,6 +279,28 @@ fun TimetableImportSheet(
                 enabled = !reading,
                 onClick = { haptics.press(); picker.launch(arrayOf("application/pdf")) },
             )
+            if (numberedDays && !rows.isNullOrEmpty()) {
+                RoutineText(stringResource(R.string.timetable_import_pdf_days),
+                    style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary,
+                    maxLines = RoutineTextDefaults.Paragraph)
+                Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    DayOfWeek.entries.forEach { day ->
+                        val label = day.getDisplayName(TextStyle.SHORT_STANDALONE, uiLocale())
+                        FilterChip(
+                            selected = day == firstColumnDay,
+                            onClick = {
+                                haptics.selection()
+                                firstColumnDay = day
+                                document?.let { reviewDocument(it, day) }
+                            },
+                            shape = RoutineShapes.Chip,
+                            modifier = Modifier.testTag("import-first-day-${day.name.lowercase()}"),
+                            label = { RoutineLabel(label, style = MaterialTheme.typography.labelLarge) },
+                        )
+                    }
+                }
+            }
             when (val notice = pdfNotice) {
                 is PdfNotice.ROWS -> RoutineText(stringResource(R.string.timetable_import_pdf_done, notice.count),
                     style = MaterialTheme.typography.bodySmall, color = RoutineColors.Success,
@@ -293,7 +383,7 @@ private sealed interface PdfNotice {
  * Reads a timetable PDF through the system file picker. Bounded on purpose: a picker can hand back a
  * 200 MB scan, and the reader has no use for more than a few megabytes of content streams.
  */
-private suspend fun readTimetablePdf(context: Context, uri: Uri): PdfTextExtractor.Result =
+private suspend fun readTimetablePdf(context: Context, uri: Uri): PdfTextExtractor.Document =
     withContext(Dispatchers.IO) {
         val bytes = context.contentResolver.openInputStream(uri)?.use { stream ->
             val buffer = java.io.ByteArrayOutputStream()

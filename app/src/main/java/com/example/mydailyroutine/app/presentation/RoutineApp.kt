@@ -59,6 +59,7 @@ import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.features.timeline.components.DateNavigator
 import com.example.mydailyroutine.features.entry.presentation.*
+import com.example.mydailyroutine.features.onboarding.presentation.OnboardingScreen
 import com.example.mydailyroutine.features.subjects.presentation.SubjectEditorDialog
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheet
@@ -254,6 +255,18 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
       // One backdrop for the window: the content layer records into it and the floating chrome —
       // the top bar, the fast-add control — refracts it. They have to stay siblings of the layer,
       // never inside it, or a panel draws itself into itself.
+      // First run owns the whole window. Asking two questions behind a sheet the reader can swipe
+      // away would mean asking twice, and there is nothing behind it worth guarding: the app has no
+      // data yet, and every default the flow would set is already what the app ships with.
+      if (!state.preferences.onboardingDone) {
+          OnboardingScreen(
+              userName = state.preferences.userName,
+              schoolStart = state.preferences.schoolStart,
+              schoolEnd = state.preferences.schoolEnd,
+              onAction = onAction,
+          )
+          return
+      }
       RoutineBackdropProvider {
         val backdrop = LocalRoutineBackdrop.current
         val density = LocalDensity.current
@@ -342,7 +355,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 else -> when (shown.mode) {
                                     TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
                                         state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction,
-                                        topInset = topInset) }
+                                        topInset = topInset, userName = state.preferences.userName) }
                                     TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
                                     TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
                                     TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }

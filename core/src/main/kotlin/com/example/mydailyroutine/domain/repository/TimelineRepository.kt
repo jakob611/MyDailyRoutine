@@ -33,6 +33,8 @@ interface TimelineRepository {
 
 interface PreferencesRepository {
     val preferences: Flow<SchedulePreferences>
+    suspend fun setUserName(name: String)
+    suspend fun completeOnboarding()
     suspend fun setMuteDuringSchoolHours(muted: Boolean)
     suspend fun setRecoveryNotifications(enabled: Boolean)
     suspend fun setSchoolWindow(start: LocalTime, end: LocalTime)

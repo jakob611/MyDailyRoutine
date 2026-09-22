@@ -232,6 +232,13 @@ sealed interface ResolvedTimelineItem {
 }
 
 data class SchedulePreferences(
+    /**
+     * What the first-run flow was told to call the reader. Empty means nobody was ever asked, and the
+     * interface then speaks without a name instead of inventing one.
+     */
+    val userName: String = "",
+    /** True once the first-run flow has been seen or skipped; a fresh install starts at `false`. */
+    val onboardingDone: Boolean = false,
     val muteDuringSchoolHours: Boolean = true,
     /** A break starting is visible in the timeline; pinging for it is noise. Off by default. */
     val notifyRecovery: Boolean = false,

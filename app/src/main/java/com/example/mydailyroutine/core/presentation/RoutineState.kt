@@ -129,6 +129,11 @@ sealed interface TimelineAction {
     data class Shift(val direction: Long) : TimelineAction
     data object Today : TimelineAction
     data object Retry : TimelineAction
+    /**
+     * The first-run flow is done: the reader's name, the school window, and whether the example was
+     * loaded come back as one action, so a half-finished flow can never leave half a setting behind.
+     */
+    data class FinishOnboarding(val userName: String, val schoolStart: LocalTime, val schoolEnd: LocalTime, val loadExample: Boolean) : TimelineAction
     data object OpenAdd : TimelineAction
     data object OpenPlanning : TimelineAction
     data class StartExecution(val block: ResolvedTimelineItem.Block) : TimelineAction

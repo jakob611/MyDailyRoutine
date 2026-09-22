@@ -91,6 +91,8 @@ fun DailyTimeline(
     dueTasks: List<Task>,
     onAction: (TimelineAction) -> Unit,
     topInset: Dp = 0.dp,
+    /** What the first-run flow was told to call the reader; empty when nobody was asked. */
+    userName: String = "",
 ) {
     val today = day.date == now.toLocalDate()
     val nowMinute = now.hour * 60 + now.minute
@@ -276,11 +278,21 @@ fun DailyTimeline(
                         // The tagline used to occupy the top bar of every screen, where it cost
                         // height forever and said nothing the reader needed. Here it is an eyebrow
                         // on the one screen with room for it, and it reads as an invitation.
-                        RoutineLabel(
-                            text = stringResource(R.string.app_tagline),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = RoutineColors.TextSecondary,
-                        )
+                        // With a name to use, the eyebrow greets; without one it keeps the tagline,
+                        // because an invented "Hi there" is worse than saying nothing personal.
+                        if (userName.isBlank()) {
+                            RoutineLabel(
+                                text = stringResource(R.string.app_tagline),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = RoutineColors.TextSecondary,
+                            )
+                        } else {
+                            RoutineLabel(
+                                text = stringResource(R.string.empty_day_greeting, userName),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = RoutineColors.Primary,
+                            )
+                        }
                         RoutineText(
                             text = stringResource(R.string.empty_day_title),
                             style = MaterialTheme.typography.headlineSmall,
@@ -291,8 +303,19 @@ fun DailyTimeline(
                             color = RoutineColors.TextSecondary,
                             maxLines = RoutineTextDefaults.Paragraph,
                         )
-                        FilledTonalButton(onClick = { onAction(TimelineAction.OpenAdd) }) {
-                            RoutineLabel(stringResource(R.string.plan_first_block), style = MaterialTheme.typography.labelLarge)
+                        // Two ways out of an empty day, side by side: write the first block yourself, or
+                        // fill the day with the IB example and start from something real. The second one
+                        // used to live three taps deep in Settings, which is where nobody looks on day one.
+                        ActionRow {
+                            FilledTonalButton(onClick = { onAction(TimelineAction.OpenAdd) }) {
+                                RoutineLabel(stringResource(R.string.plan_first_block), style = MaterialTheme.typography.labelLarge)
+                            }
+                            OutlinedButton(
+                                onClick = { onAction(TimelineAction.LoadDemo) },
+                                shape = RoutineShapes.Pill,
+                            ) {
+                                RoutineLabel(stringResource(R.string.onboarding_start_demo), style = MaterialTheme.typography.labelLarge)
+                            }
                         }
                     }
                 }

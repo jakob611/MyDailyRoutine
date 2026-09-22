@@ -55,6 +55,12 @@ class RoutineViewModel(
     private val goals: GoalsRepository,
     private val clock: Clock = Clock.systemUTC(),
 ) : ViewModel() {
+    /** When this process started answering for the app; the first half of "install to first block". */
+    private val startedAt: java.time.Instant = java.time.Instant.now()
+
+    private fun onboardingSeconds(): Long =
+        java.time.Duration.between(startedAt, java.time.Instant.now()).seconds
+
     private fun today(): LocalDate = LocalDate.now(clock.withZone(ZoneId.systemDefault()))
     private val initialDate = today()
     private val selectedDate = savedState.getStateFlow("date", initialDate.toEpochDay())
@@ -324,6 +330,19 @@ class RoutineViewModel(
                 backup.importJson(action.json)
                 panels.update { it.copy(exportJson = null) }
                 messages.send(TimelineEffect.Message(R.string.message_imported))
+            }
+            is TimelineAction.FinishOnboarding -> perform {
+                if (action.schoolStart != action.schoolEnd) {
+                    settings.setSchoolWindow(action.schoolStart, action.schoolEnd)
+                }
+                settings.setUserName(action.userName)
+                settings.completeOnboarding()
+                if (action.loadExample) exampleData.load()
+                // How long the first run took, in the only place that can answer it: the device log.
+                // The number the product is judged by is minutes from install to a first block, and
+                // this is its first half.
+                Diagnostics.note("onboarding", "finished after ${onboardingSeconds()}s, example=${action.loadExample}")
+                messages.send(TimelineEffect.Message(R.string.onboarding_done))
             }
             TimelineAction.RequestDemo -> panels.update { it.copy(confirmDemo = true) }
             TimelineAction.DismissDemo -> if (!panels.value.isSaving) panels.update { it.copy(confirmDemo = false) }
