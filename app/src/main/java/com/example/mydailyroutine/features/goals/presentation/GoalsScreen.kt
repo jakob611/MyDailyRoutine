@@ -431,7 +431,7 @@ private fun GoalEmptyState(busy: Boolean, onAction: (TimelineAction) -> Unit, on
     ) {
         Spacer(Modifier.weight(1f))
         RoutineText(stringResource(R.string.goals_title), style = MaterialTheme.typography.headlineMedium,
-            maxLines = RoutineTextDefaults.Body)
+            maxLines = RoutineTextDefaults.Body, heading = true)
         RoutineText(stringResource(R.string.goals_empty_body), style = MaterialTheme.typography.bodyMedium,
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         StarterKinds.forEach { kind ->

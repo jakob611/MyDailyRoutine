@@ -18,7 +18,6 @@ import androidx.annotation.StringRes
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
 import org.junit.Before
@@ -208,10 +207,10 @@ class TimelineUiTest {
         // about is the layer, not its contents — and the top bar says which layer is up either way.
         awaitAnyText(R.string.goals_title)
         // First back: Goals closes and the day underneath is reachable again.
-        Espresso.pressBack()
+        pressBack()
         awaitText(R.string.day_heading)
         // Second back: the day unwinds to the week it was drilled into, not to the launcher.
-        Espresso.pressBack()
+        pressBack()
         awaitText(R.string.week_heading)
         capture("11-back-stack")
     }
@@ -226,6 +225,18 @@ class TimelineUiTest {
         compose.onNodeWithTag("milestone-radar-chart").assertIsDisplayed()
         capture("10-year-folds")
     }
+    /**
+     * Presses the system back button.
+     *
+     * The same call the system makes when the reader swipes back, sent through the activity's own
+     * dispatcher: an Espresso key event needs a window with focus, and a headless emulator cannot
+     * promise one, which made this the only test that failed for a reason that was not the app's.
+     */
+    private fun pressBack() {
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+    }
+
     /**
      * Opens a tab on the goals screen.
      *

@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import com.example.mydailyroutine.R
@@ -45,6 +46,10 @@ fun RoutineTimeField(
             // A read-only field keeps its value out of EditableText, so the node states the time
             // itself: tests and TalkBack read one merged value instead of an empty box.
             text = AnnotatedString(value)
+            // The picked time is a variable: it changes while the sheet is open, and on its own
+            // ("08:45") it says nothing about which end of the block it belongs to. The state names
+            // the field and its value in one breath.
+            stateDescription = "$label: $value"
         },
     ) {
         OutlinedTextField(

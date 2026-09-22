@@ -115,6 +115,9 @@ fun DailyTimeline(
                     text = stringResource(R.string.day_heading),
                     style = MaterialTheme.typography.titleLarge,
                     maxLines = RoutineTextDefaults.Body,
+                    // The headline of the screen a reader lands on: a heading is what lets a screen
+                    // reader jump straight to the day instead of walking through the summary tiles.
+                    heading = true,
                 )
                 Surface(
                     Modifier.fillMaxWidth(),

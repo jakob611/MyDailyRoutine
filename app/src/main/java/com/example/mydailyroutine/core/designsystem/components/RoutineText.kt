@@ -387,7 +387,10 @@ private fun SheetHeader(
             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
-                RoutineText(title, style = MaterialTheme.typography.headlineSmall, maxLines = RoutineTextDefaults.Body)
+                // Every sheet's title is a heading: it is the one node that says what this panel is
+                // about, and without it a screen reader starts inside a wall of settings rows.
+                RoutineText(title, style = MaterialTheme.typography.headlineSmall, maxLines = RoutineTextDefaults.Body,
+                    heading = true)
                 if (subtitle != null) {
                     RoutineText(subtitle, style = MaterialTheme.typography.bodySmall,
                         color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)

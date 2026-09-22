@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
@@ -183,7 +184,12 @@ fun CalendarNoticeCard(entries: List<CalendarEntry>) {
 @Composable
 fun MetricTile(label: String, value: String, modifier: Modifier = Modifier) {
     Surface(
-        modifier.fillMaxHeight(),
+        // A tile is a label and a number that only mean something together: "3/9" read on its own
+        // tells a screen reader nothing about what was counted. The tile states the pair as one
+        // value, which is also what keeps the number from being read as a bare fraction.
+        modifier.fillMaxHeight().semantics(mergeDescendants = true) {
+            stateDescription = "$label: $value"
+        },
         shape = RoutineShapes.Card,
         color = RoutineColors.Surface1,
         border = BorderStroke(1.dp, RoutineColors.CardBorder),

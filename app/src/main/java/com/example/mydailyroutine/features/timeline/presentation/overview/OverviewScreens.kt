@@ -111,7 +111,7 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
         item {
             Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
                 RoutineText(stringResource(R.string.week_heading), style = MaterialTheme.typography.titleLarge,
-                    maxLines = RoutineTextDefaults.Body)
+                    maxLines = RoutineTextDefaults.Body, heading = true)
                 RoutineText(
                     stringResource(R.string.week_totals, durationLabel(days.sumOf { it.metrics.focusMinutes }),
                         durationLabel(days.sumOf { it.metrics.recoveryMinutes })),
@@ -299,7 +299,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
         item {
             Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
                 RoutineText(stringResource(R.string.month_heading), style = MaterialTheme.typography.titleLarge,
-                    maxLines = RoutineTextDefaults.Body)
+                    maxLines = RoutineTextDefaults.Body, heading = true)
                 RoutineText(stringResource(R.string.month_hint), style = MaterialTheme.typography.bodyMedium,
                     color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                 if (!SlovenianAcademicCalendar.covers(content.date)) {

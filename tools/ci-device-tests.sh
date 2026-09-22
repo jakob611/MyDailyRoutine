@@ -29,6 +29,14 @@ if [ "$locale_now" != "sl-SI" ]; then
   sleep 3
   adb shell wm dismiss-keyguard > /dev/null 2>&1 || true
 fi
+# A headless emulator may have its screen off, and Espresso refuses to work while the app's window
+# has no focus; Compose's own injection never notices. Keeping the device awake makes the one test
+# that presses the system back button able to run at all.
+adb shell svc power stayon true > /dev/null 2>&1 || true
+adb shell settings put system screen_off_timeout 1800000 > /dev/null 2>&1 || true
+adb shell input keyevent KEYCODE_WAKEUP > /dev/null 2>&1 || true
+adb shell wm dismiss-keyguard > /dev/null 2>&1 || true
+
 locale_now="$(adb shell getprop persist.sys.locale 2>/dev/null | tr -d '\r')"
 if [ "$locale_now" = "sl-SI" ]; then
   echo "::notice title=device language::sl-SI (the app is Slovenian-first; screenshots and seeded calendar follow it)"
