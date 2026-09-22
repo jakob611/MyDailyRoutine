@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.database.*
 import com.example.mydailyroutine.core.database.entities.*
 import com.example.mydailyroutine.core.database.daos.*
@@ -28,6 +29,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class RoomIntegrityTest {
+    private val context: android.content.Context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
     private lateinit var db: RoutineDatabase
     private lateinit var repository: RoomTimelineRepository
     private val date = LocalDate.of(2026, 9, 7)
@@ -42,8 +44,12 @@ class RoomIntegrityTest {
     @After fun tearDown() { db.close() }
 
     @Test fun calendarIsCompleteOnFirstRead(): Unit = runBlocking {
+        // The seed writes the holiday names in the interface language (Slovenian, or English on an
+        // English phone), so the expected label comes from the same resources the seed read. A test
+        // that spelled "Zimske" itself would be asserting the language of the machine it runs on.
+        val winter = context.getString(R.string.calendar_label_3)
         val entries = db.calendar().inRange(LocalDate.of(2027, 2, 22), LocalDate.of(2027, 2, 26))
-        assertEquals(5, entries.count { it.title.startsWith("Zimske") })
+        assertEquals(5, entries.count { it.title == winter })
         assertTrue(entries.all { it.isWorkFreeDay })
         db.openHelper.readableDatabase.query("PRAGMA foreign_keys").use {
             assertTrue(it.moveToFirst()); assertEquals(1, it.getInt(0))

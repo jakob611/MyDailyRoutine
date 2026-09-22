@@ -1,6 +1,33 @@
 #!/usr/bin/env bash
 set -uo pipefail
 status=0
+
+# The device is put into the language the app is written for before anything is installed. The app
+# speaks the phone's language where it has a complete translation and Slovenian otherwise, so this
+# decides what the run is evidence of: the screenshots the design audit reads, the stress of the
+# longest strings (Slovenian runs longer than English), and the language the seeded school calendar
+# is written in. The tests themselves assert the rule, not this device's answer, so the suite also
+# passes on an English device — this only says which device this run describes.
+locale_now="$(adb shell getprop persist.sys.locale 2>/dev/null | tr -d '\r')"
+if [ "$locale_now" != "sl-SI" ]; then
+  adb root > /dev/null 2>&1 || true
+  adb wait-for-device > /dev/null 2>&1 || true
+  adb shell "setprop persist.sys.locale sl-SI" > /dev/null 2>&1 || true
+  # The framework reads the property while starting, so it is restarted rather than guessed at.
+  adb shell stop > /dev/null 2>&1 || true
+  adb shell start > /dev/null 2>&1 || true
+  adb wait-for-device > /dev/null 2>&1 || true
+  for _ in $(seq 1 40); do
+    [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+    sleep 3
+  done
+fi
+locale_now="$(adb shell getprop persist.sys.locale 2>/dev/null | tr -d '\r')"
+if [ "$locale_now" = "sl-SI" ]; then
+  echo "::notice title=device language::sl-SI (the app is Slovenian-first; screenshots and seeded calendar follow it)"
+else
+  echo "::warning title=device language::could not set sl-SI (device says '$locale_now'); the run describes that language instead"
+fi
 ./gradlew :app:connectedDebugAndroidTest --stacktrace 2>&1 | tee ci-device.log || status=$?
 
 # Collect the ui-audit screenshots. Gradle uninstalls both APKs when the connected-test task ends,
