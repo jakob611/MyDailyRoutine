@@ -37,12 +37,8 @@ class AccessibilityTest {
         .fetchSemanticsNodes()
 
     /** The custom actions a node exposes, read the way a screen reader reads them. */
-    private fun actionsOf(config: SemanticsConfiguration): List<CustomAccessibilityAction> {
-        val action = config.getOrElseNullable(SemanticsActions.CustomActions) { null } ?: return emptyList()
-        val found = mutableListOf<CustomAccessibilityAction>()
-        action.action(found)
-        return found
-    }
+    private fun actionsOf(config: SemanticsConfiguration): List<CustomAccessibilityAction> =
+        config.getOrElseNullable(SemanticsActions.CustomActions) { null }.orEmpty()
 
     /** Waits for a piece of text, then insists the node carrying it is a heading and not just bold. */
     private fun awaitHeading(@StringRes id: Int) {
