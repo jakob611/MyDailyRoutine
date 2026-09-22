@@ -221,7 +221,6 @@
     <string name="subject_default_duration">Default %1$d min</string>
     <string name="week_heading">The week in one place</string>
     <string name="week_totals">%1$s of focus · %2$s of rest</string>
-    <string name="week_hint">The grid scrolls sideways. Tapping a day or a block opens the day view.</string>
     <string name="week_focus">%1$s of focus</string>
     <string name="week_markers">This week’s deadlines</string>
     <string name="no_school_short">No lessons</string>
@@ -248,6 +247,7 @@
     <string name="year_days_off">Days off: %1$d</string>
     <string name="year_recovery_heading">Room to recharge</string>
     <string name="year_no_vacations">No holidays are included for this school year.</string>
+    <string name="date_range_same_month">%1$s–%2$s %3$s</string>
     <string name="date_range">%1$s – %2$s</string>
     <string name="milestone_radar">IB deadline radar</string>
     <string name="milestone_radar_hint">How densely deadlines fall over the next eight weeks; includes your exams, IAs, EE and TOK.</string>

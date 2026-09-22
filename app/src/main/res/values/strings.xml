@@ -216,7 +216,6 @@
     <string name="subject_default_duration">Privzeto %1$d min</string>
     <string name="week_heading">Teden na enem mestu</string>
     <string name="week_totals">%1$s fokusa · %2$s počitka</string>
-    <string name="week_hint">Mrežo lahko pomikaš vodoravno. Dotik dneva ali bloka odpre dnevni pogled.</string>
     <string name="week_focus">%1$s fokusa</string>
     <string name="week_markers">Roki tega tedna</string>
     <string name="no_school_short">Brez pouka</string>
@@ -243,6 +242,7 @@
     <string name="year_days_off">Prosti dnevi: %1$d</string>
     <string name="year_recovery_heading">Prostor za oddih</string>
     <string name="year_no_vacations">Za to šolsko leto ni priloženih počitnic.</string>
+    <string name="date_range_same_month">%1$s–%2$s %3$s</string>
     <string name="date_range">%1$s – %2$s</string>
     <string name="milestone_radar">Radar rokov IB</string>
     <string name="milestone_radar_hint">Gostota rokov v naslednjih osmih tednih; vključuje tvoje teste, IA, EE in TOK.</string>

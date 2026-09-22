@@ -153,14 +153,27 @@ object RoutineDate {
     /** `07:30–09:00` — lesson and block rows; en dash, no spaces, tabular digits. */
     fun timeRange(startMinute: Int, endMinute: Int): String = "${minuteLabel(startMinute)}–${minuteLabel(endMinute)}"
 
-    /** `16. sep – 20. jun` — a period on one line. Short form, so it fits narrow headers. */
+    /**
+     * `16. sep – 20. jun` — a period on one line. Short form, so it fits narrow headers.
+     *
+     * Inside one month the month is named once (`21.–27. sep`): the header that shows a week has room
+     * for four short pieces, not five, and the second month name was what pushed "27." and "sep." onto
+     * separate lines. The name is the last date's, so a range that starts in the previous year still
+     * reads correctly.
+     */
     @Composable fun range(first: LocalDate, last: LocalDate): String =
-        stringResource(R.string.date_range, normal(first), normal(last))
+        if (sharesOneMonth(first, last))
+            stringResource(R.string.date_range_same_month, dayNumber(first), dayNumber(last), monthTight(last))
+        else stringResource(R.string.date_range, normal(first), normal(last))
 
     /** `16. september 2026 – 20. junij 2027` — a period where a whole line is available. */
     @Composable fun wideRange(first: LocalDate, last: LocalDate): String =
         stringResource(R.string.date_range, full(first), full(last))
 }
+
+/** Whether a short period can be written with a single month name. Pure, so a test can pin it. */
+internal fun sharesOneMonth(first: LocalDate, last: LocalDate): Boolean =
+    first.month == last.month && first.year == last.year
 
 @Composable fun durationLabel(minutes: Int): String = when {
     minutes < 60 -> stringResource(R.string.duration_minutes, minutes)

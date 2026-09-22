@@ -119,8 +119,6 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
                     color = RoutineColors.TextSecondary,
                     maxLines = RoutineTextDefaults.Body,
                 )
-                RoutineText(stringResource(R.string.week_hint), style = MaterialTheme.typography.bodySmall,
-                    maxLines = RoutineTextDefaults.Paragraph)
                 if (!SlovenianAcademicCalendar.covers(content.date)) {
                     RoutineText(stringResource(R.string.coverage_warning), style = MaterialTheme.typography.bodySmall,
                         color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
