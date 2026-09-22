@@ -276,7 +276,7 @@ class PdfTimetableImportTest {
         pages.forEach { body -> objects += "<< /Length ${body.length} >> stream\n$body\nendstream" }
         objects += "<< /Type /Font /Subtype /TrueType /BaseFont /PXAAAA+Helvetica /FirstChar 1 /LastChar ${glyphs.length} " +
             "/Widths [${"600 ".repeat(glyphs.length)}] /ToUnicode $cmapId 0 R >>"
-        val cmap = cmapStream().toByteArray(Charsets.ISO_8859_1)
+        val cmap = deflate(cmapStream().toByteArray(Charsets.ISO_8859_1))
         objects += "<< /Length ${cmap.size} /Filter /FlateDecode >> stream\n${String(cmap, Charsets.ISO_8859_1)}\nendstream"
         val out = StringBuilder("%PDF-1.4\n")
         objects.forEachIndexed { index, body -> out.append("${index + 1} 0 obj\n$body\nendobj\n") }
