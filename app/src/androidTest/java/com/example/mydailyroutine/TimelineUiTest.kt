@@ -180,10 +180,10 @@ class TimelineUiTest {
         compose.onNodeWithTag("goal-seed-EE").assertIsDisplayed().performClick()
         awaitAnyText(R.string.goals_seed_ee_name)
         compose.onNodeWithTag("goal-seed-CAS").assertDoesNotExist()
-        compose.onNodeWithTag("goal-tab-activities").performClick()
+        clickGoalTab("goal-tab-activities")
         compose.onNodeWithText(text(R.string.goals_add_activity)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(text(R.string.goals_gantt)).assertDoesNotExist()
-        compose.onNodeWithTag("goal-tab-progress").performClick()
+        clickGoalTab("goal-tab-progress")
         compose.onNodeWithText(text(R.string.goals_progress_log)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.goals_add_activity)).assertDoesNotExist()
         captureTag("09-goals-tabs", "goal-tab-body")
@@ -226,6 +226,21 @@ class TimelineUiTest {
         compose.onNodeWithTag("milestone-radar-chart").assertIsDisplayed()
         capture("10-year-folds")
     }
+    /**
+     * Opens a tab on the goals screen.
+     *
+     * The tab strip is disabled while a change is being saved, and the click right before this one is
+     * a seed — a project being written — so a bare click can land in that window and go nowhere at
+     * all. The test therefore waits for the tab to accept input, which is the honest form: the
+     * disabled tab is correct behaviour, not a bug to click through.
+     */
+    private fun clickGoalTab(tag: String) {
+        compose.waitUntil(10000) {
+            runCatching { compose.onNodeWithTag(tag).assertIsEnabled() }.isSuccess
+        }
+        compose.onNodeWithTag(tag).performClick()
+    }
+
     /** Screenshots a tagged node; used for sheets, which live in their own window. */
     private fun captureTag(name: String, tag: String) {
         save(name, compose.onNodeWithTag(tag, useUnmergedTree = true).captureToImage())
