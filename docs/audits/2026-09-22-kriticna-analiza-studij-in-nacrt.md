@@ -258,9 +258,53 @@ Pravilo: **ena naloga = en commit = en krog CI**. Če CI pade, se popravi pred n
 
 ---
 
+## 9a. Kaj je iz tega načrta že narejeno (stanje te veje)
+
+Trije commiti po prejemu študij. Vrstni red je bil: najprej najbolj viden očitek, potem tisto, kar je
+bilo videti najceneje.
+
+| Commit | Naloga | Kaj je narejeno | Dokaz |
+| --- | --- | --- | --- |
+| `2b657b5` | **N1, N2** | Prazen dan ne izriše povzetka (ostane naslov in kartica z vabilom); vrstica rezerve se pokaže le, kadar je resnična; "Uskladi zamudo", "Čakalna vrsta" in pojasnilo le, kadar je dan zamujen ali je čakalna vrsta polna; ničle so pomišljaj v tihi barvi; "3/9" je postalo "3 od 9" | nov test `anEmptyDayDoesNotShoutZeroes`, posodobljen test ploščic, vse statične preveritve zelene |
+| `1c54398` | **N5, N12** | Razpon v istem mesecu pove mesec enkrat ("21.–27. sep"), prek meseca pa ostane stara oblika; tedenski pogled je izgubil dve vrstici navodil o drsenju | nov enotni test `DateRangeTest`, statične preveritve zelene |
+| `177eb9a` | popravek | Test ploščic si je nalagal primer IB in s tem onesnažil bazo za vse naslednje teste v isti seji (štirje padci v CI). Zdaj se ob praznem dnevu preveri kartica z vabilom, primera pa testi ne nalagajo | CI |
+
+**Kar je iz tega ostalo odprto:**
+
+* N3 (tiha zapadlost namesto rdeče pike) in N4 (pilula si zapomni) sta majhna, a se dotakneta
+  `RoutineApp.kt` — naj gresta skupaj z N10/N13 v isti krog (naloga 04).
+* N11 je s `2b657b5` pokrit v bistvu (prazen dan je miren), popolna različica ("prvi blok en dotik
+  stran" z uro ob trenutni uri) pa je del naloge 02, če se po ogledu posnetkov izkaže, da je
+  kartica z vabilom premalo.
+* Vse ostalo iz §5 je odprto in razpisano po nalogah.
+
+**Pravilo, ki se je izkazalo za koristno:** vsak test, ki v skupni bazi pusti nove predmete, bloke ali
+nastavitve, pokvari teste, ki tečejo za njim (isti proces, ista baza). Test sme ustvariti največ toliko
+stanja, kolikor ga potrebuje njegova trditev, in nikoli ne sme nalagati primera IB.
+
 ## 10. Kaj še ni bilo narejeno iz prejšnjih krogov
 
 * **§8 prompti**: nova izdaja je v `docs/audits/2026-09-22-prompti-za-zunanje-ai.md`; zadnji commit s popravki je v veji, a ga žeton takrat ni mogel potisniti — preveri, da je gor. Tržni prompt (8.8) je bil očitno premalo konkreten; v novi izdaji so dodana merila in prepovedi (§8.8, pravila 1–7).
 * **Problem 1 (fiksne širine)**: zaključen, brez spremembe kode (vse štiri vrednosti rišejo s `RoutineLabel`, ki se samodejno krči do 11 sp; `MinLabelWidth` je prag, ne širina).
 * **M1–M11**: M1, M3, M6, M7, M2 zaključeni; M4, M5, M8–M11 še odprti in se prekrivajo z N-nalogami (M8 = N14, M5 = N10, M9/M10 = N16/N17). Vrstni red iz §8 jih vključi.
 * **Uvoz iz PDF-ja**: koda in testi so (ena naprava, en PDF v preizkusu); **na telefonu še nepreverjeno** — to je ena od nalog P3.
+
+---
+
+## 11. Kaj narediti v naslednjih treh korakih (za človeka)
+
+1. **Preberi §0 in §4.** Tam so odločitve, ki jih nihče drug ne more sprejeti namesto tebe: spodnja
+   navigacija, števec, rdeča pika, večerna amnestija. Vse drugo je izvedba.
+2. **Odpri študije in poišči svoje strinjanje.** Če se s katero sodbo v §4 ne strinjaš, se odločitev
+   spremeni — zapiši jo v §4 skupaj z razlogom, da je ne bo naslednji krog znova odpiral.
+3. **Pošlji naloge po vrstnem redu iz `docs/agents/README.md`.** Prva je `01-barve-brez-izgube-znacaja.md`
+   (neodvisna od vsega), nato `02-mirni-dan-in-prvi-zaslon.md` (najbolj viden očitek, deloma že
+   narejen), nato `04-kompaktna-glava-in-pisava.md`. Po vsaki nalogi pogledaj posnetke iz CI
+   (opombe `UI screenshot`) in preveri, ali je videti bolje — koda in številke ne vidijo, ali je
+   lepo.
+
+**Kaj bi naredil, če bi moral izbrati samo eno stvar:** prvo minuto po namestitvi. Aplikacija ima
+zdaj (po `2b657b5`) miren prvi zaslon, a še vedno nobene ure in nobenega bloka — samo kartico z
+vabilom. Naslednji dotik, ki bi ga dodal, je gumb, ki v enem pritisku vstavi **en** blok ob trenutni
+uri (45 minut fokusa ali 30 minut počitka, odvisno od ure), ker je to tisto, kar dijak vidi in
+obkljuka v prvih petih minutah — in to je edini trenutek, ko se odloči, ali bo aplikacijo obdržal.

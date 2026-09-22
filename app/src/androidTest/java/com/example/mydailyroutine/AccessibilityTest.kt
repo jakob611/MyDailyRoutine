@@ -73,6 +73,14 @@ class AccessibilityTest {
     }
 
     @Test fun aNumberIsAnnouncedWithTheLabelItBelongsTo() {
+        // Wait for the day screen to settle into one of its two shapes before reading anything: a
+        // summary with tiles, or the invitation card. Reading earlier sees neither and blames the app
+        // for a state it was never in.
+        compose.waitUntil(10000) {
+            compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription))
+                .fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText(text(R.string.empty_day_title)).fetchSemanticsNodes().isNotEmpty()
+        }
         val stated = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription))
             .fetchSemanticsNodes()
             .mapNotNull { it.config.getOrElseNullable(SemanticsProperties.StateDescription) { null } }
@@ -99,6 +107,10 @@ class AccessibilityTest {
         // would do nothing are the loudest thing on it; the invitation card is the only thing that
         // belongs there. When another test has already filled the day this has nothing to prove, so
         // it steps aside rather than inventing a failure from a shared database.
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText(text(R.string.plan_first_block)).fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText(text(R.string.metric_focus)).fetchSemanticsNodes().isNotEmpty()
+        }
         if (compose.onAllNodesWithText(text(R.string.plan_first_block)).fetchSemanticsNodes().isEmpty()) return
         compose.onAllNodesWithText(text(R.string.metric_focus)).assertCountEquals(0)
         compose.onAllNodesWithText(text(R.string.metric_completed)).assertCountEquals(0)
