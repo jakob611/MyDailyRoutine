@@ -40,12 +40,18 @@ class AccessibilityTest {
     private fun actionsOf(config: SemanticsConfiguration): List<CustomAccessibilityAction> =
         config.getOrElseNullable(SemanticsActions.CustomActions) { null }.orEmpty()
 
-    /** Waits for a piece of text, then insists the node carrying it is a heading and not just bold. */
+    /**
+     * Waits for a title, then insists that something carrying those words announces itself as a
+     * heading and not merely as large type.
+     *
+     * Deliberately not "exactly one": the goals screen also shows its own project names as chips, so
+     * its title can legitimately appear twice. What matters is that the screen's title is a heading a
+     * reader can jump to, not that the words are unique.
+     */
     private fun awaitHeading(@StringRes id: Int) {
         compose.waitUntil(10000) {
-            compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodes(hasText(text(id)) and isHeading).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText(text(id)).assert(isHeading)
     }
 
     @Test fun everyScreenHasAHeadingToJumpTo() {
