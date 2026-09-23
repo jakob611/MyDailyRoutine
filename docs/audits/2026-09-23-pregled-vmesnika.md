@@ -49,7 +49,7 @@ zapisana kot taka.
 2. **Grafična regresija čaka na prvo referenco.** Korak v CI je pripravljen; reference še ni, ker jo
    mora posejati ročni zagon (`Android verification`, vhod `seed_baseline`), ki ga tokratni žeton ne
    sme sprožiti (HTTP 403).
-4. **Tržna zgodba čaka na tri modele.** Obljuba in seznam črtanega sta v
+3. **Tržna zgodba čaka na tri modele.** Obljuba in seznam črtanega sta v
    `docs/audits/2026-09-23-besedila-in-trzna-zgodba.md`.
 
 ---
