@@ -554,7 +554,9 @@ private fun StatusCard(
     val categoryHours = progress.filter { it.kind == "hour" }
         .groupBy { entry -> activities.firstOrNull { it.id == entry.activityId }?.category }
     OutlinedCard(
-        Modifier.fillMaxWidth().testTag("goal-status-${project.id}"),
+        // Named by kind and id: the kind is what a reader would call the plan, the id keeps two
+        // hand-made plans apart. Nothing but a test reads this tag.
+        Modifier.fillMaxWidth().testTag("goal-status-${project.kind}-${project.id}"),
         shape = RoutineShapes.Card,
         border = BorderStroke(1.dp, RoutineColors.CardBorder),
     ) {
