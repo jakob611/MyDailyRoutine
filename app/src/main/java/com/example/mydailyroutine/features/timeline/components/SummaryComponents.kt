@@ -37,10 +37,12 @@ import com.example.mydailyroutine.core.designsystem.components.ActionRow
 import com.example.mydailyroutine.core.designsystem.components.GlassChipButton
 import com.example.mydailyroutine.core.designsystem.components.GlassContentChip
 import com.example.mydailyroutine.core.designsystem.components.GlassIconButton
+import com.example.mydailyroutine.core.designsystem.components.MonthMarkIcon
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.presentation.MonthMark
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
@@ -219,10 +221,15 @@ fun MetricTile(
     }
 }
 
+/**
+ * One entry of the calendar legend. The shape is the same composable the grid draws, so the legend
+ * cannot promise a symbol the grid does not use; the label stays a separate node, which keeps the
+ * words readable exactly as before.
+ */
 @Composable
-fun Legend(label: String, color: Color) {
+fun Legend(label: String, color: Color, mark: MonthMark) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-        Box(Modifier.size(6.dp).background(color, CircleShape))
+        MonthMarkIcon(mark, color = color)
         RoutineLabel(label, style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary)
     }
 }
