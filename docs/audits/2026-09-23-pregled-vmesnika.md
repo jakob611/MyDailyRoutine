@@ -15,7 +15,7 @@ zapisana kot taka.
 | "tista zgornja vrstica verjetno ne rabi imeti puščic levo in desno" | Datum je bil stisnjen med dve puščici, ki sta ponavljali podrsanje. | Puščici odstranjeni. Naslov je edini element v vrstici, zato se dolg datum zlomi v dve vrstici namesto v elipso, in podrsanje dela tudi po naslovu samem. |
 | "ko je na danes tega gumba ne rabi biti" | Gumb "Danes" je stal zmeraj. | Izriše se samo, kadar prikazano obdobje ni tisto, v katerem bralec živi (dan, teden, mesec ali šolsko leto). |
 | "tisti onboarding je malce čuden" | Štirje koraki, od katerih sta bila dva razlaga: ura pouka in legenda barv, zavihkov in kretenj. Legenda je opisovala mesec iz prejšnje različice (rdeča pika za test in rok). | Dva koraka: ime (lahko prazno) in prvi dan (primer IB ali prazen dan). Ura pouka je omenjena v eni vrstici in čaka v nastavitvah pod Ritem. Trinajst nizov, ki so pripadali odvzetima korakoma in puščicama, je izbrisanih. |
-| "Pitem cas in ee še vedno ne delata hkrati" | **Nisem mogel preveriti.** V kodi sta CAS in EE ločeni vrsti projekta in vsak dobi svojo vrsto (lane) na Ganttu; EE dobi šest aktivnosti (stopnje) in pet mejnikov že ob izbiri. Kar vidim v kodi, je torej videti prav — zato je vprašanje zastavljeno spodaj, namesto da bi ugibal in popravljal nekaj, kar morda ni pokvarjeno. | Zapisano v §3 kot vprašanje z možnimi odgovori. |
+| "Pitem cas in ee še vedno ne delata hkrati" | Vrstica s projekti je ponujala izbiro **ali** CAS **ali** EE, vsak seznam (aktivnosti, mejniki, dnevnik napredka, kartica stanja) pa je bil filtriran na izbrani projekt. Dve stvari, ki v resnici tečeta vzporedno dve leti, sta bili v aplikaciji ločeni zid. Gantt je lane risal za oba, a je bil edini. | Chip **Vsi projekti** (prikaže se od dveh načrtov naprej in je privzet): kartica stanja za vsak načrt, oba seznama združena, vsaka vrstica pove, iz katerega načrta je. Nov obrazec vpraša, v kateri načrt gre. |
 
 ---
 
@@ -41,17 +41,12 @@ zapisana kot taka.
 
 ## 3. Kar ostaja odprto (in kdo to lahko zapre)
 
-1. **EE ob CAS.** Potrebujem eno informacijo: ali EE projekta **ni** (gumb ga ne ustvari), ali je
-   projekt **prazen** (obstaja, a brez črt na Ganttu), ali **ne moreš dodati napredka** (gumbi za
-   ure/besede/stopenj ne delajo). Vsak od teh treh je druga napaka v drugem delu kode, in brez
-   telefona je ugibanje dražje od vprašanja.
-2. **Na pravem telefonu ni bilo preverjeno še nič**, kar je bilo narejeno v zadnjih dveh dneh. Vse
-   skupaj je bilo preverjeno v CI (gradnja `8bfb941`: 229 enotskih testov, 66 na emulatorju, pet
-   statičnih gate-ov) in v osnutku na tem telefonskem zaslonu, ne pa na pravem telefonu.
-   Prejšnja gradnja je padla na eni vrstici — besedilo za bralnik zaslona se je bralo znotraj
-   `semantics { }`, ki ni @Composable obseg; popravljeno, in gate `check_presentation.py` tako
-   branje odslej prepove.
-3. **Grafična regresija čaka na prvo referenco.** Korak v CI je pripravljen; reference še ni, ker jo
+1. **Vse iz tega kroga je bilo zeleno le v CI, ne na tvojem telefonu.** Zadnja gradbena številka
+   `0c66a29` je pognala 229 enotskih testov, 68 preizkusov na emulatorju (dva nova) in pet statičnih
+   gate-ov. Dve gradnji pred tem sta padli in obe napaki sta popravljeni: branje besedila znotraj
+   `semantics { }` (ni @Composable obseg) in manjkajoči uvoz razširitve `getOrNull`. Emulator ni
+   telefon: kaj vidiš ti, je edino merilo, ki šteje.
+2. **Grafična regresija čaka na prvo referenco.** Korak v CI je pripravljen; reference še ni, ker jo
    mora posejati ročni zagon (`Android verification`, vhod `seed_baseline`), ki ga tokratni žeton ne
    sme sprožiti (HTTP 403).
 4. **Tržna zgodba čaka na tri modele.** Obljuba in seznam črtanega sta v
@@ -69,5 +64,6 @@ zapisana kot taka.
 | Vsaka kartica ima `CardBorder` | `RoutineColors.CardBorder` | `check_presentation.py` (prepove `BorderStroke(1.dp, RoutineColors.Border)`) |
 | Zagon zaobljenosti je v žetonih | `RoutineShapes` | `check_presentation.py` (prepove `RoundedCornerShape(<število>` v UI-razredih) |
 | Velikost ikone ali pike je v žetonih | `RoutineMetrics.IconSmall/IconSize/DotSize` | `check_presentation.py` (prepove `.size(<število>.dp)`) |
+| Oba načrta sta vidna hkrati | chip `goal-project-all`, `projectNameOf` | `check_presentation.py`, `TimelineUiTest.bothPlansAreVisibleAtOnce` |
 | Nobena barva ne nosi pomena sama | `MonthMarkIcon`, `month_cell_description` | `check_contrast.py`, `AccessibilityTest.theCalendarShapesAreNotInterchangeable` |
 | Vsak dotik je 48 × 48 dp | `RoutineMetrics.TouchTarget` | `TouchTargetsTest` (tudi spodnja polovica zaslona, z izpisom meritev) |
