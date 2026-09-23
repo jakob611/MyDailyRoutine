@@ -45,9 +45,8 @@ zapisana kot taka.
 
 ## 3. Kar ostaja odprto (in kdo to lahko zapre)
 
-1. **Vse iz tega kroga je bilo zeleno le v CI, ne na tvojem telefonu.** Zadnja gradbena številka
-   `5c4f3c3` je pognala 229 enotskih testov, 68 preizkusov na emulatorju (dva nova) in pet statičnih
-   gate-ov. Dve gradnji pred tem sta padli in obe napaki sta popravljeni: branje besedila znotraj
+1. **Vse iz tega kroga je bilo zeleno le v CI, ne na tvojem telefonu.** Zadnja zelena gradnja
+   (`088f8c2`) je pognala 234 enotskih testov, 68 preizkusov na emulatorju in pet statičnih gate-ov. Dve gradnji pred tem sta padli in obe napaki sta popravljeni: branje besedila znotraj
    `semantics { }` (ni @Composable obseg) in manjkajoči uvoz razširitve `getOrNull`. Emulator ni
    telefon: kaj vidiš ti, je edino merilo, ki šteje.
 2. **Grafična regresija čaka na prvo referenco.** Korak v CI je pripravljen; reference še ni, ker jo
