@@ -76,6 +76,7 @@ fun EntryEditorSheet(
     editing: ResolvedTimelineItem.Milestone?, busy: Boolean, sheetState: SheetState,
     onDismiss: () -> Unit, onSave: (EntryDraft) -> Unit, onNewSubject: () -> Unit, onEditSubject: (Subject) -> Unit = {},
     defaults: EntryDefaults = EntryDefaults(), continuation: EntryContinuation? = null, prefillTitle: String? = null,
+    prefill: EntryPrefill? = null,
     occurrence: ResolvedTimelineItem.Block? = null, onSaveBlock: (TimelineAction.SaveBlockEdit) -> Unit = {},
 ) {
     val initial = remember(selectedDate, editing?.key, continuation?.start) {
@@ -88,11 +89,13 @@ fun EntryEditorSheet(
     var title by rememberSaveable(editing?.key) { mutableStateOf(editing?.title ?: prefillTitle.orEmpty()) }
     var dateText by rememberSaveable(editing?.key) { mutableStateOf(initial.toLocalDate().toString()) }
     var times by rememberSaveable(editing?.key, stateSaver = TimeEntrySaver) {
-        mutableStateOf(TimeEntryState.at(initial.toLocalTime(), continuation?.durationMinutes ?: 90))
+        // The remembered length comes first (N4): a reader who just wrote 45 minutes should not have to
+        // shorten a 90-minute default on the next block. Only the very first block uses the default.
+        mutableStateOf(TimeEntryState.at(initial.toLocalTime(), continuation?.durationMinutes ?: prefill?.durationMinutes ?: 90))
     }
     val startText = times.startText
     val endText = times.endText
-    var category by rememberSaveable { mutableStateOf(if (continuation != null) RoutineCategory.SCHOOL else RoutineCategory.FOCUS_ANALYTICAL) }
+    var category by rememberSaveable { mutableStateOf(if (continuation != null) RoutineCategory.SCHOOL else prefill?.category ?: RoutineCategory.FOCUS_ANALYTICAL) }
     var kind by rememberSaveable(editing?.key) { mutableStateOf(if (editing == null) EntryKind.BLOCK else if (editing.isExam) EntryKind.EXAM else EntryKind.DEADLINE) }
     var subjectId by rememberSaveable(editing?.key) { mutableStateOf(editing?.subject?.id) }
     var weekly by rememberSaveable { mutableStateOf(continuation?.weekly ?: false) }

@@ -669,6 +669,10 @@
     <string name="tasks_due_on_day">Due that day · %1$d</string>
     <string name="tasks_today_short">today</string>
     <string name="tasks_tomorrow">tomorrow</string>
+    <plurals name="tasks_badge_waiting">
+        <item quantity="one">%1$d task waiting</item>
+        <item quantity="other">%1$d tasks waiting</item>
+    </plurals>
     <plurals name="tasks_in_days">
         <item quantity="one">in %1$d day</item>
         <item quantity="other">in %1$d days</item>

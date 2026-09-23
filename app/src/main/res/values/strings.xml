@@ -668,6 +668,12 @@
     <string name="tasks_due_on_day">Zapade ta dan · %1$d</string>
     <string name="tasks_today_short">danes</string>
     <string name="tasks_tomorrow">jutri</string>
+    <plurals name="tasks_badge_waiting">
+        <item quantity="one">%1$d naloga čaka</item>
+        <item quantity="two">%1$d nalogi čakata</item>
+        <item quantity="few">%1$d naloge čakajo</item>
+        <item quantity="other">%1$d nalog čaka</item>
+    </plurals>
     <plurals name="tasks_in_days">
         <item quantity="one">čez %1$d dan</item>
         <item quantity="two">čez %1$d dneva</item>

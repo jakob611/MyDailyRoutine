@@ -335,7 +335,10 @@ fun DailyTimeline(
                         // fill the day with the IB example and start from something real. The second one
                         // used to live three taps deep in Settings, which is where nobody looks on day one.
                         ActionRow {
-                            FilledTonalButton(onClick = { onAction(TimelineAction.OpenAdd) }) {
+                            // One tap, one ready-made block: the editor opens with a 45-minute focus block
+                            // at the current time, so the first thing a new reader does is edit a block that
+                            // already exists rather than fill in an empty form (N11).
+                            FilledTonalButton(onClick = { onAction(TimelineAction.OpenFirstBlock) }) {
                                 RoutineLabel(stringResource(R.string.plan_first_block), style = MaterialTheme.typography.labelLarge)
                             }
                             OutlinedButton(

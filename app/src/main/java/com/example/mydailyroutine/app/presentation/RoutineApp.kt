@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -102,6 +103,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.motion.LocalPulse
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
@@ -257,7 +260,13 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             previousWarnings = warningKeys
         }
     }
-    val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(now.toLocalDate()) }
+    // Two different things were one red dot before: work that is already late and work that is due
+    // today or tomorrow. The count is now written quietly, and red is kept for the second group only —
+    // a deadline that is still ahead is information, not a scolding (N3).
+    val today = now.toLocalDate()
+    val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(today) }
+    val dueSoonTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == today || due == today.plusDays(1)) }
+    val waitingTasks = overdueTasks + dueSoonTasks
     val reduceMotion = rememberReduceMotion()
     // The "Dodaj blok" container transform measures its endpoints in root pixels: the pill the
     // finger just pressed and the window-sized root the pane is laid out inside. Measuring and
@@ -441,10 +450,26 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                     // Fully qualified on purpose: inside Box{} the RowScope receiver is
                                     // DslMarker-restricted, so the scope extension is not a candidate and
                                     // the compiler wants the top-level one named explicitly.
-                                    androidx.compose.animation.AnimatedVisibility(visible = overdueTasks > 0,
-                                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
+                                    androidx.compose.animation.AnimatedVisibility(visible = waitingTasks > 0,
+                                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp),
                                         enter = badgeEnter, exit = badgeExit) {
-                                        Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Error))
+                                        val badgeLabel = pluralStringResource(R.plurals.tasks_badge_waiting, waitingTasks, waitingTasks)
+                                        Box(
+                                            Modifier.defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
+                                                .clip(CircleShape)
+                                                .background(RoutineColors.Surface1)
+                                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                                                .semantics { contentDescription = badgeLabel },
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            // The number is the message; red only says "soon". Both colours were
+                                            // measured against the surface they sit on (see docs/PALETTE.md).
+                                            RoutineLabel(
+                                                text = waitingTasks.toString(),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (dueSoonTasks > 0) RoutineColors.Error else RoutineColors.TextMuted,
+                                            )
+                                        }
                                     }
                                 }
                                 GlassIconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open), Modifier.size(20.dp)) }
@@ -599,7 +624,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
         RoutineSheet(state.panels.showAdd) { sheetState -> key(state.panels.addSession) {
             EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, state.panels.editingMilestone, state.panels.isSaving, sheetState,
-                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, onEditSubject = { subject -> onAction(TimelineAction.EditSubject(subject)) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation, prefillTitle = state.panels.entryPrefillTitle)
+                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, onEditSubject = { subject -> onAction(TimelineAction.EditSubject(subject)) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation, prefillTitle = state.panels.entryPrefillTitle,
+                prefill = state.panels.entryPrefill)
         } }
         RoutineSheet(state.panels.showSettings) { sheetState -> SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, state.sleep, onAction = onAction,
             exportJson = state.panels.exportJson,

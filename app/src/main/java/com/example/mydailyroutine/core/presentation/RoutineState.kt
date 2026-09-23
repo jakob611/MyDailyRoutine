@@ -74,11 +74,31 @@ data class TimelinePanels(
     /** Scales already visited on this visit: back walks them in reverse instead of leaving. */
     val modeBackStack: List<TimelineMode> = emptyList(),
     val entryPrefillTitle: String? = null,
+    /** The kind and length the editor opens with; null means "the editor's own default". */
+    val entryPrefill: EntryPrefill? = null,
     // A task captured via the system share sheet pre-fills the Tasks quick-add; cleared on save or close.
     val sharedTaskTitle: String? = null,
     val sharedTaskDue: Long? = null,
     val showTimetableImport: Boolean = false,
 )
+
+/**
+ * What the editor should already be filled with when it opens.
+ *
+ * Two readers decided this: the one who writes the same kind of block twice in a row and used to be
+ * handed a 90-minute default every time (N4), and the one who installs the app, sees an empty day and
+ * should reach a first real block in one tap (N11). The shape is deliberately only a kind and a
+ * length: the start time is still the current time, which the editor already rounds up to the next
+ * quarter of an hour.
+ */
+@Immutable
+data class EntryPrefill(val category: RoutineCategory, val durationMinutes: Int)
+
+/**
+ * Length of the block an empty day offers: long enough to be a real piece of work, short enough that
+ * a reader who has never planned a day will actually start it.
+ */
+const val FirstBlockMinutes = 45
 
 @Immutable
 data class TimelineUiState(
@@ -135,6 +155,13 @@ sealed interface TimelineAction {
      */
     data class FinishOnboarding(val userName: String, val schoolStart: LocalTime, val schoolEnd: LocalTime, val loadExample: Boolean) : TimelineAction
     data object OpenAdd : TimelineAction
+
+    /**
+     * The one-tap first block of an empty day: the editor opens with a short focus block at the
+     * current time already in it. It is an action of its own rather than an argument on [OpenAdd],
+     * because the empty-day card and the floating button should not have to agree on that argument.
+     */
+    data object OpenFirstBlock : TimelineAction
     data object OpenPlanning : TimelineAction
     data class StartExecution(val block: ResolvedTimelineItem.Block) : TimelineAction
     data class StartExecutionById(val id: Long, val date: LocalDate) : TimelineAction

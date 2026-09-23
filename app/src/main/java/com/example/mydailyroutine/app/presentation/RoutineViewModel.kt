@@ -251,7 +251,13 @@ class RoutineViewModel(
                 settings.setPlanningConfig(action.config)
                 messages.send(TimelineEffect.Message(R.string.planning_saved))
             }
+            TimelineAction.OpenFirstBlock -> panels.update { it.copy(showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryPrefillTitle = null,
+                entryPrefill = EntryPrefill(RoutineCategory.FOCUS_ANALYTICAL, FirstBlockMinutes),
+                showSettings = false, editingMilestone = null, editingBlock = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false) }
+            // The remembered shape is the reader's own last answer, not a setting: it lives for as long
+            // as the process does, which is long enough for "the same block again" to be one tap.
             TimelineAction.OpenAdd -> panels.update { it.copy(showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryPrefillTitle = null,
+                entryPrefill = lastEntryShape,
                 showSettings = false, editingMilestone = null, editingBlock = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false) }
             TimelineAction.OpenSettings -> panels.update { it.copy(showSettings = true, showAdd = false, showPlanning = false, editingBlock = null, editingMilestone = null) }
             TimelineAction.CloseAdd -> if (!panels.value.isSaving) panels.update { it.copy(showAdd = false, editingMilestone = null) }
@@ -259,7 +265,7 @@ class RoutineViewModel(
             TimelineAction.CloseEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingBlock = null) }
             is TimelineAction.Edit -> when (val item = action.item) {
                 is ResolvedTimelineItem.Block -> panels.update { it.copy(editingBlock = item) }
-                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryPrefillTitle = null, showSettings = false) }
+                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryPrefillTitle = null, entryPrefill = null, showSettings = false) }
             }
             is TimelineAction.SaveEntry -> saveEntry(action.draft)
             is TimelineAction.SaveBlockEdit -> perform {
@@ -437,7 +443,9 @@ class RoutineViewModel(
             is TimelineAction.TaskToSchedule -> {
                 action.task.dueDate?.takeIf { !it.isBefore(today()) }?.let { savedState["date"] = it.toEpochDay() }
                 panels.update {
-                    it.copy(showAdd = true, addSession = it.addSession + 1, entryPrefillTitle = action.task.title, entryContinuation = null,
+                    // A task that is being scheduled comes with its own title, so the remembered shape is
+                    // deliberately not applied: that prefill belongs to the plain "add a block" entry point.
+                    it.copy(showAdd = true, addSession = it.addSession + 1, entryPrefillTitle = action.task.title, entryContinuation = null, entryPrefill = null,
                         showTasks = false, showSettings = false, showPlanning = false, editingBlock = null, editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false)
                 }
             }
@@ -484,7 +492,7 @@ class RoutineViewModel(
                 goals.setActivityScheduled(action.activity.id, true)
                 action.activity.start.takeIf { !it.isBefore(today()) }?.let { savedState["date"] = it.toEpochDay() }
                 panels.update {
-                    it.copy(showAdd = true, addSession = it.addSession + 1, entryPrefillTitle = action.activity.title, entryContinuation = null,
+                    it.copy(showAdd = true, addSession = it.addSession + 1, entryPrefillTitle = action.activity.title, entryContinuation = null, entryPrefill = null,
                         showTasks = false, showSettings = false, showPlanning = false, editingBlock = null, editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false)
                 }
             }
@@ -523,6 +531,9 @@ class RoutineViewModel(
         messages.send(TimelineEffect.Message(R.string.goals_seeded))
     }
 
+    /** The kind and length of the last written block, used as the editor's opening state (N4). */
+    private var lastEntryShape: EntryPrefill? = null
+
     private fun saveEntry(draft: EntryDraft) = perform {
         when (draft.kind) {
             EntryKind.BLOCK -> {
@@ -541,6 +552,8 @@ class RoutineViewModel(
                     priorityWeight = draft.priorityWeight, isFixedCommitment = fixed, rawDurationMinutes = raw)
                 val weekdays = Weekdays.fromMask(draft.repeatDaysMask).ifEmpty { setOf(draft.date.dayOfWeek) }
                 patternsRepository.create(RoutinePatternRequest(blueprint,weekdays,draft.repeatWeekly,draft.afterLessonBreakMinutes,draft.breakTitle))
+                // Remembered per successful write, so a failed save never teaches the wrong default.
+                lastEntryShape = EntryPrefill(draft.category, raw)
             }
             EntryKind.DEADLINE, EntryKind.EXAM -> repository.saveMilestone(Milestone(
                 id = draft.existingMilestoneId, subjectId = draft.subjectId, title = draft.title,
