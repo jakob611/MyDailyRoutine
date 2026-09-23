@@ -183,6 +183,11 @@ object RoutineMetrics {
     val GlassControlSize = 40.dp
     /** Categorical chips are capped so one long label cannot own a whole card line. */
     val ChipMaxWidth = 190.dp
+    /**
+     * Smallest width of a tab chip in a horizontally scrolling row. Without it the row scrolls by a
+     * sliver: the reader sees half a chip at the edge and cannot tell a cut label from a short one.
+     */
+    val ChipMinWidth = 92.dp
     /** Geometry of the NOW band drawn over the running block. */
     val NowBandHeight = 18.dp
     val NowDotSize = 8.dp

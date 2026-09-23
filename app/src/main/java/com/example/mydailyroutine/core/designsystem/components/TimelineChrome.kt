@@ -75,7 +75,8 @@ fun TimeGutter(
     emphasized: Boolean = false,
     muted: Boolean = false,
     topPadding: Dp = RoutineSpacing.md,
-    style: TextStyle = MaterialTheme.typography.bodySmall,
+    // Times are the one label read at arm's length: 13 sp Medium, not the 12 sp body default.
+    style: TextStyle = timeLabelStyle(),
 ) {
     Column(
         modifier.width(RoutineMetrics.GutterTextWidth)

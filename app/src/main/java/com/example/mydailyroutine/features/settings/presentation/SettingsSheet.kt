@@ -125,7 +125,10 @@ fun SettingsSheet(
     ) {
         RoutineSheetListScaffold(
             title = stringResource(R.string.settings_title),
-            subtitle = stringResource(R.string.privacy_summary),
+            // No subtitle here. The privacy sentence used to sit under the title, where it pushed the
+            // five tabs below the fold on a 640 dp screen and read as a manifesto before the reader
+            // had seen a single setting. It moved to the Data tab, which is where a reader who cares
+            // about privacy actually goes; the tabs are the first thing the sheet shows.
             closeLabel = stringResource(R.string.close),
             onClose = onDismiss,
             modifier = Modifier.testTag("settings-sheet"),
@@ -525,6 +528,10 @@ private fun LazyListScope.dataTab(
             RoutineText(stringResource(R.string.battery_note), style = MaterialTheme.typography.bodySmall,
                 color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
         }
+    }
+    item(key = "settings-privacy-summary") {
+        RoutineText(stringResource(R.string.privacy_summary), style = MaterialTheme.typography.bodySmall,
+            color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
     }
     item(key = "settings-backup") {
         Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {

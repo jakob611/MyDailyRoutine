@@ -63,6 +63,7 @@ import com.example.mydailyroutine.core.designsystem.components.MonthMarkIcon
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
+import com.example.mydailyroutine.core.designsystem.components.timeLabelStyle
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -174,7 +175,7 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
                                 RoutineLabel(
                                     minuteLabel(hour * 60),
                                     modifier = Modifier.height(minuteHeight * 60).padding(top = RoutineSpacing.xs),
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = timeLabelStyle(),
                                     color = RoutineColors.TextMuted,
                                 )
                             }

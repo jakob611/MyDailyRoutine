@@ -17,6 +17,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -57,6 +59,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -116,7 +122,22 @@ object RoutineTextDefaults {
     val MinLabelSize = 11.sp
     /** Shrinking step: small enough to fit tight Slovenian labels, coarse enough to stay cheap. */
     val LabelStep = 0.5.sp
+    /**
+     * Floor for a clock time: 8:20 in a card, 07:00 in the week grid's hour column. 12 sp was the one
+     * size that disappeared at arm's length in daylight, and a time is exactly what a student reads
+     * while walking. Medium weight is part of the same fix: at 13 sp a hairline weight loses its
+     * counters on a phone screen. [RoutineLabel] still shrinks below it to [MinLabelSize] when a
+     * column genuinely has no room, which is what keeps [LargeFontUiTest] honest at 1.45x.
+     */
+    val TimeLabelSize = 13.sp
 }
+
+/** The style of every clock time in the app: 13 sp, Medium. See [RoutineTextDefaults.TimeLabelSize]. */
+@Composable
+fun timeLabelStyle(): TextStyle = MaterialTheme.typography.bodySmall.copy(
+    fontSize = RoutineTextDefaults.TimeLabelSize,
+    fontWeight = FontWeight.Medium,
+)
 
 @Composable
 fun RoutineText(
@@ -337,10 +358,11 @@ fun CollapsibleSection(
 }
 
 /**
- * Category selector for sheets that used to be one endless vertical scroll. Chips reflow, keep
- * their full label on one line, and carry a stable test tag.
+ * Category selector for sheets that used to be one endless vertical scroll. One row that scrolls
+ * sideways, with a soft edge when something is still behind it: five chips used to reflow into three
+ * plus two, and the second row read as a separate section with an owner's manual above it. The tags
+ * and the order are unchanged, so every existing test still finds the tab it knows.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun <T : Enum<T>> CategoryTabs(
     entries: List<T>,
@@ -351,19 +373,42 @@ fun <T : Enum<T>> CategoryTabs(
     tagPrefix: String,
     enabled: Boolean = true,
 ) {
-    FlowRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
-        verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
-    ) {
-        entries.forEach { entry ->
-            FilterChip(
-                selected = entry == selected,
-                onClick = { onSelect(entry) },
-                enabled = enabled,
-                shape = RoutineShapes.Chip,
-                modifier = Modifier.testTag("$tagPrefix-${entry.name.lowercase()}"),
-                label = { RoutineLabel(label(entry), style = MaterialTheme.typography.labelLarge) },
+    val scroll = rememberScrollState()
+    Box(modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(scroll),
+            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+        ) {
+            entries.forEach { entry ->
+                FilterChip(
+                    selected = entry == selected,
+                    onClick = { onSelect(entry) },
+                    enabled = enabled,
+                    shape = RoutineShapes.Chip,
+                    // A floor on the chip width keeps the scroll from stopping on half a chip: with the
+                    // fade at the edge it reads as "there is more", not as a label that got cut.
+                    modifier = Modifier.widthIn(min = RoutineMetrics.ChipMinWidth)
+                        .testTag("$tagPrefix-${entry.name.lowercase()}"),
+                    label = { RoutineLabel(label(entry), style = MaterialTheme.typography.labelLarge) },
+                )
+            }
+        }
+        // The fade is drawn, not laid out: it must not steal a drag from the row underneath it, and a
+        // gradient (not a shadow) is what says "the row continues" without adding a second row.
+        if (scroll.canScrollForward) {
+            Box(
+                Modifier.matchParentSize().drawBehind {
+                    val fade = 24.dp.toPx()
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(Color.Transparent, RoutineColors.SheetSurface),
+                            startX = size.width - fade,
+                            endX = size.width,
+                        ),
+                        topLeft = Offset(size.width - fade, 0f),
+                        size = Size(fade, size.height),
+                    )
+                },
             )
         }
     }

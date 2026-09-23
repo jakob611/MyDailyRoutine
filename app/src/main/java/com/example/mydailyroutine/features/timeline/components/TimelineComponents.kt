@@ -73,6 +73,7 @@ import com.example.mydailyroutine.core.designsystem.components.ActionRow
 import com.example.mydailyroutine.core.designsystem.components.MetaChip
 import com.example.mydailyroutine.core.designsystem.components.NowBand
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
+import com.example.mydailyroutine.core.designsystem.components.timeLabelStyle
 import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
@@ -275,7 +276,7 @@ fun TimelineBlockCard(
                                 // ellipsis. The duration is part of what tells a student how much is left.
                                 RoutineText(
                                     text = "$rangeText · $durationText",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = timeLabelStyle(),
                                     color = RoutineColors.TextSecondary,
                                     maxLines = RoutineTextDefaults.Body,
                                 )
