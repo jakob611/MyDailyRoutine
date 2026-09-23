@@ -9,7 +9,7 @@ Aplikacija uporablja eno globoko modro-skrilasto paleto. Compose je vir resnice;
 | `Background` | `#090D16` | glavno ozadje |
 | `SurfaceLowest` | `#05070B` | vdolbine in inputi |
 | `SurfaceLow` / `SheetSurface` | `#0F1422` | sekundarne površine, bottom sheet |
-| `Surface1` | `#151C2E` | kartice in koledarski bloki |
+| `Surface1` | `#1A2238` | kartice in koledarski bloki |
 | `Surface2` | `#1D263D` | izbrane kartice in floating elementi |
 | `Surface3` | `#26324F` | dialogi, meniji in najvišji nivo |
 
@@ -17,7 +17,7 @@ Aplikacija uporablja eno globoko modro-skrilasto paleto. Compose je vir resnice;
 
 - Primarno: `#F1F5F9`
 - Sekundarno: `#A8B3C2`
-- Tretji nivo/metapodatki: `#718096`
+- Tretji nivo/metapodatki: `#94A3B8`
 - Primarni interaktivni accent: `#2DD4BF`
 - Aktivni timer: `#67E8F9`
 - Fokus/Pomodoro: `#A78BFA`
@@ -25,7 +25,12 @@ Aplikacija uporablja eno globoko modro-skrilasto paleto. Compose je vir resnice;
 - Opozorilo: `#FBBF24`
 - Napaka/kritični rok: `#FB7185`
 
-`TextMuted` je namenjen samo sekundarnim metapodatkom, ne glavnemu besedilu. Kontrastni gate ga zato preverja z ločenim pragom za metadata vlogo; primarno in sekundarno besedilo imata strožji prag.
+`TextMuted` je namenjen samo sekundarnim metapodatkom, ne glavnemu besedilu, a mora biti berljiv: prejšnja vrednost `#718096` je na kartici dosegla le 4,23:1, po spremembi `#94A3B8` pa 4,96:1 na najtemnejši in 5,86:1 na najsvetlejši površini. Cena je, da je tiho besedilo bliže sekundarnemu; stopnjo med njima zdaj nosita velikost in teža, ne samo barva.
+
+Dva tokena nosita **krmilnike**, ne okrasja, zato zanju velja prag 3:1 za elemente vmesnika (WCAG 1.4.11):
+
+- `FieldOutline` `#74849C` — obroba vnosnih polj in obroba obrobljenih gumbov (3,34:1 na najsvetlejši površini). Lasne obrobe kartic (`CardBorder`, 10 % bele) ostajajo dekorativne in se merijo le kot zaznaven rob.
+- `SwitchOn` `#0D9488` — tir vklopljenega stikala. Beli drsnik nanj pade na 3,42:1; na znamkasti turkizni `#2DD4BF` je bilo razmerje 1,86:1, kar je v soncu neberljivo. Odtenek ostaja znamkin, le globlji.
 
 ## Liquid Glass
 

@@ -23,7 +23,7 @@ object RoutineColors {
     val Background = Color(0xFF090D16)
     val SurfaceLowest = Color(0xFF05070B)
     val SurfaceLow = Color(0xFF0F1422)
-    val Surface1 = Color(0xFF151C2E) // surfaceContainer: cards and calendar blocks
+    val Surface1 = Color(0xFF1A2238) // surfaceContainer: cards and calendar blocks
     val Surface2 = Color(0xFF1D263D) // surfaceContainerHigh: selected/floating elements
     val Surface3 = Color(0xFF26324F) // surfaceContainerHighest: dialogs and menus
     val Surface4 = Surface3
@@ -31,13 +31,19 @@ object RoutineColors {
 
     val TextPrimary = Color(0xFFF1F5F9)
     val TextSecondary = Color(0xFFA8B3C2)
-    val TextMuted = Color(0xFF718096)
+    val TextMuted = Color(0xFF94A3B8)
     val TextDisabled = Color(0xFF536070)
 
     // White hairlines are deliberately layered: top-lit edges are stronger than card outlines.
     val Border = Color.White.copy(alpha = 0.14f)
     val BorderStrong = Color.White.copy(alpha = 0.18f)
     val CardBorder = Color.White.copy(alpha = 0.10f)
+    /**
+     * The edge of anything the reader can type into. A hairline is decoration and may stay quiet;
+     * the outline of an input is a control, and WCAG asks 3:1 for those, so this one is measurably
+     * brighter than [CardBorder] while still reading as a thin line rather than a frame.
+     */
+    val FieldOutline = Color(0xFF74849C)
     val Spine = Color(0xFF52627C)
 
     // System-fill equivalents, tinted slate rather than the old neutral grey ramp.
@@ -48,6 +54,12 @@ object RoutineColors {
 
     // Semantic accents. These are the only colours that carry interaction or state meaning.
     val Primary = Color(0xFF2DD4BF)
+    /**
+     * The track of a switch that is on. Deliberately deeper than [Primary]: the knob on top of it is
+     * near-white, and white on brand turquoise measured 1.86:1 — bright enough to look fine in a
+     * screenshot and impossible to read in the sun. The hue stays the brand's.
+     */
+    val SwitchOn = Color(0xFF0D9488)
     val Timer = Color(0xFF67E8F9)
     val FocusAccent = Color(0xFFA78BFA)
     val Success = Color(0xFF34D399)
@@ -215,7 +227,7 @@ val OledColorScheme = darkColorScheme(
     surfaceContainerLow = RoutineColors.SurfaceLow, surfaceContainer = RoutineColors.Surface1,
     surfaceContainerHigh = RoutineColors.Surface2, surfaceContainerHighest = RoutineColors.Surface3,
     surfaceDim = RoutineColors.SurfaceLowest, surfaceBright = RoutineColors.Surface3,
-    outline = RoutineColors.Spine, outlineVariant = RoutineColors.CardBorder,
+    outline = RoutineColors.FieldOutline, outlineVariant = RoutineColors.CardBorder,
     inverseSurface = RoutineColors.Surface3, inverseOnSurface = RoutineColors.TextPrimary,
     inversePrimary = RoutineColors.Primary,
     surfaceTint = RoutineColors.Timer,
