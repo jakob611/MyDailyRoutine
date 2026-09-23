@@ -691,6 +691,8 @@
     <string name="goals_seed_cas_name">CAS</string>
     <string name="goals_seed_ee_name">Extended essay (EE)</string>
     <string name="goals_add_starter">Add %1$s</string>
+    <string name="goals_all_projects">All projects</string>
+    <string name="goals_project_label">Project</string>
     <string name="goals_new_project">New project</string>
     <string name="goals_new_project_title">New project</string>
     <string name="goals_edit_project">Edit the project</string>

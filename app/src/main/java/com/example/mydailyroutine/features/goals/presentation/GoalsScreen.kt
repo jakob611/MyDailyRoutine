@@ -123,6 +123,13 @@ private val GanttLaneLabel = 84.dp
 private val StarterKinds = listOf("CAS", "EE")
 
 /**
+ * The project row's "every plan" option. CAS and EE run in parallel for the whole two years, so a
+ * screen that can only ever show one of them answers a question nobody asked; the sentinel is a
+ * value no project id can take, which keeps `null` meaning "nothing chosen yet".
+ */
+private const val AllProjects = -1L
+
+/**
  * The action that creates the CAS or EE starter plan. Shared by the empty state and by the "the other
  * one is still missing" chip, so both paths produce exactly the same project — the reason a student
  * who started with CAS can still get EE a week later.
@@ -159,8 +166,13 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
     var addingMilestone by remember { mutableStateOf(false) }
     var editingProject by remember { mutableStateOf<GoalsProject?>(null) }
     var addingProject by remember { mutableStateOf(false) }
-    val project = goals.projects.firstOrNull { it.id == selectedId } ?: goals.projects.lastOrNull()
     var tab by rememberSaveable { mutableStateOf(GoalTab.OVERVIEW) }
+    // From the second plan on, the screen opens on both at once; a single plan is its own whole view.
+    val showAll = selectedId == AllProjects || selectedId == null && goals.projects.size > 1
+    val visible = if (showAll) goals.projects
+        else listOfNotNull(goals.projects.firstOrNull { it.id == selectedId } ?: goals.projects.lastOrNull())
+    val project = visible.lastOrNull()
+    val visibleIds = visible.map { it.id }.toSet()
     val reduceMotion = LocalReduceMotion.current
     AnimatedContent(
         targetState = project == null,
@@ -184,9 +196,24 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                     contentPadding = PaddingValues(horizontal = RoutineMetrics.ScreenPadding),
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                 ) {
+                    if (goals.projects.size > 1) {
+                        item(key = "all") {
+                            FilterChip(
+                                selected = showAll,
+                                onClick = { haptics.selection(); selectedId = AllProjects; tab = GoalTab.OVERVIEW },
+                                enabled = !busy,
+                                shape = RoutineShapes.Chip,
+                                modifier = Modifier.testTag("goal-project-all"),
+                                label = {
+                                    RoutineLabel(stringResource(R.string.goals_all_projects),
+                                        style = MaterialTheme.typography.labelLarge)
+                                },
+                            )
+                        }
+                    }
                     items(goals.projects, key = { it.id }) { candidate ->
                         FilterChip(
-                            selected = project?.id == candidate.id,
+                            selected = !showAll && project?.id == candidate.id,
                             onClick = { haptics.selection(); selectedId = candidate.id; tab = GoalTab.OVERVIEW },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
@@ -223,15 +250,19 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                     }
                 }
                 if (project != null) {
-                    val activities = goals.activities.filter { it.projectId == project.id }
-                    val milestones = goals.milestones.filter { it.projectId == project.id }.sortedBy { it.dueDate }
-                    val progress = goals.progress.filter { it.projectId == project.id }
+                    val activities = goals.activities.filter { it.projectId in visibleIds }
+                    val milestones = goals.milestones.filter { it.projectId in visibleIds }.sortedBy { it.dueDate }
+                    val progress = goals.progress.filter { it.projectId in visibleIds }
+                    // In the both-plans view every row names its plan: two different milestones can
+                    // carry the same word, and a list that hides where a row comes from is a riddle.
+                    val planName: (Long) -> String? =
+                        { id -> if (showAll) goals.projects.firstOrNull { it.id == id }?.name else null }
                     CategoryTabs(
                         entries = GoalTab.entries.toList(),
                         selected = tab,
                         label = { stringResource(it.labelRes) },
                         onSelect = { haptics.selection(); tab = it },
-                        modifier = Modifier.padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.sm),
+                        modifier = Modifier.padding(horizontal = RoutineMetrics.ScreenPadding, vertical = RoutineSpacing.sm),
                         tagPrefix = "goal-tab",
                         enabled = !busy,
                     )
@@ -243,9 +274,16 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                     ) {
                         when (tab) {
                             GoalTab.OVERVIEW -> {
-                                item(key = "status") {
-                                    StatusCard(project, activities, milestones, progress, busy,
-                                        onEdit = { haptics.press(); editingProject = project }, onAction = onAction)
+                                visible.forEach { plan ->
+                                    item(key = "status-${plan.id}") {
+                                        StatusCard(plan,
+                                            activities = goals.activities.filter { it.projectId == plan.id },
+                                            milestones = goals.milestones.filter { it.projectId == plan.id },
+                                            progress = goals.progress.filter { it.projectId == plan.id },
+                                            busy = busy,
+                                            onEdit = { haptics.press(); editingProject = plan },
+                                            onAction = onAction)
+                                    }
                                 }
                                 item(key = "gantt") {
                                     Card(
@@ -263,7 +301,8 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                                                 modifier = Modifier.padding(horizontal = RoutineSpacing.md),
                                                 maxLines = RoutineTextDefaults.Body,
                                             )
-                                            GoalGantt(goals.projects, goals.activities, goals.milestones, project.id) { activity ->
+                                            GoalGantt(goals.projects, goals.activities, goals.milestones,
+                                                if (showAll) null else project.id) { activity ->
                                                 haptics.press()
                                                 goals.projects.firstOrNull { it.id == activity.projectId }?.let { selectedId = it.id }
                                                 editingActivity = activity
@@ -275,15 +314,17 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                             GoalTab.ACTIVITIES -> item(key = "activities") {
                                 ActivityList(activities, progress, busy, onAction,
                                     onAdd = { haptics.press(); addingActivity = true },
-                                    onEdit = { haptics.press(); editingActivity = it })
+                                    onEdit = { haptics.press(); editingActivity = it },
+                                    projectNameOf = planName)
                             }
                             GoalTab.MILESTONES -> item(key = "milestones") {
                                 MilestoneList(milestones, busy, onAction,
                                     onAdd = { haptics.press(); addingMilestone = true },
-                                    onEdit = { haptics.press(); editingMilestone = it })
+                                    onEdit = { haptics.press(); editingMilestone = it },
+                                    projectNameOf = planName)
                             }
                             GoalTab.PROGRESS -> item(key = "progress") {
-                                ProgressLog(progress, activities, busy, onAction)
+                                ProgressLog(progress, activities, busy, onAction, projectNameOf = planName)
                             }
                         }
                     }
@@ -292,9 +333,9 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
         }
     }
     project?.let { current ->
-        ActivityEditorHost(addingActivity || editingActivity != null, current, editingActivity, busy, goals.progress,
+        ActivityEditorHost(addingActivity || editingActivity != null, goals.projects, current, editingActivity, busy, goals.progress,
             onDismiss = { addingActivity = false; editingActivity = null }, onAction = onAction)
-        MilestoneEditorHost(addingMilestone || editingMilestone != null, current, editingMilestone, busy,
+        MilestoneEditorHost(addingMilestone || editingMilestone != null, goals.projects, current, editingMilestone, busy,
             onDismiss = { addingMilestone = false; editingMilestone = null }, onAction = onAction)
     }
     ProjectEditorHost(addingProject || editingProject != null, editingProject, busy,
@@ -309,15 +350,53 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
 @Composable
 private fun ActivityEditorHost(
     visible: Boolean,
-    project: GoalsProject,
+    projects: List<GoalsProject>,
+    preferred: GoalsProject,
     initial: GoalActivity?,
     busy: Boolean,
     progress: List<GoalProgress>,
     onDismiss: () -> Unit,
     onAction: (TimelineAction) -> Unit,
 ) {
+    // Which plan the sheet writes to. An existing activity keeps its own plan; a new one starts in
+    // the plan the reader came from and can be pointed elsewhere before it is saved.
+    var targetId by rememberSaveable(visible, initial?.id) { mutableStateOf(initial?.projectId ?: preferred.id) }
+    val target = projects.firstOrNull { it.id == targetId } ?: preferred
     RoutineSheet(visible) { sheetState ->
-        ActivityEditorSheet(project, initial, busy, progress, sheetState, onDismiss, onAction)
+        ActivityEditorSheet(target, projects, { targetId = it.id }, initial, busy, progress, sheetState, onDismiss, onAction)
+    }
+}
+
+/**
+ * Picks the plan a new activity or milestone belongs to, in the same chip vocabulary as the screen
+ * behind it. It only appears when there is a choice: with one plan the question has one answer.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProjectPicker(
+    projects: List<GoalsProject>,
+    selectedId: Long,
+    enabled: Boolean,
+    onPick: (GoalsProject) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+        RoutineLabel(stringResource(R.string.goals_project_label), style = MaterialTheme.typography.labelMedium,
+            color = RoutineColors.TextSecondary)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+        ) {
+            projects.forEach { candidate ->
+                FilterChip(
+                    selected = candidate.id == selectedId,
+                    onClick = { onPick(candidate) },
+                    enabled = enabled,
+                    shape = RoutineShapes.Chip,
+                    modifier = Modifier.testTag("goal-target-${candidate.kind}"),
+                    label = { RoutineLabel(candidate.name, style = MaterialTheme.typography.labelLarge) },
+                )
+            }
+        }
     }
 }
 
@@ -325,14 +404,17 @@ private fun ActivityEditorHost(
 @Composable
 private fun MilestoneEditorHost(
     visible: Boolean,
-    project: GoalsProject,
+    projects: List<GoalsProject>,
+    preferred: GoalsProject,
     initial: GoalMilestone?,
     busy: Boolean,
     onDismiss: () -> Unit,
     onAction: (TimelineAction) -> Unit,
 ) {
+    var targetId by rememberSaveable(visible, initial?.id) { mutableStateOf(initial?.projectId ?: preferred.id) }
+    val target = projects.firstOrNull { it.id == targetId } ?: preferred
     RoutineSheet(visible) { sheetState ->
-        MilestoneEditorSheet(project, initial, busy, sheetState, onDismiss, onAction)
+        MilestoneEditorSheet(target, projects, { targetId = it.id }, initial, busy, sheetState, onDismiss, onAction)
     }
 }
 
@@ -367,7 +449,13 @@ private enum class GoalTab(@StringRes val labelRes: Int) {
  * the trail behind them, and the only place reflections are readable without opening an activity.
  */
 @Composable
-private fun ProgressLog(progress: List<GoalProgress>, activities: List<GoalActivity>, busy: Boolean, onAction: (TimelineAction) -> Unit) {
+private fun ProgressLog(
+    progress: List<GoalProgress>,
+    activities: List<GoalActivity>,
+    busy: Boolean,
+    onAction: (TimelineAction) -> Unit,
+    projectNameOf: (Long) -> String?,
+) {
     val entries = progress.sortedWith(compareByDescending<GoalProgress> { it.date }.thenByDescending { it.id })
     Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
         SectionHeader(title = stringResource(R.string.goals_progress_log), style = MaterialTheme.typography.titleLarge)
@@ -408,8 +496,10 @@ private fun ProgressLog(progress: List<GoalProgress>, activities: List<GoalActiv
                             }
                         }
                     }
-                    activities.firstOrNull { it.id == entry.activityId }?.let { activity ->
-                        RoutineLabel(activity.title, style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextMuted)
+                    val where = listOfNotNull(projectNameOf(entry.projectId),
+                        activities.firstOrNull { it.id == entry.activityId }?.title).joinToString(" · ")
+                    if (where.isNotEmpty()) {
+                        RoutineLabel(where, style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextMuted)
                     }
                     if (entry.kind == "reflection") {
                         RoutineText(entry.note.orEmpty(), style = MaterialTheme.typography.bodySmall,
@@ -464,7 +554,7 @@ private fun StatusCard(
     val categoryHours = progress.filter { it.kind == "hour" }
         .groupBy { entry -> activities.firstOrNull { it.id == entry.activityId }?.category }
     OutlinedCard(
-        Modifier.fillMaxWidth(),
+        Modifier.fillMaxWidth().testTag("goal-status-${project.id}"),
         shape = RoutineShapes.Card,
         border = BorderStroke(1.dp, RoutineColors.CardBorder),
     ) {
@@ -685,7 +775,9 @@ private fun GoalGantt(
                             RoutineLabel(
                                 lane.name,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (lane.id == selectedId) RoutineColors.TextPrimary else RoutineColors.TextSecondary,
+                                // null means every plan is on screen, so every lane is equally current.
+                                color = if (selectedId == null || lane.id == selectedId) RoutineColors.TextPrimary
+                                    else RoutineColors.TextSecondary,
                                 maxLines = RoutineTextDefaults.Body,
                             )
                         }
@@ -846,6 +938,8 @@ private fun ActivityList(
     onAction: (TimelineAction) -> Unit,
     onAdd: () -> Unit,
     onEdit: (GoalActivity) -> Unit,
+    /** Names the plan a row belongs to; null while one plan is on screen, where it would be noise. */
+    projectNameOf: (Long) -> String?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
         SectionHeader(
@@ -863,6 +957,7 @@ private fun ActivityList(
         activities.forEach { activity ->
             val hours = progress.filter { it.kind == "hour" && it.activityId == activity.id }.sumOf { it.amount }
             val details = listOfNotNull(
+                projectNameOf(activity.projectId),
                 stringResource(R.string.date_range, RoutineDate.normal(activity.start), RoutineDate.normal(activity.end)),
                 categoryLabel(activity.category),
                 if (hours > 0.0) stringResource(R.string.goals_hours_item, hours.roundToInt()) else null,
@@ -907,6 +1002,7 @@ private fun MilestoneList(
     onAction: (TimelineAction) -> Unit,
     onAdd: () -> Unit,
     onEdit: (GoalMilestone) -> Unit,
+    projectNameOf: (Long) -> String?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
         SectionHeader(
@@ -941,7 +1037,8 @@ private fun MilestoneList(
                         // A date and its "in 3 weeks" belong together: if the row is narrow the line
                         // wraps rather than cutting the relative day off the end.
                         RoutineText(
-                            text = "${RoutineDate.normal(milestone.dueDate)} · ${goalRelative(milestone.dueDate)}",
+                            text = listOfNotNull(projectNameOf(milestone.projectId),
+                                RoutineDate.normal(milestone.dueDate), goalRelative(milestone.dueDate)).joinToString(" · "),
                             style = MaterialTheme.typography.labelSmall,
                             color = RoutineColors.TextSecondary,
                             maxLines = RoutineTextDefaults.Body,
@@ -960,6 +1057,8 @@ private fun MilestoneList(
 @Composable
 private fun ActivityEditorSheet(
     project: GoalsProject,
+    projects: List<GoalsProject>,
+    onPickProject: (GoalsProject) -> Unit,
     initial: GoalActivity?,
     busy: Boolean,
     progress: List<GoalProgress>,
@@ -981,6 +1080,15 @@ private fun ActivityEditorSheet(
     val start = LocalDate.ofEpochDay(startEpoch)
     val end = LocalDate.ofEpochDay(endEpoch).let { if (it.isBefore(start)) start else it }
     val saved = initial != null && initial.id > 0
+    // The three CAS categories and the EE stages are different vocabularies: pointing a new activity
+    // at the other plan drops a category that plan has no place for.
+    LaunchedEffect(project.id) {
+        if (!saved) {
+            category = if (project.kind == "EE") "STAGE" else null
+            // "This is also a CAS project" is a CAS question; it has no meaning under the EE plan.
+            if (project.kind != "CAS") casProject = false
+        }
+    }
     val closeLabel = stringResource(R.string.close)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1029,6 +1137,9 @@ private fun ActivityEditorSheet(
                 enabled = !busy,
                 label = { RoutineText(stringResource(R.string.goals_activity_title)) },
             )
+            if (projects.size > 1 && !saved) {
+                ProjectPicker(projects, project.id, enabled = !busy, onPick = onPickProject)
+            }
             if (project.kind == "CAS") {
                 ActionRow {
                     listOf(
@@ -1185,6 +1296,8 @@ private fun ActivityEditorSheet(
 @Composable
 private fun MilestoneEditorSheet(
     project: GoalsProject,
+    projects: List<GoalsProject>,
+    onPickProject: (GoalsProject) -> Unit,
     initial: GoalMilestone?,
     busy: Boolean,
     sheetState: SheetState,
@@ -1240,6 +1353,9 @@ private fun MilestoneEditorSheet(
                 enabled = !busy,
                 label = { RoutineText(stringResource(R.string.goals_milestone_title)) },
             )
+            if (projects.size > 1 && initial == null) {
+                ProjectPicker(projects, project.id, enabled = !busy, onPick = onPickProject)
+            }
             OutlinedButton(enabled = !busy, shape = RoutineShapes.Pill, onClick = { picking = true }) {
                 RoutineLabel(RoutineDate.normalYear(LocalDate.ofEpochDay(epoch)), style = MaterialTheme.typography.labelLarge)
             }

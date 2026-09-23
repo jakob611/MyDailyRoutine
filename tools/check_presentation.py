@@ -106,6 +106,14 @@ for name, rel in (('DailyTimeline', 'features/timeline/presentation/DailyTimelin
     if 'contentPadding = PaddingValues' in code:
         assert 'RoutineMetrics.ScreenPadding' in code, f'{name} does not use the shared screen inset: {rel}'
         assert 'RoutineMetrics.ListBottomInset' in code, f'{name} does not clear the floating control: {rel}'
+# CAS and EE run in parallel for two years: the goals screen has to be able to show both plans at
+# once, with every row naming the plan it came from. It could not, and the reader could not use the
+# two plans together.
+goals = (ui_root / 'features/goals/presentation/GoalsScreen.kt').read_text()
+assert 'goals_all_projects' in goals, 'the goals screen cannot show every plan at once'
+assert 'projectNameOf' in goals, 'rows in the goals lists do not say which plan they belong to'
+assert 'goals_project_label' in goals, 'a new row never says which plan it will be saved into'
+
 for rel in ('features/timeline/presentation/overview/OverviewScreens.kt',):
     code = (ui_root / rel).read_text()
     assert 'padding(RoutineSpacing.lg)' not in code, f'Card body uses the screen inset instead of CardPadding: {rel}'

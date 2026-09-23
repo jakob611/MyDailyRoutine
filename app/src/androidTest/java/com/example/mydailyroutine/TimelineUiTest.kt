@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import java.io.File
 import androidx.lifecycle.Lifecycle
 import com.example.mydailyroutine.core.platform.uiLocaleFor
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.annotation.StringRes
 import androidx.compose.ui.test.*
@@ -191,6 +192,56 @@ class TimelineUiTest {
         captureTag("09-goals-tabs", "goal-tab-body")
     }
     /**
+     * CAS and EE are two plans that run at the same time for two years, so the screen must be able
+     * to show both at once: one status card and one Gantt lane per plan, milestones from both in one
+     * list, each row saying which plan it belongs to. The chip is the reader's way in.
+     */
+    @Test fun bothPlansAreVisibleAtOnce() {
+        compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()
+        awaitText(R.string.goals_empty_body)
+        compose.onNodeWithText(text(R.string.goals_seed_cas)).performClick()
+        awaitAnyText(R.string.goals_seed_cas_name)
+        // With one plan there is nothing to combine, so the chip is not offered yet.
+        compose.onNodeWithTag("goal-project-all").assertDoesNotExist()
+        compose.onNodeWithTag("goal-seed-EE").performClick()
+        awaitAnyText(R.string.goals_seed_ee_name)
+        // Both plans exist: the "all plans" chip appears, and it is what the screen opens on.
+        compose.onNodeWithTag("goal-project-all").performScrollTo().assertIsDisplayed().assertIsSelected()
+        // Overview: one status card per plan, both on screen at the same time.
+        // Both plans are open at once, so both status cards are in the list: the second one is the
+        // next item after the first, which is exactly what "I cannot have both at once" was about.
+        val cards = compose.onAllNodes(hasTestTagPrefix("goal-status-")).fetchSemanticsNodes()
+        assertTrue("expected a status card per plan, found " + cards.size, cards.size >= 2)
+        captureTag("13-goals-both", "goal-tab-body")
+        // Milestones from both plans in one list, each row prefixed with its plan's name.
+        clickGoalTab("goal-tab-milestones")
+        compose.onNodeWithText(text(R.string.goals_cas_meeting_1), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.ee_milestone_1), substring = true).assertIsDisplayed()
+        captureTag("14-goals-both-milestones", "goal-tab-body")
+    }
+    /** A new activity can be pointed at the other plan from inside the editor, and the picker says so. */
+    @Test fun aNewActivityCanBeFiledUnderTheOtherPlan() {
+        compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()
+        awaitText(R.string.goals_empty_body)
+        compose.onNodeWithText(text(R.string.goals_seed_cas)).performClick()
+        awaitAnyText(R.string.goals_seed_cas_name)
+        compose.onNodeWithTag("goal-seed-EE").performClick()
+        awaitAnyText(R.string.goals_seed_ee_name)
+        clickGoalTab("goal-tab-activities")
+        compose.onNodeWithText(text(R.string.goals_add_activity)).performScrollTo().performClick()
+        awaitText(R.string.goals_new_activity)
+        // The sheet says where the row will land and lets the reader change it before saving.
+        compose.onNodeWithText(text(R.string.goals_project_label)).assertIsDisplayed()
+        compose.onNodeWithTag("goal-target-CAS").performClick()
+        compose.onNodeWithTag("activity-title").performTextInput("CAS nastop")
+        compose.onNodeWithText(text(R.string.save)).performClick()
+        // Saved into CAS, so it is listed among that plan's activities, one tap from the chip that
+        // says CAS is on screen.
+        compose.onNodeWithTag("goal-tab-body").performScrollToNode(hasText("CAS nastop"))
+        compose.onNodeWithText("CAS nastop").assertIsDisplayed()
+        captureTag("15-goals-activity-plan", "goal-tab-body")
+    }
+    /**
      * The system back button walks the stack the reader built, innermost layer first: Goals closes
      * before the day does, and the day returns to the scale it was drilled into instead of leaving
      * the app. Sheets and dialogs are not tested here — they answer from their own window.
@@ -248,6 +299,11 @@ class TimelineUiTest {
      * all. The test therefore waits for the tab to accept input, which is the honest form: the
      * disabled tab is correct behaviour, not a bug to click through.
      */
+    /** Matches every test tag that starts with [prefix]; used to count repeated cards without ids. */
+    private fun hasTestTagPrefix(prefix: String) = SemanticsMatcher("test tag starts with " + prefix) { node ->
+        node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true
+    }
+
     private fun clickGoalTab(tag: String) {
         compose.waitUntil(10000) {
             runCatching { compose.onNodeWithTag(tag).assertIsEnabled() }.isSuccess

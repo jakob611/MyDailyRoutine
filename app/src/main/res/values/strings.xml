@@ -696,6 +696,8 @@
     <string name="goals_seed_cas_name">CAS</string>
     <string name="goals_seed_ee_name">Podaljšan esej (EE)</string>
     <string name="goals_add_starter">Dodaj %1$s</string>
+    <string name="goals_all_projects">Vsi projekti</string>
+    <string name="goals_project_label">Projekt</string>
     <string name="goals_new_project">Nov projekt</string>
     <string name="goals_new_project_title">Nov projekt</string>
     <string name="goals_edit_project">Uredi projekt</string>
