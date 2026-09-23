@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Both complete translations, Slovenian first: the per-app language picker in system settings
+     offers exactly this list, and Android is told which resource folders to expect. -->
 <locale-config xmlns:android="http://schemas.android.com/apk/res/android">
     <locale android:name="sl" />
+    <locale android:name="en" />
 </locale-config>

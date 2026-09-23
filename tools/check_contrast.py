@@ -48,7 +48,7 @@ def check(rows: list[tuple[str, float, float]], label: str, foreground: str, bac
 
 
 SURFACES = ["Background", "SurfaceLow", "Surface1", "Surface2", "Surface3"]
-TEXTS = {"TextPrimary": 11.0, "TextSecondary": 5.0, "TextMuted": 3.0}
+TEXTS = {"TextPrimary": 11.0, "TextSecondary": 5.0, "TextMuted": 4.5}
 ACCENTS = ["Primary", "Timer", "FocusAccent", "Success", "Warning", "Error"]
 rows: list[tuple[str, float, float]] = []
 failures: list[str] = []
@@ -80,6 +80,13 @@ for role, tint, alpha, minimum_secondary in (
         panel = composite(tint, alpha, behind)
         check(rows, f"glass {role} primary", COLORS["TextPrimary"], panel, 7.0)
         check(rows, f"glass {role} secondary", COLORS["TextSecondary"], panel, minimum_secondary)
+
+# Controls, not decoration: the outline of an input field and the track of a switch that is on both
+# carry meaning, so both answer to the 3:1 floor for user-interface components (WCAG 1.4.11). The
+# cards' own 10% hairline stays decorative and is measured only as a perceptible edge.
+for surface in SURFACES:
+    check(rows, f"field outline on {surface}", COLORS["FieldOutline"], COLORS[surface], 3.0)
+    check(rows, f"switch track on {surface}", COLORS["TextPrimary"], COLORS["SwitchOn"], 3.0)
 
 # Category chips and cards use a shared raised slate container; the accent is the non-text indicator.
 for name, accent in (("School", "Timer"), ("Focus", "FocusAccent"), ("Recovery", "Success"),

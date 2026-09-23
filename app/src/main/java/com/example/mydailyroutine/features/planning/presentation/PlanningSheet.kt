@@ -198,7 +198,7 @@ private fun LazyListScope.backlogTab(
         return
     }
     items(backlog, key = { "backlog:${it.id}" }) { entry ->
-        OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border),
+        OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder),
             modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
@@ -234,7 +234,7 @@ private fun LazyListScope.topicsTab(
         return
     }
     items(topics, key = { "topic:${it.id}" }) { topic ->
-        OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border),
+        OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder),
             modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
@@ -265,7 +265,7 @@ private fun LazyListScope.markersTab(
         return
     }
     items(milestones, key = { "goal:${it.id}" }) { milestone ->
-        OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border),
+        OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder),
             modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
@@ -291,7 +291,7 @@ private fun LazyListScope.markersTab(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-                    Box(Modifier.size(6.dp).clip(CircleShape).background(RoutineColors.FocusAccent))
+                    Box(Modifier.size(RoutineMetrics.DotSize).clip(CircleShape).background(RoutineColors.FocusAccent))
                     RoutineText(
                         text = stringResource(
                             R.string.stages_hint,

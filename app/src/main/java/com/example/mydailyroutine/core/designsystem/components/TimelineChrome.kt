@@ -16,6 +16,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -72,7 +75,8 @@ fun TimeGutter(
     emphasized: Boolean = false,
     muted: Boolean = false,
     topPadding: Dp = RoutineSpacing.md,
-    style: TextStyle = MaterialTheme.typography.bodySmall,
+    // Times are the one label read at arm's length: 13 sp Medium, not the 12 sp body default.
+    style: TextStyle = timeLabelStyle(),
 ) {
     Column(
         modifier.width(RoutineMetrics.GutterTextWidth)
@@ -125,7 +129,9 @@ fun NowBand(
     pulse: Float = 1f,
 ) {
     Layout(
-        modifier = modifier,
+        // The one place where the screen changes without the reader touching anything: a polite
+        // announcement, not an interruption, so TalkBack says where "now" moved to.
+        modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
         content = {
             Surface(color = RoutineColors.Background) {
                 Row(

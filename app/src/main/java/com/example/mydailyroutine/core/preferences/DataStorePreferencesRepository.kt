@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.mydailyroutine.domain.health.HealthConfig
 import com.example.mydailyroutine.domain.health.PeriodicBreakConfig
@@ -25,6 +26,8 @@ private val Context.scheduleDataStore by preferencesDataStore(name = "schedule_p
 class DataStorePreferencesRepository(context: Context, private val onChanged: () -> Unit) : PreferencesRepository {
     private val store = context.applicationContext.scheduleDataStore
     private val muteKey = booleanPreferencesKey("mute_during_school")
+    private val nameKey = stringPreferencesKey("user_name")
+    private val onboardingKey = booleanPreferencesKey("onboarding_done")
     private val recoveryKey = booleanPreferencesKey("notify_recovery_breaks")
     private val startKey = intPreferencesKey("school_start_minute")
     private val endKey = intPreferencesKey("school_end_minute")
@@ -43,6 +46,11 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
         if (error is IOException) emit(emptyPreferences()) else throw error
     }.map { values ->
         SchedulePreferences(
+            userName = values[nameKey].orEmpty().take(40),
+            // An install that already holds settings belongs to someone who was using the app before
+            // the first-run flow existed: asking them to answer it now would be a regression, so a
+            // missing flag means "already past it" as soon as the store has anything else in it.
+            onboardingDone = values[onboardingKey] ?: values.asMap().isNotEmpty(),
             muteDuringSchoolHours = values[muteKey] ?: defaults.muteDuringSchoolHours,
             notifyRecovery = values[recoveryKey] ?: defaults.notifyRecovery,
             schoolStart = time(values[startKey], defaults.schoolStart),
@@ -65,6 +73,14 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
 
     private fun time(minutes: Int?, fallback: LocalTime): LocalTime =
         minutes?.takeIf { it in 0..1439 }?.let { LocalTime.ofSecondOfDay(it * 60L) } ?: fallback
+
+    override suspend fun setUserName(name: String) {
+        store.edit { it[nameKey] = name.trim().take(40) }
+    }
+
+    override suspend fun completeOnboarding() {
+        store.edit { it[onboardingKey] = true }
+    }
 
     override suspend fun setMuteDuringSchoolHours(muted: Boolean) {
         store.edit { it[muteKey] = muted }

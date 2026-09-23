@@ -208,7 +208,7 @@ fun TasksSheet(
                         maxLines = RoutineTextDefaults.Body,
                     )
                     Icon(Icons.Outlined.ExpandMore, null, tint = RoutineColors.TextSecondary,
-                        modifier = Modifier.size(20.dp).rotate(doneChevron))
+                        modifier = Modifier.size(RoutineMetrics.IconSize).rotate(doneChevron))
                     TextButton(enabled = !busy, onClick = { haptics.warning(); onAction(TimelineAction.ClearCompletedTasks) }) {
                         RoutineLabel(stringResource(R.string.tasks_clear_done), style = MaterialTheme.typography.labelLarge)
                     }
@@ -220,10 +220,10 @@ fun TasksSheet(
                     OutlinedCard(
                         modifier = Modifier.animateItem(placementSpec = taskListSpec()).fillMaxWidth(),
                         shape = RoutineShapes.Card,
-                        border = BorderStroke(1.dp, RoutineColors.Border),
+                        border = BorderStroke(1.dp, RoutineColors.CardBorder),
                     ) {
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.xs),
+                            Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.xs),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                         ) {
@@ -296,7 +296,7 @@ private fun TaskAttributePickers(
     var subjectMenu by rememberSaveable { mutableStateOf(false) }
     ActionRow {
         OutlinedButton(enabled = !busy, shape = RoutineShapes.Pill, onClick = onPickDate) {
-            Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(18.dp))
+            Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(RoutineMetrics.IconSize))
             Spacer(Modifier.width(RoutineSpacing.sm))
             RoutineLabel(
                 text = taskDueButtonLabel(dueEpoch?.let(LocalDate::ofEpochDay), today),
@@ -368,7 +368,7 @@ private fun LazyListScope.taskSection(
 @Composable
 private fun TaskSectionHeader(res: Int, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-        Box(Modifier.size(6.dp).clip(CircleShape).background(color))
+        Box(Modifier.size(RoutineMetrics.DotSize).clip(CircleShape).background(color))
         RoutineText(stringResource(res), style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
     }
 }
@@ -394,9 +394,9 @@ private fun TaskRow(
     var pickingEditDate by rememberSaveable { mutableStateOf(false) }
     val haptics = LocalRoutineHaptics.current
     val chevron by animateFloatAsState(if (expanded) 180f else 0f, spatialSpec<Float>(LocalReduceMotion.current), label = "task-chevron")
-    OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border), modifier = Modifier.fillMaxWidth()) {
+    OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder), modifier = Modifier.fillMaxWidth()) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.xs),
+            Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.xs),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
         ) {
             Row(
@@ -428,7 +428,7 @@ private fun TaskRow(
                     )
                 }
                 Icon(Icons.Outlined.ExpandMore, null, tint = RoutineColors.TextSecondary,
-                    modifier = Modifier.size(20.dp).rotate(chevron))
+                    modifier = Modifier.size(RoutineMetrics.IconSize).rotate(chevron))
             }
             AnimatedVisibility(
                 visible = expanded,

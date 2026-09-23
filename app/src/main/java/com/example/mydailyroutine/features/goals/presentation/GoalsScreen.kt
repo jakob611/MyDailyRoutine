@@ -1,5 +1,6 @@
 package com.example.mydailyroutine.features.goals.presentation
 
+import android.content.Context
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -108,6 +109,10 @@ import com.example.mydailyroutine.domain.model.GoalMilestone
 import com.example.mydailyroutine.domain.model.GoalProgress
 import com.example.mydailyroutine.domain.model.GoalsProject
 import com.example.mydailyroutine.core.presentation.GoalsUiState
+import com.example.mydailyroutine.core.presentation.durationLabel
+import com.example.mydailyroutine.core.presentation.interfaceLocale
+import java.text.NumberFormat
+import java.util.Locale
 import com.example.mydailyroutine.features.entry.presentation.AppDatePicker
 import java.time.LocalDate
 import java.time.YearMonth
@@ -118,6 +123,36 @@ import kotlin.math.roundToInt
 /** Width of the project-name column in the Gantt; the timeline itself scrolls when it needs more. */
 private val GanttLaneLabel = 84.dp
 
+/** The two starter projects the app knows how to lay out, in the order the empty state offers them. */
+private val StarterKinds = listOf("CAS", "EE")
+
+/**
+ * The project row's "every plan" option. CAS and EE run in parallel for the whole two years, so a
+ * screen that can only ever show one of them answers a question nobody asked; the sentinel is a
+ * value no project id can take, which keeps `null` meaning "nothing chosen yet".
+ */
+private const val AllProjects = -1L
+
+/**
+ * The action that creates the CAS or EE starter plan. Shared by the empty state and by the "the other
+ * one is still missing" chip, so both paths produce exactly the same project — the reason a student
+ * who started with CAS can still get EE a week later.
+ */
+private fun starterAction(context: Context, kind: String): TimelineAction = when (kind) {
+    "EE" -> TimelineAction.SeedGoalProject(
+        kind, context.getString(R.string.goals_seed_ee_name),
+        listOf(R.string.ee_stage_1, R.string.ee_stage_2, R.string.ee_stage_3, R.string.ee_stage_4,
+            R.string.ee_stage_5, R.string.ee_stage_6).map { context.getString(it) },
+        listOf(R.string.ee_milestone_1, R.string.ee_milestone_2, R.string.ee_milestone_3,
+            R.string.ee_milestone_4, R.string.ee_milestone_5).map { context.getString(it) },
+    )
+    else -> TimelineAction.SeedGoalProject(
+        "CAS", context.getString(R.string.goals_seed_cas_name), emptyList(),
+        listOf(R.string.goals_cas_meeting_1, R.string.goals_cas_meeting_2, R.string.goals_cas_meeting_3,
+            R.string.goals_cas_statement).map { context.getString(it) },
+    )
+}
+
 /**
  * Full-screen long-term planner for CAS/EE: status, month plan, activities, milestones.
  *
@@ -126,7 +161,8 @@ private val GanttLaneLabel = 84.dp
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -> Unit, topInset: Dp = 0.dp) {
+fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -> Unit, topInset: Dp = 0.dp,
+    bottomInset: Dp = RoutineMetrics.ListBottomInset) {
     val haptics = LocalRoutineHaptics.current
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editingActivity by remember { mutableStateOf<GoalActivity?>(null) }
@@ -135,8 +171,13 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
     var addingMilestone by remember { mutableStateOf(false) }
     var editingProject by remember { mutableStateOf<GoalsProject?>(null) }
     var addingProject by remember { mutableStateOf(false) }
-    val project = goals.projects.firstOrNull { it.id == selectedId } ?: goals.projects.lastOrNull()
     var tab by rememberSaveable { mutableStateOf(GoalTab.OVERVIEW) }
+    // From the second plan on, the screen opens on both at once; a single plan is its own whole view.
+    val showAll = selectedId == AllProjects || selectedId == null && goals.projects.size > 1
+    val visible = if (showAll) goals.projects
+        else listOfNotNull(goals.projects.firstOrNull { it.id == selectedId } ?: goals.projects.lastOrNull())
+    val project = visible.lastOrNull()
+    val visibleIds = visible.map { it.id }.toSet()
     val reduceMotion = LocalReduceMotion.current
     AnimatedContent(
         targetState = project == null,
@@ -152,21 +193,55 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                 GoalEmptyState(busy, onAction) { haptics.press(); addingProject = true }
             }
         } else {
+            val context = LocalContext.current
             Column(Modifier.fillMaxSize()) {
                 // Projects scroll sideways: a wrapping chip row grew to four lines with three projects.
                 LazyRow(
                     Modifier.fillMaxWidth().padding(top = topInset + RoutineSpacing.sm),
-                    contentPadding = PaddingValues(horizontal = RoutineSpacing.lg),
+                    contentPadding = PaddingValues(horizontal = RoutineMetrics.ScreenPadding),
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                 ) {
+                    if (goals.projects.size > 1) {
+                        item(key = "all") {
+                            FilterChip(
+                                selected = showAll,
+                                onClick = { haptics.selection(); selectedId = AllProjects; tab = GoalTab.OVERVIEW },
+                                enabled = !busy,
+                                shape = RoutineShapes.Chip,
+                                modifier = Modifier.testTag("goal-project-all"),
+                                label = {
+                                    RoutineLabel(stringResource(R.string.goals_all_projects),
+                                        style = MaterialTheme.typography.labelLarge)
+                                },
+                            )
+                        }
+                    }
                     items(goals.projects, key = { it.id }) { candidate ->
                         FilterChip(
-                            selected = project?.id == candidate.id,
+                            selected = !showAll && project?.id == candidate.id,
                             onClick = { haptics.selection(); selectedId = candidate.id; tab = GoalTab.OVERVIEW },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
                             modifier = Modifier.testTag("goal-project-${candidate.id}"),
                             label = { RoutineLabel(candidate.name, style = MaterialTheme.typography.labelLarge) },
+                        )
+                    }
+                    // Whatever starter is still missing keeps its offer here, in the same row the
+                    // reader uses to move between projects. Without this, a student who made CAS on
+                    // the first screen could never find the EE plan again.
+                    val missing = StarterKinds.filter { kind -> goals.projects.none { it.kind == kind } }
+                    items(missing, key = { "seed-$it" }) { kind ->
+                        SuggestionChip(
+                            onClick = { haptics.press(); onAction(starterAction(context, kind)) },
+                            enabled = !busy,
+                            shape = RoutineShapes.Chip,
+                            modifier = Modifier.testTag("goal-seed-$kind"),
+                            label = {
+                                RoutineLabel(
+                                    stringResource(R.string.goals_add_starter, kind),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            },
                         )
                     }
                     item {
@@ -180,28 +255,40 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                     }
                 }
                 if (project != null) {
-                    val activities = goals.activities.filter { it.projectId == project.id }
-                    val milestones = goals.milestones.filter { it.projectId == project.id }.sortedBy { it.dueDate }
-                    val progress = goals.progress.filter { it.projectId == project.id }
+                    val activities = goals.activities.filter { it.projectId in visibleIds }
+                    val milestones = goals.milestones.filter { it.projectId in visibleIds }.sortedBy { it.dueDate }
+                    val progress = goals.progress.filter { it.projectId in visibleIds }
+                    // In the both-plans view every row names its plan: two different milestones can
+                    // carry the same word, and a list that hides where a row comes from is a riddle.
+                    val planName: (Long) -> String? =
+                        { id -> if (showAll) goals.projects.firstOrNull { it.id == id }?.name else null }
                     CategoryTabs(
                         entries = GoalTab.entries.toList(),
                         selected = tab,
                         label = { stringResource(it.labelRes) },
                         onSelect = { haptics.selection(); tab = it },
-                        modifier = Modifier.padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.sm),
+                        modifier = Modifier.padding(horizontal = RoutineMetrics.ScreenPadding, vertical = RoutineSpacing.sm),
                         tagPrefix = "goal-tab",
                         enabled = !busy,
                     )
                     LazyColumn(
                         Modifier.fillMaxSize().testTag("goal-tab-body"),
-                        contentPadding = PaddingValues(RoutineSpacing.lg, RoutineSpacing.xs, RoutineSpacing.lg, RoutineSpacing.xl),
+                        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, RoutineSpacing.xs,
+                            RoutineMetrics.ScreenPadding, bottomInset),
                         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
                     ) {
                         when (tab) {
                             GoalTab.OVERVIEW -> {
-                                item(key = "status") {
-                                    StatusCard(project, activities, milestones, progress, busy,
-                                        onEdit = { haptics.press(); editingProject = project }, onAction = onAction)
+                                visible.forEach { plan ->
+                                    item(key = "status-${plan.id}") {
+                                        StatusCard(plan,
+                                            activities = goals.activities.filter { it.projectId == plan.id },
+                                            milestones = goals.milestones.filter { it.projectId == plan.id },
+                                            progress = goals.progress.filter { it.projectId == plan.id },
+                                            busy = busy,
+                                            onEdit = { haptics.press(); editingProject = plan },
+                                            onAction = onAction)
+                                    }
                                 }
                                 item(key = "gantt") {
                                     Card(
@@ -219,7 +306,8 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                                                 modifier = Modifier.padding(horizontal = RoutineSpacing.md),
                                                 maxLines = RoutineTextDefaults.Body,
                                             )
-                                            GoalGantt(goals.projects, goals.activities, goals.milestones, project.id) { activity ->
+                                            GoalGantt(goals.projects, goals.activities, goals.milestones,
+                                                if (showAll) null else project.id) { activity ->
                                                 haptics.press()
                                                 goals.projects.firstOrNull { it.id == activity.projectId }?.let { selectedId = it.id }
                                                 editingActivity = activity
@@ -231,15 +319,17 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                             GoalTab.ACTIVITIES -> item(key = "activities") {
                                 ActivityList(activities, progress, busy, onAction,
                                     onAdd = { haptics.press(); addingActivity = true },
-                                    onEdit = { haptics.press(); editingActivity = it })
+                                    onEdit = { haptics.press(); editingActivity = it },
+                                    projectNameOf = planName)
                             }
                             GoalTab.MILESTONES -> item(key = "milestones") {
                                 MilestoneList(milestones, busy, onAction,
                                     onAdd = { haptics.press(); addingMilestone = true },
-                                    onEdit = { haptics.press(); editingMilestone = it })
+                                    onEdit = { haptics.press(); editingMilestone = it },
+                                    projectNameOf = planName)
                             }
                             GoalTab.PROGRESS -> item(key = "progress") {
-                                ProgressLog(progress, activities, busy, onAction)
+                                ProgressLog(progress, activities, busy, onAction, projectNameOf = planName)
                             }
                         }
                     }
@@ -248,9 +338,9 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
         }
     }
     project?.let { current ->
-        ActivityEditorHost(addingActivity || editingActivity != null, current, editingActivity, busy, goals.progress,
+        ActivityEditorHost(addingActivity || editingActivity != null, goals.projects, current, editingActivity, busy, goals.progress,
             onDismiss = { addingActivity = false; editingActivity = null }, onAction = onAction)
-        MilestoneEditorHost(addingMilestone || editingMilestone != null, current, editingMilestone, busy,
+        MilestoneEditorHost(addingMilestone || editingMilestone != null, goals.projects, current, editingMilestone, busy,
             onDismiss = { addingMilestone = false; editingMilestone = null }, onAction = onAction)
     }
     ProjectEditorHost(addingProject || editingProject != null, editingProject, busy,
@@ -265,15 +355,53 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
 @Composable
 private fun ActivityEditorHost(
     visible: Boolean,
-    project: GoalsProject,
+    projects: List<GoalsProject>,
+    preferred: GoalsProject,
     initial: GoalActivity?,
     busy: Boolean,
     progress: List<GoalProgress>,
     onDismiss: () -> Unit,
     onAction: (TimelineAction) -> Unit,
 ) {
+    // Which plan the sheet writes to. An existing activity keeps its own plan; a new one starts in
+    // the plan the reader came from and can be pointed elsewhere before it is saved.
+    var targetId by rememberSaveable(visible, initial?.id) { mutableStateOf(initial?.projectId ?: preferred.id) }
+    val target = projects.firstOrNull { it.id == targetId } ?: preferred
     RoutineSheet(visible) { sheetState ->
-        ActivityEditorSheet(project, initial, busy, progress, sheetState, onDismiss, onAction)
+        ActivityEditorSheet(target, projects, { targetId = it.id }, initial, busy, progress, sheetState, onDismiss, onAction)
+    }
+}
+
+/**
+ * Picks the plan a new activity or milestone belongs to, in the same chip vocabulary as the screen
+ * behind it. It only appears when there is a choice: with one plan the question has one answer.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProjectPicker(
+    projects: List<GoalsProject>,
+    selectedId: Long,
+    enabled: Boolean,
+    onPick: (GoalsProject) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+        RoutineLabel(stringResource(R.string.goals_project_label), style = MaterialTheme.typography.labelMedium,
+            color = RoutineColors.TextSecondary)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+        ) {
+            projects.forEach { candidate ->
+                FilterChip(
+                    selected = candidate.id == selectedId,
+                    onClick = { onPick(candidate) },
+                    enabled = enabled,
+                    shape = RoutineShapes.Chip,
+                    modifier = Modifier.testTag("goal-target-${candidate.kind}"),
+                    label = { RoutineLabel(candidate.name, style = MaterialTheme.typography.labelLarge) },
+                )
+            }
+        }
     }
 }
 
@@ -281,14 +409,17 @@ private fun ActivityEditorHost(
 @Composable
 private fun MilestoneEditorHost(
     visible: Boolean,
-    project: GoalsProject,
+    projects: List<GoalsProject>,
+    preferred: GoalsProject,
     initial: GoalMilestone?,
     busy: Boolean,
     onDismiss: () -> Unit,
     onAction: (TimelineAction) -> Unit,
 ) {
+    var targetId by rememberSaveable(visible, initial?.id) { mutableStateOf(initial?.projectId ?: preferred.id) }
+    val target = projects.firstOrNull { it.id == targetId } ?: preferred
     RoutineSheet(visible) { sheetState ->
-        MilestoneEditorSheet(project, initial, busy, sheetState, onDismiss, onAction)
+        MilestoneEditorSheet(target, projects, { targetId = it.id }, initial, busy, sheetState, onDismiss, onAction)
     }
 }
 
@@ -323,7 +454,13 @@ private enum class GoalTab(@StringRes val labelRes: Int) {
  * the trail behind them, and the only place reflections are readable without opening an activity.
  */
 @Composable
-private fun ProgressLog(progress: List<GoalProgress>, activities: List<GoalActivity>, busy: Boolean, onAction: (TimelineAction) -> Unit) {
+private fun ProgressLog(
+    progress: List<GoalProgress>,
+    activities: List<GoalActivity>,
+    busy: Boolean,
+    onAction: (TimelineAction) -> Unit,
+    projectNameOf: (Long) -> String?,
+) {
     val entries = progress.sortedWith(compareByDescending<GoalProgress> { it.date }.thenByDescending { it.id })
     Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
         SectionHeader(title = stringResource(R.string.goals_progress_log), style = MaterialTheme.typography.titleLarge)
@@ -334,7 +471,7 @@ private fun ProgressLog(progress: List<GoalProgress>, activities: List<GoalActiv
         entries.forEach { entry ->
             OutlinedCard(
                 shape = RoutineShapes.Card,
-                border = BorderStroke(1.dp, RoutineColors.Border),
+                border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 modifier = Modifier.fillMaxWidth().testTag("goal-progress-${entry.id}"),
             ) {
                 Column(
@@ -352,7 +489,7 @@ private fun ProgressLog(progress: List<GoalProgress>, activities: List<GoalActiv
                             when (entry.kind) {
                                 "word" -> stringResource(R.string.goals_progress_words, entry.amount.toInt())
                                 "reflection" -> stringResource(R.string.goals_progress_kind_reflection)
-                                else -> stringResource(R.string.goals_hours_item, entry.amount.toInt())
+                                else -> goalsMinutesLabel(entry.amount)
                             },
                             Modifier.weight(1f),
                             style = MaterialTheme.typography.labelMedium,
@@ -364,8 +501,10 @@ private fun ProgressLog(progress: List<GoalProgress>, activities: List<GoalActiv
                             }
                         }
                     }
-                    activities.firstOrNull { it.id == entry.activityId }?.let { activity ->
-                        RoutineLabel(activity.title, style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextMuted)
+                    val where = listOfNotNull(projectNameOf(entry.projectId),
+                        activities.firstOrNull { it.id == entry.activityId }?.title).joinToString(" · ")
+                    if (where.isNotEmpty()) {
+                        RoutineLabel(where, style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextMuted)
                     }
                     if (entry.kind == "reflection") {
                         RoutineText(entry.note.orEmpty(), style = MaterialTheme.typography.bodySmall,
@@ -388,33 +527,16 @@ private fun GoalEmptyState(busy: Boolean, onAction: (TimelineAction) -> Unit, on
     ) {
         Spacer(Modifier.weight(1f))
         RoutineText(stringResource(R.string.goals_title), style = MaterialTheme.typography.headlineMedium,
-            maxLines = RoutineTextDefaults.Body)
+            maxLines = RoutineTextDefaults.Body, heading = true)
         RoutineText(stringResource(R.string.goals_empty_body), style = MaterialTheme.typography.bodyMedium,
             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
-        SheetPrimaryButton(
-            label = stringResource(R.string.goals_seed_cas),
-            enabled = !busy,
-            onClick = {
-                onAction(
-                    TimelineAction.SeedGoalProject("CAS", context.getString(R.string.goals_seed_cas_name), emptyList(),
-                        listOf(R.string.goals_cas_meeting_1, R.string.goals_cas_meeting_2, R.string.goals_cas_meeting_3,
-                            R.string.goals_cas_statement).map { context.getString(it) }),
-                )
-            },
-        )
-        SheetPrimaryButton(
-            label = stringResource(R.string.goals_seed_ee),
-            enabled = !busy,
-            onClick = {
-                onAction(
-                    TimelineAction.SeedGoalProject("EE", context.getString(R.string.goals_seed_ee_name),
-                        listOf(R.string.ee_stage_1, R.string.ee_stage_2, R.string.ee_stage_3, R.string.ee_stage_4,
-                            R.string.ee_stage_5, R.string.ee_stage_6).map { context.getString(it) },
-                        listOf(R.string.ee_milestone_1, R.string.ee_milestone_2, R.string.ee_milestone_3,
-                            R.string.ee_milestone_4, R.string.ee_milestone_5).map { context.getString(it) }),
-                )
-            },
-        )
+        StarterKinds.forEach { kind ->
+            SheetPrimaryButton(
+                label = stringResource(if (kind == "EE") R.string.goals_seed_ee else R.string.goals_seed_cas),
+                enabled = !busy,
+                onClick = { onAction(starterAction(context, kind)) },
+            )
+        }
         SheetSecondaryButton(label = stringResource(R.string.goals_new_project), enabled = !busy, onClick = onNewCustom)
         Spacer(Modifier.weight(1f))
     }
@@ -437,9 +559,11 @@ private fun StatusCard(
     val categoryHours = progress.filter { it.kind == "hour" }
         .groupBy { entry -> activities.firstOrNull { it.id == entry.activityId }?.category }
     OutlinedCard(
-        Modifier.fillMaxWidth(),
+        // Named by kind and id: the kind is what a reader would call the plan, the id keeps two
+        // hand-made plans apart. Nothing but a test reads this tag.
+        Modifier.fillMaxWidth().testTag("goal-status-${project.kind}-${project.id}"),
         shape = RoutineShapes.Card,
-        border = BorderStroke(1.dp, RoutineColors.Border),
+        border = BorderStroke(1.dp, RoutineColors.CardBorder),
     ) {
         Column(
             Modifier.fillMaxWidth().padding(RoutineSpacing.md),
@@ -462,7 +586,8 @@ private fun StatusCard(
             val hourTarget = project.targetHours
             if (hourTarget != null) {
                 GoalBar((hours / hourTarget).toFloat(), RoutineColors.Primary)
-                RoutineLabel(stringResource(R.string.goals_hours_total, hours.roundToInt(), hourTarget.roundToInt()),
+                val recorded = goalsHoursLabel(hours)
+                RoutineLabel(stringResource(R.string.goals_hours_total, recorded, hourTarget.roundToInt()),
                     style = MaterialTheme.typography.labelMedium)
             }
             if (project.kind == "CAS") {
@@ -476,7 +601,9 @@ private fun StatusCard(
                             RoutineLabel(stringResource(res), style = MaterialTheme.typography.labelSmall,
                                 color = goalCategoryStyle(category).accent)
                             RoutineLabel(
-                                stringResource(R.string.goals_hours_item, categoryHours[category]?.sumOf { it.amount }?.roundToInt() ?: 0),
+                                // Divided by 60 again: the label takes a duration in minutes, the
+                                // same unit the "+30 min" button writes.
+                                goalsMinutesLabel(categoryHours[category]?.sumOf { it.amount } ?: 0.0),
                                 style = MaterialTheme.typography.labelMedium,
                             )
                         }
@@ -565,8 +692,8 @@ private fun GoalBar(fraction: Float, color: Color) {
     LaunchedEffect(fraction) { shown = fraction }
     val width by animateFloatAsState(shown.coerceIn(0f, 1f),
         if (LocalReduceMotion.current) snap<Float>() else SnappySpring, label = "goal-progress")
-    Box(Modifier.fillMaxWidth().height(RoutineSpacing.sm).clip(RoundedCornerShape(4.dp)).background(RoutineColors.Surface2)) {
-        Box(Modifier.fillMaxWidth(width).height(RoutineSpacing.sm).clip(RoundedCornerShape(4.dp)).background(color))
+    Box(Modifier.fillMaxWidth().height(RoutineSpacing.sm).clip(RoutineShapes.Chip).background(RoutineColors.Surface2)) {
+        Box(Modifier.fillMaxWidth(width).height(RoutineSpacing.sm).clip(RoutineShapes.Chip).background(color))
     }
 }
 
@@ -650,12 +777,18 @@ private fun GoalGantt(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
-                            Box(Modifier.size(6.dp).clip(CircleShape)
+                            Box(Modifier.size(RoutineMetrics.DotSize).clip(CircleShape)
                                 .background(goalCategoryStyle(if (lane.kind == "CAS") "CREATIVITY" else "STAGE").accent))
+                            // A lane label names a project, so it wraps to a second line instead of
+                            // ending in an ellipsis: "Extended essay" is two words in a 64 dp column,
+                            // and losing the second one would leave the reader with "Extended ...".
                             RoutineLabel(
                                 lane.name,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (lane.id == selectedId) RoutineColors.TextPrimary else RoutineColors.TextSecondary,
+                                // null means every plan is on screen, so every lane is equally current.
+                                color = if (selectedId == null || lane.id == selectedId) RoutineColors.TextPrimary
+                                    else RoutineColors.TextSecondary,
+                                maxLines = RoutineTextDefaults.Body,
                             )
                         }
                     }
@@ -692,8 +825,21 @@ private fun GoalGantt(
 
 private val GanttStripHeight = 18.dp
 
+/**
+ * Vertical rhythm of one Gantt lane. One geometry for both the lane and the bars inside it, because
+ * they used to be two: the lane reserved 28 dp for a single row while a bar was measured 20 dp tall
+ * with 4 dp of its own padding, so a bar's bottom edge sat *exactly* on the next row's top edge. Two
+ * activities in one lane were drawn touching, and the next lane's first bar sat against the previous
+ * lane's last one — the reader called that "occasionally one thing is hidden under another".
+ */
+private val GanttBarHeight = 20.dp
+private val GanttBarGap = 6.dp
+private val GanttBarsTopPad = 4.dp
+
+private fun ganttRowStep(): Dp = GanttBarHeight + GanttBarGap
+
 private fun laneHeight(rows: List<List<GoalActivity>>): Dp =
-    GanttStripHeight + (if (rows.size <= 1) 28.dp else (rows.size * 22 + 6).dp)
+    GanttStripHeight + GanttBarsTopPad + ganttRowStep() * rows.size.coerceAtLeast(1)
 
 /** Milestone diamonds: measured placement inside their own strip, above the bars. */
 @Composable
@@ -703,17 +849,17 @@ private fun GanttMilestoneStrip(milestones: List<GoalMilestone>, modifier: Modif
         content = {
             milestones.forEach { milestone ->
                 Box(
-                    Modifier.size(9.dp).rotate(45f)
+                    Modifier.size(RoutineMetrics.DiamondSize).rotate(45f)
                         .background(
                             if (milestone.isDone) RoutineColors.TextDisabled else RoutineColors.Error,
-                            RoundedCornerShape(2.dp),
+                            RoutineShapes.Diamond,
                         )
                         .semantics { contentDescription = RoutineDate.normal(milestone.dueDate) },
                 )
             }
         },
     ) { measurables, constraints ->
-        val side = 9.dp.roundToPx()
+        val side = RoutineMetrics.DiamondSize.roundToPx()
         val placed = measurables.mapIndexed { index, measurable ->
             val placeable = measurable.measure(Constraints.fixed(side, side))
             val x = (xOf(milestones[index].dueDate).roundToPx() - placeable.width / 2)
@@ -745,9 +891,9 @@ private fun GanttBars(
     ) { measurables, constraints ->
         val flat = mutableListOf<Pair<Int, GoalActivity>>()
         rows.forEachIndexed { rowIndex, row -> row.forEach { activity -> flat.add(rowIndex to activity) } }
-        val barHeight = (if (rows.size <= 1) 20.dp else 18.dp).roundToPx()
-        val rowStep = 22.dp.roundToPx()
-        val topPad = 4.dp.roundToPx()
+        val barHeight = GanttBarHeight.roundToPx()
+        val rowStep = ganttRowStep().roundToPx()
+        val topPad = GanttBarsTopPad.roundToPx()
         val minWidth = 14.dp.roundToPx()
         val placed = measurables.mapIndexed { index, measurable ->
             val (rowIndex, activity) = flat[index]
@@ -755,11 +901,15 @@ private fun GanttBars(
             val right = xOf(activity.end).roundToPx().coerceIn(left, constraints.maxWidth)
             val width = (right - left).coerceAtLeast(minWidth).coerceAtMost((constraints.maxWidth - left).coerceAtLeast(1))
             val placeable = measurable.measure(Constraints.fixed(width, barHeight))
-            val y = (topPad + rowIndex * rowStep).coerceAtMost((constraints.maxHeight - barHeight).coerceAtLeast(0))
-            Triple(placeable, left, y)
+            val y = topPad + rowIndex * rowStep
+            // A bar that would poke out of its lane is the thing the reader described, so a row that
+            // does not fit is left out rather than drawn on top of the row above it. The lane height
+            // comes from the same three constants, so this can only trigger if a later change forgets
+            // one of them — and even then a missing bar beats two bars on top of each other.
+            if (y + barHeight > constraints.maxHeight) null else Triple(placeable, left, y)
         }
         layout(constraints.maxWidth, constraints.maxHeight) {
-            placed.forEach { (placeable, x, y) -> placeable.placeRelative(x, y) }
+            placed.forEach { row -> row?.let { (placeable, x, y) -> placeable.placeRelative(x, y) } }
         }
     }
 }
@@ -774,10 +924,10 @@ private fun GanttBar(activity: GoalActivity, onActivity: (GoalActivity) -> Unit)
         RoutineDate.normal(activity.start),
         RoutineDate.normal(activity.end),
     )
-    val border = if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.FocusAccent, RoundedCornerShape(5.dp)) else Modifier
+    val border = if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.FocusAccent, RoutineShapes.Chip) else Modifier
     val dim = if (activity.isDone) Modifier.alpha(0.55f) else Modifier
     BoxWithConstraints(
-        Modifier.clip(RoundedCornerShape(5.dp))
+        Modifier.clip(RoutineShapes.Chip)
             .background(style.container)
             .then(border)
             .then(dim)
@@ -815,6 +965,8 @@ private fun ActivityList(
     onAction: (TimelineAction) -> Unit,
     onAdd: () -> Unit,
     onEdit: (GoalActivity) -> Unit,
+    /** Names the plan a row belongs to; null while one plan is on screen, where it would be noise. */
+    projectNameOf: (Long) -> String?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
         SectionHeader(
@@ -832,9 +984,10 @@ private fun ActivityList(
         activities.forEach { activity ->
             val hours = progress.filter { it.kind == "hour" && it.activityId == activity.id }.sumOf { it.amount }
             val details = listOfNotNull(
+                projectNameOf(activity.projectId),
                 stringResource(R.string.date_range, RoutineDate.normal(activity.start), RoutineDate.normal(activity.end)),
                 categoryLabel(activity.category),
-                if (hours > 0.0) stringResource(R.string.goals_hours_item, hours.roundToInt()) else null,
+                if (hours > 0.0) goalsMinutesLabel(hours) else null,
                 if (activity.isScheduled) stringResource(R.string.goals_scheduled) else null,
                 if (activity.isCasProject) stringResource(R.string.goals_cas_project_short) else null,
                 if (activity.isDone) stringResource(R.string.goals_activity_done) else null,
@@ -843,7 +996,7 @@ private fun ActivityList(
                 onClick = { onEdit(activity) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoutineShapes.Card,
-                border = BorderStroke(1.dp, RoutineColors.Border),
+                border = BorderStroke(1.dp, RoutineColors.CardBorder),
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
@@ -876,6 +1029,7 @@ private fun MilestoneList(
     onAction: (TimelineAction) -> Unit,
     onAdd: () -> Unit,
     onEdit: (GoalMilestone) -> Unit,
+    projectNameOf: (Long) -> String?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
         SectionHeader(
@@ -891,7 +1045,7 @@ private fun MilestoneList(
                 color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         }
         milestones.forEach { milestone ->
-            OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border),
+            OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 modifier = Modifier.fillMaxWidth()) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.xs),
@@ -907,10 +1061,14 @@ private fun MilestoneList(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
                         RoutineText(milestone.title, style = MaterialTheme.typography.titleSmall,
                             maxLines = RoutineTextDefaults.Body)
-                        RoutineLabel(
-                            "${RoutineDate.normal(milestone.dueDate)} · ${goalRelative(milestone.dueDate)}",
+                        // A date and its "in 3 weeks" belong together: if the row is narrow the line
+                        // wraps rather than cutting the relative day off the end.
+                        RoutineText(
+                            text = listOfNotNull(projectNameOf(milestone.projectId),
+                                RoutineDate.normal(milestone.dueDate), goalRelative(milestone.dueDate)).joinToString(" · "),
                             style = MaterialTheme.typography.labelSmall,
                             color = RoutineColors.TextSecondary,
+                            maxLines = RoutineTextDefaults.Body,
                         )
                     }
                     TextButton(enabled = !busy, onClick = { onEdit(milestone) }) {
@@ -926,6 +1084,8 @@ private fun MilestoneList(
 @Composable
 private fun ActivityEditorSheet(
     project: GoalsProject,
+    projects: List<GoalsProject>,
+    onPickProject: (GoalsProject) -> Unit,
     initial: GoalActivity?,
     busy: Boolean,
     progress: List<GoalProgress>,
@@ -947,6 +1107,15 @@ private fun ActivityEditorSheet(
     val start = LocalDate.ofEpochDay(startEpoch)
     val end = LocalDate.ofEpochDay(endEpoch).let { if (it.isBefore(start)) start else it }
     val saved = initial != null && initial.id > 0
+    // The three CAS categories and the EE stages are different vocabularies: pointing a new activity
+    // at the other plan drops a category that plan has no place for.
+    LaunchedEffect(project.id) {
+        if (!saved) {
+            category = if (project.kind == "EE") "STAGE" else null
+            // "This is also a CAS project" is a CAS question; it has no meaning under the EE plan.
+            if (project.kind != "CAS") casProject = false
+        }
+    }
     val closeLabel = stringResource(R.string.close)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -995,6 +1164,9 @@ private fun ActivityEditorSheet(
                 enabled = !busy,
                 label = { RoutineText(stringResource(R.string.goals_activity_title)) },
             )
+            if (projects.size > 1 && !saved) {
+                ProjectPicker(projects, project.id, enabled = !busy, onPick = onPickProject)
+            }
             if (project.kind == "CAS") {
                 ActionRow {
                     listOf(
@@ -1058,7 +1230,7 @@ private fun ActivityEditorSheet(
             )
             if (saved && initial != null) {
                 val hours = progress.filter { it.kind == "hour" && it.activityId == initial.id }.sumOf { it.amount }
-                RoutineText(stringResource(R.string.goals_hours_total_log, hours.roundToInt()),
+                RoutineText(stringResource(R.string.goals_hours_total_log, goalsHoursLabel(hours)),
                     style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
                 RoutineLabel(stringResource(R.string.goals_hours_log), style = MaterialTheme.typography.labelMedium,
                     color = RoutineColors.TextSecondary)
@@ -1081,7 +1253,7 @@ private fun ActivityEditorSheet(
                         color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                 }
                 reflections.forEach { entry ->
-                    OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border),
+                    OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder),
                         modifier = Modifier.fillMaxWidth()) {
                         Column(
                             Modifier.fillMaxWidth().padding(RoutineSpacing.md),
@@ -1151,6 +1323,8 @@ private fun ActivityEditorSheet(
 @Composable
 private fun MilestoneEditorSheet(
     project: GoalsProject,
+    projects: List<GoalsProject>,
+    onPickProject: (GoalsProject) -> Unit,
     initial: GoalMilestone?,
     busy: Boolean,
     sheetState: SheetState,
@@ -1206,6 +1380,9 @@ private fun MilestoneEditorSheet(
                 enabled = !busy,
                 label = { RoutineText(stringResource(R.string.goals_milestone_title)) },
             )
+            if (projects.size > 1 && initial == null) {
+                ProjectPicker(projects, project.id, enabled = !busy, onPick = onPickProject)
+            }
             OutlinedButton(enabled = !busy, shape = RoutineShapes.Pill, onClick = { picking = true }) {
                 RoutineLabel(RoutineDate.normalYear(LocalDate.ofEpochDay(epoch)), style = MaterialTheme.typography.labelLarge)
             }
@@ -1379,6 +1556,35 @@ private fun DeleteConfirmation(
             }
         },
     )
+}
+
+/**
+ * Progress is stored as decimal hours; the rows used to read it back with `toInt()`, so half an hour
+ * showed as "0 h" and 45 minutes vanished. The two helpers below are the only place that converts a
+ * stored amount into something a reader sees, and both are named after the unit they return.
+ */
+@Composable
+private fun goalsHoursLabel(hours: Double): String =
+    stringResource(R.string.goals_hours_total_log, formatHoursRounded(hours))
+
+@Composable
+private fun goalsMinutesLabel(minutes: Double): String =
+    when {
+        minutes < 60 -> stringResource(R.string.duration_minutes, minutes.roundToInt())
+        else -> durationLabel(minutes.roundToInt())
+    }
+
+/**
+ * Rounds to one decimal in both languages, so Slovenian writes "1,5 h" and English "1.5 h". The
+ * locale is a parameter with the interface's own as its default: a unit test can then pass one
+ * explicitly instead of depending on the machine it happens to run on.
+ */
+internal fun formatHoursRounded(hours: Double, locale: Locale = interfaceLocale): String {
+    val rounded = (hours * 10).roundToInt() / 10.0
+    return if (rounded % 1.0 == 0.0) rounded.toInt().toString()
+    else NumberFormat.getNumberInstance(locale).apply {
+        minimumFractionDigits = 1; maximumFractionDigits = 1
+    }.format(rounded)
 }
 
 private fun logProgress(projectId: Long, activityId: Long, hours: Double): TimelineAction =

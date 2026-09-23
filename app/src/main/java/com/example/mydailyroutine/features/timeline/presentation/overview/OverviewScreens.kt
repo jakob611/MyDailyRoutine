@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -45,6 +46,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.stringResource
@@ -57,17 +59,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.CollapsibleSection
+import com.example.mydailyroutine.core.designsystem.components.MonthMarkIcon
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
+import com.example.mydailyroutine.core.designsystem.components.timeLabelStyle
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
-import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.platform.uiLocale
 import com.example.mydailyroutine.core.presentation.TimelineContent
 import com.example.mydailyroutine.core.presentation.TimelineMode
 import com.example.mydailyroutine.core.presentation.PeriodRanges
+import com.example.mydailyroutine.core.presentation.MonthDayType
+import com.example.mydailyroutine.core.presentation.MonthMark
+import com.example.mydailyroutine.core.presentation.MonthSignals
 import com.example.mydailyroutine.core.presentation.categoryColor
 import com.example.mydailyroutine.core.presentation.durationLabel
 import com.example.mydailyroutine.core.presentation.minuteLabel
@@ -76,6 +83,7 @@ import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.health.PositionedBlock
 import com.example.mydailyroutine.domain.health.WeeklyLayout
 import com.example.mydailyroutine.domain.model.Milestone
+import com.example.mydailyroutine.domain.model.RoutineCategory
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.routines.RoutineOrigin
@@ -96,7 +104,7 @@ import java.time.temporal.TemporalAdjusters
  * block shows colour plus an accessible description instead of a clipped fragment of its title.
  */
 @Composable
-fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, onDate: (LocalDate) -> Unit) {
+fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, bottomInset: Dp = RoutineMetrics.ListBottomInset, onDate: (LocalDate) -> Unit) {
     val days = content.days.values.sortedBy { it.date }
     val blocks = days.flatMap { it.items.filterIsInstance<ResolvedTimelineItem.Block>() }.filter { it.origin != RoutineOrigin.SLEEP }
     val startHour = minOf(7, (blocks.minOfOrNull { it.startMinute } ?: 420) / 60)
@@ -105,13 +113,13 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
     val gridHeight = minuteHeight * ((endHour - startHour) * 60)
     val gridColor = RoutineColors.CardBorder
     LazyColumn(
-        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, bottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
                 RoutineText(stringResource(R.string.week_heading), style = MaterialTheme.typography.titleLarge,
-                    maxLines = RoutineTextDefaults.Body)
+                    maxLines = RoutineTextDefaults.Body, heading = true)
                 RoutineText(
                     stringResource(R.string.week_totals, durationLabel(days.sumOf { it.metrics.focusMinutes }),
                         durationLabel(days.sumOf { it.metrics.recoveryMinutes })),
@@ -119,8 +127,6 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
                     color = RoutineColors.TextSecondary,
                     maxLines = RoutineTextDefaults.Body,
                 )
-                RoutineText(stringResource(R.string.week_hint), style = MaterialTheme.typography.bodySmall,
-                    maxLines = RoutineTextDefaults.Paragraph)
                 if (!SlovenianAcademicCalendar.covers(content.date)) {
                     RoutineText(stringResource(R.string.coverage_warning), style = MaterialTheme.typography.bodySmall,
                         color = RoutineColors.Error, maxLines = RoutineTextDefaults.Paragraph)
@@ -169,7 +175,7 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
                                 RoutineLabel(
                                     minuteLabel(hour * 60),
                                     modifier = Modifier.height(minuteHeight * 60).padding(top = RoutineSpacing.xs),
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = timeLabelStyle(),
                                     color = RoutineColors.TextMuted,
                                 )
                             }
@@ -257,7 +263,7 @@ private fun WeeklyBlockCell(position: PositionedBlock, date: LocalDate, onDate: 
         duration,
     )
     BoxWithConstraints(
-        Modifier.clip(RoundedCornerShape(6.dp))
+        Modifier.clip(RoutineShapes.Cell)
             .background(if (block.isSuppressed) RoutineColors.Surface3 else accent.copy(alpha = 0.22f))
             .clickable { onDate(date) }
             .semantics { contentDescription = description }
@@ -289,17 +295,17 @@ private fun WeeklyBlockCell(position: PositionedBlock, date: LocalDate, onDate: 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, onDate: (LocalDate) -> Unit) {
+fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, bottomInset: Dp = RoutineMetrics.ListBottomInset, onDate: (LocalDate) -> Unit) {
     val month = YearMonth.from(content.date)
     val dates = content.days.keys.sorted()
     LazyColumn(
-        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, bottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
                 RoutineText(stringResource(R.string.month_heading), style = MaterialTheme.typography.titleLarge,
-                    maxLines = RoutineTextDefaults.Body)
+                    maxLines = RoutineTextDefaults.Body, heading = true)
                 RoutineText(stringResource(R.string.month_hint), style = MaterialTheme.typography.bodyMedium,
                     color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                 if (!SlovenianAcademicCalendar.covers(content.date)) {
@@ -313,7 +319,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                 Row(Modifier.fillMaxWidth()) {
                     DayOfWeek.values().forEach {
                         RoutineLabel(
-                            it.getDisplayName(TextStyle.NARROW_STANDALONE, Slovenian),
+                            it.getDisplayName(TextStyle.NARROW_STANDALONE, uiLocale()),
                             Modifier.weight(1f),
                             style = MaterialTheme.typography.labelMedium,
                             color = RoutineColors.TextSecondary,
@@ -327,43 +333,72 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                             val day = content.days.getValue(date)
                             val holiday = day.calendar.any { it.isWorkFreeDay }
                             val inMonth = YearMonth.from(date) == month
-                            val heat = (day.metrics.focusMinutes / 300f).coerceIn(0f, 1f)
-                            val background = when {
-                                holiday -> RoutineColors.Recovery.container
-                                heat > 0 -> RoutineColors.Primary.copy(alpha = 0.08f + heat * 0.35f)
-                                else -> RoutineColors.Surface1
+                            val signals = MonthSignals.of(
+                                focusMinutes = day.metrics.focusMinutes,
+                                examCount = day.metrics.examCount,
+                                deadlineCount = (day.metrics.milestoneCount - day.metrics.examCount).coerceAtLeast(0),
+                                isWorkFree = holiday,
+                                hasSchool = day.items.any { it is ResolvedTimelineItem.Block && it.category == RoutineCategory.SCHOOL },
+                            )
+                            val background = when (signals.dayType) {
+                                MonthDayType.Free -> RoutineColors.Recovery.container
+                                MonthDayType.School -> RoutineColors.Timer.copy(alpha = MonthCellTint)
+                                MonthDayType.Focus -> RoutineColors.Primary.copy(alpha = MonthCellTint)
+                                MonthDayType.Quiet -> RoutineColors.Surface1
                             }
-                            val description = if (holiday) stringResource(R.string.month_cell_off, date.toString())
-                            else stringResource(
+                            val quantity = if (signals.bars > 0) stringResource(R.string.month_quantity, durationLabel(day.metrics.focusMinutes))
+                            else stringResource(R.string.month_quantity_none)
+                            val kind = stringResource(
+                                when (signals.dayType) {
+                                    MonthDayType.Free -> R.string.month_kind_free
+                                    MonthDayType.School -> R.string.month_kind_school
+                                    MonthDayType.Focus -> R.string.month_kind_focus
+                                    MonthDayType.Quiet -> R.string.month_kind_quiet
+                                },
+                            )
+                            // What is drawn as a shape is also spoken: the reader who cannot tell the two
+                            // reds apart hears "a test" and "a deadline" as words.
+                            val events = buildList {
+                                if (day.metrics.examCount > 0) add(stringResource(R.string.month_mark_exam))
+                                if (day.metrics.milestoneCount > day.metrics.examCount) add(stringResource(R.string.month_mark_deadline))
+                            }
+                            val description = stringResource(
                                 R.string.month_cell_description,
-                                date.toString(), day.metrics.focusMinutes, day.metrics.examCount, day.metrics.milestoneCount,
+                                RoutineDate.spoken(date),
+                                quantity,
+                                (listOf(kind) + events).joinToString(", "),
                             )
                             Surface(
                                 onClick = { onDate(date) },
                                 modifier = Modifier.weight(1f).aspectRatioCell()
                                     .alpha(if (inMonth) 1f else 0.4f)
                                     .semantics { contentDescription = description },
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoutineShapes.Cell,
                                 color = background,
                                 border = if (date == today) androidx.compose.foundation.BorderStroke(2.dp, RoutineColors.Primary) else null,
                             ) {
-                                Column(
-                                    Modifier.fillMaxWidth().padding(RoutineSpacing.xs),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center,
-                                ) {
-                                    RoutineLabel(
-                                        date.dayOfMonth.toString(),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = RoutineColors.TextPrimary,
-                                    )
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                        modifier = Modifier.padding(top = RoutineSpacing.xs),
+                                // The bars are drawn, not laid out: a cell is 44 dp wide and 37 dp tall, so a
+                                // third text row would be clipped away by the next font-size step. Drawn marks
+                                // keep the quantity visible at every font scale the app allows.
+                                Box(Modifier.fillMaxSize().focusBars(signals.bars)) {
+                                    Column(
+                                        Modifier.fillMaxWidth().padding(RoutineSpacing.xs),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
                                     ) {
-                                        if (holiday) Dot(RoutineColors.Recovery.accent)
-                                        if (day.metrics.examCount > 0) Dot(RoutineColors.Error)
-                                        if (day.metrics.milestoneCount > day.metrics.examCount) Dot(RoutineColors.Error)
+                                        RoutineLabel(
+                                            date.dayOfMonth.toString(),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = RoutineColors.TextPrimary,
+                                        )
+                                        if (signals.marks.isNotEmpty()) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                                modifier = Modifier.padding(top = RoutineSpacing.xs),
+                                            ) {
+                                                signals.marks.forEach { MonthMarkIcon(it) }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -377,10 +412,10 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
             ) {
-                Legend(stringResource(R.string.legend_exam), RoutineColors.Error)
-                Legend(stringResource(R.string.legend_deadline), RoutineColors.Error)
-                Legend(stringResource(R.string.legend_no_school), RoutineColors.Recovery.accent)
-                Legend(stringResource(R.string.legend_focus), RoutineColors.Primary)
+                Legend(stringResource(R.string.legend_exam), RoutineColors.Error, MonthMark.Triangle)
+                Legend(stringResource(R.string.legend_deadline), RoutineColors.Error, MonthMark.Diamond)
+                Legend(stringResource(R.string.legend_no_school), RoutineColors.Recovery.accent, MonthMark.Ring)
+                Legend(stringResource(R.string.legend_focus), RoutineColors.Primary, MonthMark.Dot)
             }
         }
         milestoneSection(R.string.month_markers, content.milestones.filter { YearMonth.from(it.dueDate) == month },
@@ -393,7 +428,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
 private fun Modifier.aspectRatioCell(): Modifier = aspectRatio(RoutineMetrics.MonthCellRatio)
 
 @Composable
-fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, onDate: (LocalDate) -> Unit) {
+fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, bottomInset: Dp = RoutineMetrics.ListBottomInset, onDate: (LocalDate) -> Unit) {
     val (start, end) = PeriodRanges.range(content.date, TimelineMode.YEAR)
     val target = preferences.teachingEndDate
     val targetInCycle = target in start..end
@@ -410,18 +445,18 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
     var radarOpen by rememberSaveable { mutableStateOf(false) }
     var recoveryOpen by rememberSaveable { mutableStateOf(true) }
     LazyColumn(
-        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, bottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1),
                 shape = RoutineShapes.Card,
-                border = androidx.compose.foundation.BorderStroke(1.dp, RoutineColors.Border),
+                border = androidx.compose.foundation.BorderStroke(1.dp, RoutineColors.CardBorder),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
-                    Modifier.fillMaxWidth().padding(RoutineSpacing.lg),
+                    Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                     verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                 ) {
                     RoutineLabel(stringResource(R.string.year_big_picture), style = MaterialTheme.typography.labelLarge,
@@ -579,7 +614,7 @@ private fun MilestoneRadar(milestones: List<Milestone>, today: LocalDate, expand
                     Spacer(Modifier.weight((1f - fraction).coerceAtLeast(0.05f)))
                     Box(
                         Modifier.fillMaxWidth().weight(fraction.coerceAtLeast(0.02f))
-                            .clip(RoundedCornerShape(6.dp)).background(RoutineColors.Error.copy(alpha = 0.7f)),
+                            .clip(RoutineShapes.Chip).background(RoutineColors.Error.copy(alpha = 0.7f)),
                     )
                     Spacer(Modifier.height(RoutineSpacing.xs))
                     RoutineLabel(RoutineDate.axisDay(start),
@@ -616,16 +651,19 @@ private fun LazyListScope.milestoneSection(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
-                Modifier.fillMaxWidth().padding(RoutineSpacing.lg),
+                Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
             ) {
-                Dot(
+                // Same vocabulary as the month grid: a test is a triangle, a deadline a diamond, a
+                // booked goal a dot. Two red circles that mean different things were the whole point of N8.
+                MonthMarkIcon(
                     when {
-                        source == "g" -> RoutineColors.FocusAccent
-                        marker.isExam -> RoutineColors.Error
-                        else -> RoutineColors.Error
+                        source == "g" -> MonthMark.Dot
+                        marker.isExam -> MonthMark.Triangle
+                        else -> MonthMark.Diamond
                     },
+                    color = if (source == "g") RoutineColors.FocusAccent else RoutineColors.Error,
                 )
                 Column(Modifier.weight(1f)) {
                     RoutineText(marker.title, style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
@@ -652,7 +690,25 @@ private fun LazyListScope.milestoneSection(
     }
 }
 
-@Composable
-private fun Dot(color: Color) {
-    Box(Modifier.size(6.dp).clip(CircleShape).background(color))
+/** One flat tint for a whole day type. No day is painted stronger than another because it is fuller. */
+private const val MonthCellTint = 0.12f
+
+/**
+ * The quantity of planned focus as up to three short bars along the bottom edge of the cell. Drawn
+ * rather than measured so the number line never competes with the date for the little height there is.
+ */
+private fun Modifier.focusBars(bars: Int): Modifier = if (bars <= 0) this else drawBehind {
+    val width = 5.dp.toPx()
+    val height = 1.5.dp.toPx()
+    val gap = 1.5.dp.toPx()
+    val total = bars * width + (bars - 1) * gap
+    val start = (size.width - total) / 2f
+    val top = size.height - height - 2.dp.toPx()
+    repeat(bars) { index ->
+        drawRect(
+            color = RoutineColors.TextSecondary,
+            topLeft = Offset(start + index * (width + gap), top),
+            size = Size(width, height),
+        )
+    }
 }

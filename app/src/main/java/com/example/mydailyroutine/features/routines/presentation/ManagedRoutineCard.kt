@@ -39,6 +39,7 @@ import com.example.mydailyroutine.core.designsystem.components.TimeGutter
 import com.example.mydailyroutine.core.designsystem.components.timelineRail
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.presentation.TimelineAction
@@ -94,7 +95,7 @@ fun ManagedRoutineCard(
                             Icon(
                                 if (sleep) Icons.Outlined.Bedtime else if (morning) Icons.Outlined.WbSunny else Icons.Outlined.Spa,
                                 null,
-                                Modifier.size(20.dp),
+                                Modifier.size(RoutineMetrics.IconSize),
                                 tint = tint,
                             )
                             RoutineText(
@@ -115,7 +116,7 @@ fun ManagedRoutineCard(
                             Icon(
                                 Icons.Outlined.ExpandMore,
                                 contentDescription = expandLabel,
-                                modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f),
+                                modifier = Modifier.size(RoutineMetrics.IconSize).rotate(if (expanded) 180f else 0f),
                                 tint = tint,
                             )
                         }

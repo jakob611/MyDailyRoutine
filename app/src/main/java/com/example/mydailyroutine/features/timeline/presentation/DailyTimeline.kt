@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.testTag
@@ -49,6 +50,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.presentation.DayUi
+import com.example.mydailyroutine.core.presentation.MinimalEvening
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.clockLabel
 import com.example.mydailyroutine.core.presentation.durationLabel
@@ -91,20 +93,65 @@ fun DailyTimeline(
     dueTasks: List<Task>,
     onAction: (TimelineAction) -> Unit,
     topInset: Dp = 0.dp,
+    /** Space the floating add control and the navigation bar take; measured, see RoutineApp. */
+    bottomInset: Dp = RoutineMetrics.ListBottomInset,
+    /** What the first-run flow was told to call the reader; empty when nobody was asked. */
+    userName: String = "",
+    /** The reader already asked to see this whole evening (N15): the protocol stands down. */
+    eveningFull: Boolean = false,
+    /** The reader already put the skipped blocks aside for this date (N6). */
+    skippedHidden: Boolean = false,
+    /** Tomorrow holds an exam or a deadline: the minimal-state protocol never touches that evening. */
+    tomorrowHasDeadline: Boolean = false,
 ) {
     val today = day.date == now.toLocalDate()
     val nowMinute = now.hour * 60 + now.minute
+    // A day with nothing in it has no summary: three zeros, an empty load bar, "0 min of reserve"
+    // and two buttons that would do nothing are the loudest thing on the screen a reader sees first.
+    // The empty-day card below already says everything, and it says it once.
+    val hasItems = day.items.isNotEmpty()
+    // Healing is offered when the day has actually slipped (a block that should have ended and is
+    // neither done nor set aside) or when the queue holds something. On a tidy day both buttons
+    // would be no-ops, and a no-op button is worse than no button.
+    val slipped = today && day.items.filterIsInstance<ResolvedTimelineItem.Block>().any {
+        !it.isCompleted && !it.isSuppressed && it.endMinute <= nowMinute
+    }
+    val offerHealing = slipped || backlogCount > 0
+    val noValue = stringResource(R.string.value_none)
+    val completedValue = if (day.metrics.blockCount == 0) noValue
+    else stringResource(R.string.completed_count, day.metrics.completedCount, day.metrics.blockCount)
+    val completedColor = when {
+        day.metrics.blockCount == 0 || day.metrics.completedCount == 0 -> RoutineColors.TextMuted
+        day.metrics.completedCount == day.metrics.blockCount -> RoutineColors.Success
+        else -> RoutineColors.TextPrimary
+    }
+    val focusValue = if (day.metrics.focusMinutes == 0) noValue else durationLabel(day.metrics.focusMinutes)
+    val recoveryValue = if (day.metrics.recoveryMinutes == 0) noValue else durationLabel(day.metrics.recoveryMinutes)
     val activeKey = remember(day.items, now) {
         if (!today) null else day.items.filterIsInstance<ResolvedTimelineItem.Block>().firstOrNull {
             val window = OccurrenceTimes.window(it, now.zone)
             now.toInstant() >= window.start && now.toInstant() < window.end
         }?.key
     }
+    // The minimal-state protocol, decided here because "the hour is late" is only true of a clock,
+    // not of a database row. It hides elastic focus work that has not started; everything the day is
+    // built on stays, and one line with "Pokaži vse" is what keeps the hiding reversible (N15).
+    val blocks = day.items.filterIsInstance<ResolvedTimelineItem.Block>()
+    val hiddenKeys = if (!eveningFull) MinimalEvening.hiddenKeys(blocks, nowMinute, runningKey = activeKey) else emptySet()
+    val eveningQuiet = MinimalEvening.engages(
+        blocks = blocks,
+        nowMinute = nowMinute,
+        isToday = today,
+        tomorrowHasDeadline = tomorrowHasDeadline,
+        requestedFull = eveningFull,
+    )
+    val items = if (eveningQuiet) day.items.filterNot { it.key in hiddenKeys } else day.items
     LazyColumn(
         // Tagged so a test can prove the list starts at the very top of the window and slides
         // under the glass bar instead of stopping below it.
         Modifier.fillMaxSize().testTag("day-list"),
-        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 112.dp),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md,
+            RoutineMetrics.ScreenPadding, bottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) {
         item(key = "summary") {
@@ -113,8 +160,11 @@ fun DailyTimeline(
                     text = stringResource(R.string.day_heading),
                     style = MaterialTheme.typography.titleLarge,
                     maxLines = RoutineTextDefaults.Body,
+                    // The headline of the screen a reader lands on: a heading is what lets a screen
+                    // reader jump straight to the day instead of walking through the summary tiles.
+                    heading = true,
                 )
-                Surface(
+                if (hasItems) Surface(
                     Modifier.fillMaxWidth(),
                     shape = RoutineShapes.Card,
                     color = RoutineColors.Surface1,
@@ -127,22 +177,25 @@ fun DailyTimeline(
                         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                             MetricTile(
                                 stringResource(R.string.metric_focus),
-                                durationLabel(day.metrics.focusMinutes),
+                                focusValue,
                                 Modifier.weight(1f).fillMaxHeight(),
+                                valueColor = if (day.metrics.focusMinutes == 0) RoutineColors.TextMuted else Color.Unspecified,
                             )
                             MetricTile(
                                 stringResource(R.string.metric_recovery),
-                                durationLabel(day.metrics.recoveryMinutes),
+                                recoveryValue,
                                 Modifier.weight(1f).fillMaxHeight(),
+                                valueColor = if (day.metrics.recoveryMinutes == 0) RoutineColors.TextMuted else Color.Unspecified,
                             )
                             MetricTile(
                                 stringResource(R.string.metric_completed),
-                                stringResource(R.string.completed_count, day.metrics.completedCount, day.metrics.blockCount),
+                                completedValue,
                                 Modifier.weight(1f).fillMaxHeight(),
+                                valueColor = completedColor,
                             )
                         }
                         DayLoadBar(day.items)
-                        Row(
+                        if (day.metrics.reserveMinutes > 0 || day.warnings.isNotEmpty()) Row(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
@@ -226,7 +279,7 @@ fun DailyTimeline(
                         }
                     }
                 }
-                ActionRow {
+                if (offerHealing) ActionRow {
                     FilledTonalButton(
                         enabled = !busy && day.items.isNotEmpty() && day.date >= LocalDate.now(),
                         onClick = {
@@ -241,12 +294,48 @@ fun DailyTimeline(
                         RoutineLabel(stringResource(R.string.backlog_count, backlogCount), style = MaterialTheme.typography.labelLarge)
                     }
                 }
-                RoutineText(
+                if (offerHealing) RoutineText(
                     text = stringResource(R.string.auto_heal_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = RoutineColors.TextSecondary,
                     maxLines = RoutineTextDefaults.Paragraph,
                 )
+                // The line that makes the quiet evening honest: the plan is still there, one tap away,
+                // and nothing was deleted on the reader's behalf.
+                if (eveningQuiet) Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+                ) {
+                    RoutineText(
+                        text = stringResource(R.string.evening_enough),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = RoutineColors.TextSecondary,
+                        maxLines = RoutineTextDefaults.Body,
+                    )
+                    TextButton(enabled = !busy, onClick = { onAction(TimelineAction.ShowEveningFull(day.date)) }) {
+                        RoutineLabel(stringResource(R.string.evening_show_all), style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+                // Neutral postponement (N6): after eight in the evening the day offers to put the skipped
+                // blocks aside. It is an offer, never a deletion, and it is not a warning colour.
+                if (today && day.cancelled.isNotEmpty() && !skippedHidden && nowMinute >= MinimalEvening.AmnestyHour * 60) Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+                ) {
+                    RoutineText(
+                        text = stringResource(R.string.evening_skipped_line),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = RoutineColors.TextSecondary,
+                        maxLines = RoutineTextDefaults.Body,
+                    )
+                    TextButton(enabled = !busy, onClick = { onAction(TimelineAction.HideSkipped(day.date)) }) {
+                        RoutineLabel(stringResource(R.string.evening_hide_skipped), style = MaterialTheme.typography.labelLarge)
+                    }
+                }
             }
         }
         if (!SlovenianAcademicCalendar.covers(day.date)) {
@@ -276,11 +365,21 @@ fun DailyTimeline(
                         // The tagline used to occupy the top bar of every screen, where it cost
                         // height forever and said nothing the reader needed. Here it is an eyebrow
                         // on the one screen with room for it, and it reads as an invitation.
-                        RoutineLabel(
-                            text = stringResource(R.string.app_tagline),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = RoutineColors.TextSecondary,
-                        )
+                        // With a name to use, the eyebrow greets; without one it keeps the tagline,
+                        // because an invented "Hi there" is worse than saying nothing personal.
+                        if (userName.isBlank()) {
+                            RoutineLabel(
+                                text = stringResource(R.string.app_tagline),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = RoutineColors.TextSecondary,
+                            )
+                        } else {
+                            RoutineLabel(
+                                text = stringResource(R.string.empty_day_greeting, userName),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = RoutineColors.Primary,
+                            )
+                        }
                         RoutineText(
                             text = stringResource(R.string.empty_day_title),
                             style = MaterialTheme.typography.headlineSmall,
@@ -291,8 +390,22 @@ fun DailyTimeline(
                             color = RoutineColors.TextSecondary,
                             maxLines = RoutineTextDefaults.Paragraph,
                         )
-                        FilledTonalButton(onClick = { onAction(TimelineAction.OpenAdd) }) {
-                            RoutineLabel(stringResource(R.string.plan_first_block), style = MaterialTheme.typography.labelLarge)
+                        // Two ways out of an empty day, side by side: write the first block yourself, or
+                        // fill the day with the IB example and start from something real. The second one
+                        // used to live three taps deep in Settings, which is where nobody looks on day one.
+                        ActionRow {
+                            // One tap, one ready-made block: the editor opens with a 45-minute focus block
+                            // at the current time, so the first thing a new reader does is edit a block that
+                            // already exists rather than fill in an empty form (N11).
+                            FilledTonalButton(onClick = { onAction(TimelineAction.OpenFirstBlock) }) {
+                                RoutineLabel(stringResource(R.string.plan_first_block), style = MaterialTheme.typography.labelLarge)
+                            }
+                            OutlinedButton(
+                                onClick = { onAction(TimelineAction.LoadDemo) },
+                                shape = RoutineShapes.Pill,
+                            ) {
+                                RoutineLabel(stringResource(R.string.onboarding_start_demo), style = MaterialTheme.typography.labelLarge)
+                            }
                         }
                     }
                 }
@@ -300,7 +413,7 @@ fun DailyTimeline(
         }
         var previousEnd: Int? = null
         var nowPlaced = activeKey != null
-        day.items.forEach { entry ->
+        items.forEach { entry ->
             val before = previousEnd
             if (entry is ResolvedTimelineItem.Block && before != null && entry.startMinute > before) {
                 val minutes = entry.startMinute - before
@@ -346,12 +459,12 @@ fun DailyTimeline(
                 NowMarker(now.toLocalTime().clockLabel(), Modifier.fillMaxWidth().padding(vertical = RoutineSpacing.md))
             }
         }
-        if (day.cancelled.isNotEmpty()) {
+        if (day.cancelled.isNotEmpty() && !skippedHidden) {
             item(key = "cancelled") {
                 OutlinedCard(
                     Modifier.fillMaxWidth().padding(top = RoutineSpacing.md),
                     shape = RoutineShapes.Card,
-                    border = BorderStroke(1.dp, RoutineColors.Border),
+                    border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 ) {
                     Column(Modifier.fillMaxWidth().padding(RoutineSpacing.lg), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                         SectionHeader(stringResource(R.string.skipped_title), style = MaterialTheme.typography.titleSmall)

@@ -146,6 +146,8 @@ class ConnectedFeaturesTest {
 
     private class MemoryPreferences : PreferencesRepository {
         override val preferences = MutableStateFlow(SchedulePreferences())
+        override suspend fun setUserName(name: String) { preferences.update { it.copy(userName = name) } }
+        override suspend fun completeOnboarding() { preferences.update { it.copy(onboardingDone = true) } }
         override suspend fun setMuteDuringSchoolHours(muted: Boolean) { preferences.update { it.copy(muteDuringSchoolHours = muted) } }
         override suspend fun setRecoveryNotifications(enabled: Boolean) { preferences.update { it.copy(notifyRecovery = enabled) } }
         override suspend fun setSchoolWindow(start: LocalTime, end: LocalTime) { preferences.update { it.copy(schoolStart = start, schoolEnd = end) } }

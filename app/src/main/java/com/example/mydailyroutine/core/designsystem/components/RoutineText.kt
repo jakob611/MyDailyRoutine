@@ -17,11 +17,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
@@ -29,6 +31,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -56,10 +59,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -77,6 +86,7 @@ import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
@@ -112,7 +122,22 @@ object RoutineTextDefaults {
     val MinLabelSize = 11.sp
     /** Shrinking step: small enough to fit tight Slovenian labels, coarse enough to stay cheap. */
     val LabelStep = 0.5.sp
+    /**
+     * Floor for a clock time: 8:20 in a card, 07:00 in the week grid's hour column. 12 sp was the one
+     * size that disappeared at arm's length in daylight, and a time is exactly what a student reads
+     * while walking. Medium weight is part of the same fix: at 13 sp a hairline weight loses its
+     * counters on a phone screen. [RoutineLabel] still shrinks below it to [MinLabelSize] when a
+     * column genuinely has no room, which is what keeps [LargeFontUiTest] honest at 1.45x.
+     */
+    val TimeLabelSize = 13.sp
 }
+
+/** The style of every clock time in the app: 13 sp, Medium. See [RoutineTextDefaults.TimeLabelSize]. */
+@Composable
+fun timeLabelStyle(): TextStyle = MaterialTheme.typography.bodySmall.copy(
+    fontSize = RoutineTextDefaults.TimeLabelSize,
+    fontWeight = FontWeight.Medium,
+)
 
 @Composable
 fun RoutineText(
@@ -129,10 +154,15 @@ fun RoutineText(
     overflow: TextOverflow = TextOverflow.Ellipsis,
     softWrap: Boolean = true,
     autoSize: TextAutoSize? = null,
+    /**
+     * Marks the text as a heading for TalkBack. A screen reader can then jump between sections the
+     * way it does in any other app instead of reading one long column of unrelated strings.
+     */
+    heading: Boolean = false,
 ) {
     Text(
         text = text,
-        modifier = modifier,
+        modifier = if (heading) modifier.semantics { heading() } else modifier,
         style = style,
         color = color,
         fontSize = fontSize,
@@ -169,6 +199,7 @@ fun RoutineLabel(
     textAlign: TextAlign? = null,
     maxLines: Int = 1,
     autoSize: TextAutoSize? = null,
+    heading: Boolean = false,
 ) {
     val designed = if (style.fontSize.isSpecified) style.fontSize else MaterialTheme.typography.labelMedium.fontSize
     RoutineText(
@@ -186,6 +217,7 @@ fun RoutineLabel(
             maxFontSize = designed,
             stepSize = RoutineTextDefaults.LabelStep,
         ),
+        heading = heading,
     )
 }
 
@@ -220,7 +252,7 @@ fun SectionHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) {
-        RoutineText(title, Modifier.weight(1f), style = style, maxLines = RoutineTextDefaults.Body)
+        RoutineText(title, Modifier.weight(1f), style = style, maxLines = RoutineTextDefaults.Body, heading = true)
         action?.invoke(this)
     }
 }
@@ -238,6 +270,9 @@ fun SettingRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
     ) {
+        // The label column is the flexible one, the control keeps its measured width: a switch is a
+        // fixed 52 dp object in a list whose titles run to two lines in Slovenian, and a control that
+        // is allowed to be squeezed is a control that ends up drawn over its own label.
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
             RoutineText(title, style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
             if (description != null) {
@@ -288,6 +323,9 @@ fun CollapsibleSection(
     Column(modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().clip(RoutineShapes.Chip)
+                // A folding header is a button, so it gets a button's touch height even though it
+                // looks like a line of text.
+                .defaultMinSize(minHeight = RoutineMetrics.TouchTarget)
                 .clickable(role = Role.Button, onClick = onToggle)
                 .padding(vertical = RoutineSpacing.sm, horizontal = RoutineSpacing.xs)
                 .then(if (tag != null) Modifier.testTag(tag) else Modifier),
@@ -323,10 +361,11 @@ fun CollapsibleSection(
 }
 
 /**
- * Category selector for sheets that used to be one endless vertical scroll. Chips reflow, keep
- * their full label on one line, and carry a stable test tag.
+ * Category selector for sheets that used to be one endless vertical scroll. One row that scrolls
+ * sideways, with a soft edge when something is still behind it: five chips used to reflow into three
+ * plus two, and the second row read as a separate section with an owner's manual above it. The tags
+ * and the order are unchanged, so every existing test still finds the tab it knows.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun <T : Enum<T>> CategoryTabs(
     entries: List<T>,
@@ -337,19 +376,42 @@ fun <T : Enum<T>> CategoryTabs(
     tagPrefix: String,
     enabled: Boolean = true,
 ) {
-    FlowRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
-        verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
-    ) {
-        entries.forEach { entry ->
-            FilterChip(
-                selected = entry == selected,
-                onClick = { onSelect(entry) },
-                enabled = enabled,
-                shape = RoutineShapes.Chip,
-                modifier = Modifier.testTag("$tagPrefix-${entry.name.lowercase()}"),
-                label = { RoutineLabel(label(entry), style = MaterialTheme.typography.labelLarge) },
+    val scroll = rememberScrollState()
+    Box(modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(scroll),
+            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+        ) {
+            entries.forEach { entry ->
+                FilterChip(
+                    selected = entry == selected,
+                    onClick = { onSelect(entry) },
+                    enabled = enabled,
+                    shape = RoutineShapes.Chip,
+                    // A floor on the chip width keeps the scroll from stopping on half a chip: with the
+                    // fade at the edge it reads as "there is more", not as a label that got cut.
+                    modifier = Modifier.widthIn(min = RoutineMetrics.ChipMinWidth)
+                        .testTag("$tagPrefix-${entry.name.lowercase()}"),
+                    label = { RoutineLabel(label(entry), style = MaterialTheme.typography.labelLarge) },
+                )
+            }
+        }
+        // The fade is drawn, not laid out: it must not steal a drag from the row underneath it, and a
+        // gradient (not a shadow) is what says "the row continues" without adding a second row.
+        if (scroll.canScrollForward) {
+            Box(
+                Modifier.matchParentSize().drawBehind {
+                    val fade = 24.dp.toPx()
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(Color.Transparent, RoutineColors.SheetSurface),
+                            startX = size.width - fade,
+                            endX = size.width,
+                        ),
+                        topLeft = Offset(size.width - fade, 0f),
+                        size = Size(fade, size.height),
+                    )
+                },
             )
         }
     }
@@ -367,13 +429,16 @@ private fun SheetHeader(
     Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet,
         tilt = LocalGlassTilt.current)) {
         Row(
-            Modifier.fillMaxWidth().padding(start = RoutineSpacing.xl, end = RoutineSpacing.md,
+            Modifier.fillMaxWidth().padding(start = RoutineMetrics.ScreenPadding, end = RoutineSpacing.md,
                 top = RoutineSpacing.md, bottom = RoutineSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
-                RoutineText(title, style = MaterialTheme.typography.headlineSmall, maxLines = RoutineTextDefaults.Body)
+                // Every sheet's title is a heading: it is the one node that says what this panel is
+                // about, and without it a screen reader starts inside a wall of settings rows.
+                RoutineText(title, style = MaterialTheme.typography.headlineSmall, maxLines = RoutineTextDefaults.Body,
+                    heading = true)
                 if (subtitle != null) {
                     RoutineText(subtitle, style = MaterialTheme.typography.bodySmall,
                         color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
@@ -462,7 +527,9 @@ fun RoutineSheetScaffold(
         // the fling before the sheet's own drag logic, one level up, ever receives it.
         Column(
             Modifier.fillMaxWidth().sheetFlingStabilizer().verticalScroll(rememberScrollState()).layerBackdrop(backdrop)
-                .padding(horizontal = RoutineSpacing.xl)
+                // The same inset the screens behind use: the reader swipes a sheet up and finds the
+                // text on the same vertical line it was on before (see RoutineMetrics.ScreenPadding).
+                .padding(horizontal = RoutineMetrics.ScreenPadding)
                 .padding(top = header + RoutineSpacing.lg, bottom = RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
         ) { content() }
@@ -486,8 +553,8 @@ fun RoutineSheetListScaffold(
     SheetShell(title, modifier, closeLabel, onClose, subtitle, footer) { backdrop, header ->
         LazyColumn(
             Modifier.fillMaxWidth().layerBackdrop(backdrop).sheetFlingStabilizer(),
-            contentPadding = PaddingValues(RoutineSpacing.xl, header + RoutineSpacing.lg,
-                RoutineSpacing.xl, RoutineSpacing.lg),
+            contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, header + RoutineSpacing.lg,
+                RoutineMetrics.ScreenPadding, RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
             content = content,
         )

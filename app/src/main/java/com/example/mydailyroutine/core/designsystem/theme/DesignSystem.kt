@@ -23,7 +23,7 @@ object RoutineColors {
     val Background = Color(0xFF090D16)
     val SurfaceLowest = Color(0xFF05070B)
     val SurfaceLow = Color(0xFF0F1422)
-    val Surface1 = Color(0xFF151C2E) // surfaceContainer: cards and calendar blocks
+    val Surface1 = Color(0xFF1A2238) // surfaceContainer: cards and calendar blocks
     val Surface2 = Color(0xFF1D263D) // surfaceContainerHigh: selected/floating elements
     val Surface3 = Color(0xFF26324F) // surfaceContainerHighest: dialogs and menus
     val Surface4 = Surface3
@@ -31,13 +31,19 @@ object RoutineColors {
 
     val TextPrimary = Color(0xFFF1F5F9)
     val TextSecondary = Color(0xFFA8B3C2)
-    val TextMuted = Color(0xFF718096)
+    val TextMuted = Color(0xFF94A3B8)
     val TextDisabled = Color(0xFF536070)
 
     // White hairlines are deliberately layered: top-lit edges are stronger than card outlines.
     val Border = Color.White.copy(alpha = 0.14f)
     val BorderStrong = Color.White.copy(alpha = 0.18f)
     val CardBorder = Color.White.copy(alpha = 0.10f)
+    /**
+     * The edge of anything the reader can type into. A hairline is decoration and may stay quiet;
+     * the outline of an input is a control, and WCAG asks 3:1 for those, so this one is measurably
+     * brighter than [CardBorder] while still reading as a thin line rather than a frame.
+     */
+    val FieldOutline = Color(0xFF74849C)
     val Spine = Color(0xFF52627C)
 
     // System-fill equivalents, tinted slate rather than the old neutral grey ramp.
@@ -48,6 +54,12 @@ object RoutineColors {
 
     // Semantic accents. These are the only colours that carry interaction or state meaning.
     val Primary = Color(0xFF2DD4BF)
+    /**
+     * The track of a switch that is on. Deliberately deeper than [Primary]: the knob on top of it is
+     * near-white, and white on brand turquoise measured 1.86:1 — bright enough to look fine in a
+     * screenshot and impossible to read in the sun. The hue stays the brand's.
+     */
+    val SwitchOn = Color(0xFF0D9488)
     val Timer = Color(0xFF67E8F9)
     val FocusAccent = Color(0xFFA78BFA)
     val Success = Color(0xFF34D399)
@@ -107,6 +119,14 @@ fun categoryStyle(category: RoutineCategory, subjectColor: Long? = null): Catego
 object RoutineShapes {
     val Card = RoundedCornerShape(16.dp)
     val Chip = RoundedCornerShape(8.dp)
+    /**
+     * A calendar cell, in either overview: the month grid's day square and the week grid's block.
+     * They are the same kind of object — a small filled area that stands for a period of time — so
+     * they were the least defensible place for two different radii (12 dp and 6 dp). They now share
+     * this one, which is deliberately smaller than a card's: at 100 dp wide, a 16 dp corner would
+     * make a week cell look like a button.
+     */
+    val Cell = RoundedCornerShape(12.dp)
     val Pill = RoundedCornerShape(50)
     val Sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     /**
@@ -118,6 +138,8 @@ object RoutineShapes {
     val GlassBar = RoundedCornerShape(22.dp)
     val GlassPanel = RoundedCornerShape(28.dp)
     val GlassChip = RoundedCornerShape(14.dp)
+    /** The rotated square that marks a milestone on the Gantt; 2 of its 9 dp, so it still reads sharp. */
+    val Diamond = RoundedCornerShape(2.dp)
     val GlassSheetHeader = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
     val GlassSheetFooter = RoundedCornerShape(18.dp)
 }
@@ -160,10 +182,49 @@ object RoutineMetrics {
     val MinLabelHeight = 20.dp
     /** Minimum touch width for anything that reads as a button. */
     val ActionMinWidth = 48.dp
+    /**
+     * The smallest a *touch target* may be, independent of how large the thing looks. Material's
+     * own components enforce this through `minimumInteractiveComponentSize`; the app's hand-built
+     * glass controls do not, so they wrap their 40 dp pane in a box of this size instead. A control
+     * that looks smaller than it can be hit is the cheapest way to make an app feel unreliable.
+     */
+    val TouchTarget = 48.dp
     /** Compact liquid-glass control: the icon buttons and chips that live in the floating chrome. */
     val GlassControlSize = 40.dp
+    /**
+     * Horizontal inset of every scrollable screen and of every sheet body. One number, because a
+     * reader who swipes from the day to the settings should not see the text move sideways: sheets
+     * used to start at 24 dp while the screens behind them started at 16, and a row inside a card
+     * started at 12. [RoutineSpacing.lg] is the value; the name is what makes it a rule.
+     */
+    val ScreenPadding = RoutineSpacing.lg
+    /**
+     * Padding inside a card. Deliberately one step tighter than [ScreenPadding]: a card is already
+     * inset by the screen, and giving it the same 16 dp again reads as a box inside a box. Every
+     * card body in the app uses this value — the overview rows were the last two that did not.
+     */
+    val CardPadding = RoutineSpacing.md
+    /** Bottom clearance a list needs so its last row is never under the floating add control. */
+    val ListBottomInset = 108.dp
     /** Categorical chips are capped so one long label cannot own a whole card line. */
     val ChipMaxWidth = 190.dp
+    /**
+     * Smallest width of a tab chip in a horizontally scrolling row. Without it the row scrolls by a
+     * sliver: the reader sees half a chip at the edge and cannot tell a cut label from a short one.
+     */
+    val ChipMinWidth = 92.dp
+    /** Height of a primary or secondary button inside a sheet. One number for all of them. */
+    val ControlHeight = 52.dp
+    /** Icon sizes: a glyph inside a row, or inside a 40 dp glass control. Two, not six. */
+    val IconSmall = 16.dp
+    val IconSize = 20.dp
+    /** The categorical dot: the one mark small enough to sit inside a line of text. */
+    val DotSize = 6.dp
+    /** Side of the rotated square that marks a milestone on the Gantt. */
+    val DiamondSize = 9.dp
+    /** Subject swatches in the picker: the shelf, and the small square for a custom colour. */
+    val SwatchSize = 48.dp
+    val SwatchSmall = 28.dp
     /** Geometry of the NOW band drawn over the running block. */
     val NowBandHeight = 18.dp
     val NowDotSize = 8.dp
@@ -208,7 +269,7 @@ val OledColorScheme = darkColorScheme(
     surfaceContainerLow = RoutineColors.SurfaceLow, surfaceContainer = RoutineColors.Surface1,
     surfaceContainerHigh = RoutineColors.Surface2, surfaceContainerHighest = RoutineColors.Surface3,
     surfaceDim = RoutineColors.SurfaceLowest, surfaceBright = RoutineColors.Surface3,
-    outline = RoutineColors.Spine, outlineVariant = RoutineColors.CardBorder,
+    outline = RoutineColors.FieldOutline, outlineVariant = RoutineColors.CardBorder,
     inverseSurface = RoutineColors.Surface3, inverseOnSurface = RoutineColors.TextPrimary,
     inversePrimary = RoutineColors.Primary,
     surfaceTint = RoutineColors.Timer,

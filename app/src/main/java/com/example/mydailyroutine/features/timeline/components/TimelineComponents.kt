@@ -61,7 +61,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -71,6 +73,7 @@ import com.example.mydailyroutine.core.designsystem.components.ActionRow
 import com.example.mydailyroutine.core.designsystem.components.MetaChip
 import com.example.mydailyroutine.core.designsystem.components.NowBand
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
+import com.example.mydailyroutine.core.designsystem.components.timeLabelStyle
 import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
@@ -89,7 +92,7 @@ import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
-import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.platform.uiLocale
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.WarningUi
 import com.example.mydailyroutine.core.presentation.clockLabel
@@ -157,6 +160,11 @@ fun TimelineBlockCard(
     val toggleDescription = stringResource(if (block.isCompleted) R.string.mark_not_done else R.string.mark_done)
     val expandLabel = stringResource(if (expanded) R.string.collapse_block else R.string.expand_block)
     val dragHint = stringResource(R.string.drag_hint)
+    // The card's two most common actions, reachable from a screen reader without opening anything:
+    // a tap can only ever mean one thing, and "done" is not it for a reader listening to the title.
+    val doneAction = stringResource(if (block.isCompleted) R.string.mark_not_done else R.string.mark_done)
+    val laterAction = stringResource(R.string.a11y_move_later)
+    val earlierAction = stringResource(R.string.a11y_move_earlier)
     val durationText = stringResource(R.string.duration_minutes, block.durationMinutes)
     val rangeText = stringResource(
         R.string.time_range,
@@ -185,6 +193,19 @@ fun TimelineBlockCard(
                     // Dragging translates the card only; it never scales, so the lifted card stays
                     // inside its own opaque bounds and cannot mix its text with a neighbour's.
                     .graphicsLayer { translationY = dragY }
+                    .semantics {
+                        customActions = listOf(
+                            CustomAccessibilityAction(doneAction) {
+                                onAction(TimelineAction.ToggleComplete(block)); true
+                            },
+                            CustomAccessibilityAction(laterAction) {
+                                shiftBlock(block, onAction, 15); true
+                            },
+                            CustomAccessibilityAction(earlierAction) {
+                                shiftBlock(block, onAction, -15); true
+                            },
+                        )
+                    }
                     .animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
                     .pointerInput(block.key, block.startsAt, block.endsAt, busy) {
                         if (!busy && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
@@ -250,16 +271,20 @@ fun TimelineBlockCard(
                                     color = if (past || block.isSuppressed) RoutineColors.TextMuted else RoutineColors.TextPrimary,
                                     textDecoration = if (block.isCompleted || block.isSuppressed) TextDecoration.LineThrough else null,
                                 )
-                                RoutineLabel(
+                                // Two facts on one line: when the range and the duration both want the
+                                // last pixel, the line wraps instead of dropping the duration behind an
+                                // ellipsis. The duration is part of what tells a student how much is left.
+                                RoutineText(
                                     text = "$rangeText · $durationText",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = timeLabelStyle(),
                                     color = RoutineColors.TextSecondary,
+                                    maxLines = RoutineTextDefaults.Body,
                                 )
                             }
                             Icon(
                                 Icons.Outlined.ExpandMore,
                                 contentDescription = expandLabel,
-                                modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f),
+                                modifier = Modifier.size(RoutineMetrics.IconSize).rotate(if (expanded) 180f else 0f),
                                 tint = RoutineColors.TextSecondary,
                             )
                             if (canStart && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
@@ -292,7 +317,7 @@ fun TimelineBlockCard(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
                             ) {
-                                Icon(categoryIcon(block.category), null, Modifier.size(16.dp), tint = style.content)
+                                Icon(categoryIcon(block.category), null, Modifier.size(RoutineMetrics.IconSmall), tint = style.content)
                                 MetaChip(block.category.label(), style = style)
                             }
                             if (block.reviewId != null) MetaChip(stringResource(R.string.review_badge), style = RoutineColors.School)
@@ -376,7 +401,7 @@ fun TimelineBlockCard(
                                         text = stringResource(
                                             R.string.repeat_days_summary,
                                             block.seriesDays.sortedBy { it.value }
-                                                .joinToString(", ") { it.getDisplayName(TextStyle.SHORT_STANDALONE, Slovenian) },
+                                                .joinToString(", ") { it.getDisplayName(TextStyle.SHORT_STANDALONE, uiLocale()) },
                                         ),
                                         style = MaterialTheme.typography.bodySmall,
                                         maxLines = RoutineTextDefaults.Body,
@@ -497,7 +522,7 @@ fun WarningBadge(warning: WarningUi, busy: Boolean, onInsert: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.Psychology, null, Modifier.size(16.dp).alpha(pulse), tint = RoutineColors.Warning)
+            Icon(Icons.Outlined.Psychology, null, Modifier.size(RoutineMetrics.IconSmall).alpha(pulse), tint = RoutineColors.Warning)
             RoutineLabel(
                 text = stringResource(R.string.insert_break, warning.recoveryMinutes),
                 style = MaterialTheme.typography.labelSmall,
@@ -584,7 +609,7 @@ fun MilestoneCard(
                         Icon(
                             Icons.Outlined.ExpandMore,
                             contentDescription = expandLabel,
-                            modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f),
+                            modifier = Modifier.size(RoutineMetrics.IconSize).rotate(if (expanded) 180f else 0f),
                             tint = RoutineColors.TextSecondary,
                         )
                         Checkbox(
@@ -628,4 +653,22 @@ fun MilestoneCard(
             }
         }
     }
+}
+
+/**
+ * Moves one occurrence by [minutes] through the same action the drag commits, so a screen reader and
+ * a finger end up in exactly the same place. Day boundaries are clamped: a block cannot start before
+ * midnight or end after it.
+ */
+private fun shiftBlock(block: ResolvedTimelineItem.Block, onAction: (TimelineAction) -> Unit, minutes: Long) {
+    val start = block.startsAt.toLocalTime()
+    val end = block.endsAt.toLocalTime()
+    val delta = minutes.coerceIn(-start.toSecondOfDay() / 60L, 1439L - start.toSecondOfDay() / 60L)
+    if (delta == 0L) return
+    onAction(
+        TimelineAction.SaveBlockEdit(
+            block, block.title,
+            start.plusMinutes(delta), end.plusMinutes(delta), false,
+        ),
+    )
 }

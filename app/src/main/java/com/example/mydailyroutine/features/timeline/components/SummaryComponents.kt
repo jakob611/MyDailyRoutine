@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.Icon
@@ -30,16 +28,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
 import com.example.mydailyroutine.core.designsystem.components.GlassChipButton
+import com.example.mydailyroutine.core.designsystem.components.swipeToShift
 import com.example.mydailyroutine.core.designsystem.components.GlassContentChip
 import com.example.mydailyroutine.core.designsystem.components.GlassIconButton
+import com.example.mydailyroutine.core.designsystem.components.MonthMarkIcon
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
+import com.example.mydailyroutine.core.presentation.MonthMark
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
@@ -57,10 +60,11 @@ import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 @Composable
 fun DateNavigator(
     title: String,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
     onToday: () -> Unit,
     onPick: () -> Unit,
+    onShift: (Int) -> Unit,
+    /** True while the period on screen is the one the reader is living in. */
+    isCurrentPeriod: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val pickLabel = stringResource(R.string.choose_date)
@@ -69,29 +73,33 @@ fun DateNavigator(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
     ) {
-        GlassIconButton(onPrevious) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.previous_period), Modifier.size(20.dp))
-        }
-        // The title is the date picker: one control instead of a fourth icon competing for width.
+        // The title is the only control left in this row, and it is two things at once: it opens the
+        // date picker, and a sideways drag on it moves through time. The two arrows that used to sit
+        // beside it were redundant — the content already answers a sideways swipe, and an arrow pair
+        // pointing at a value that is usually "today" is chrome with nothing to say. Removing them
+        // also gave the title the full width, which is where its two lines actually fit.
         GlassContentChip(onClick = onPick, modifier = Modifier.weight(1f), label = pickLabel) {
             Row(
-                Modifier.padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
+                Modifier.swipeToShift(enabled = true, onShift = onShift)
+                    .padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
             ) {
-                RoutineText(
+                // A label, not prose: it shrinks towards 11 sp to stay on one line and only then
+                // takes the second line, so a long Slovenian date keeps its year visible.
+                RoutineLabel(
                     text = title,
                     modifier = Modifier.weight(1f, fill = false),
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = RoutineTextDefaults.Body,
                 )
-                Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(16.dp), tint = RoutineColors.TextSecondary)
+                Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(RoutineMetrics.IconSmall), tint = RoutineColors.TextSecondary)
             }
         }
-        GlassChipButton(stringResource(R.string.today), onToday)
-        GlassIconButton(onNext) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.next_period), Modifier.size(20.dp))
-        }
+        // "Danes" appears only when it would do something. On the day the reader is actually living
+        // in, a button that returns to where they already are is a button that teaches them the app
+        // has controls they do not need.
+        if (!isCurrentPeriod) GlassChipButton(stringResource(R.string.today), onToday)
     }
 }
 
@@ -147,7 +155,7 @@ fun CalendarNoticeCard(entries: List<CalendarEntry>) {
         color = style.container,
         contentColor = style.content,
         shape = RoutineShapes.Card,
-        border = BorderStroke(1.dp, RoutineColors.Border),
+        border = BorderStroke(1.dp, RoutineColors.CardBorder),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
@@ -179,9 +187,24 @@ fun CalendarNoticeCard(entries: List<CalendarEntry>) {
  * duration can neither truncate nor make the row ragged.
  */
 @Composable
-fun MetricTile(label: String, value: String, modifier: Modifier = Modifier) {
+fun MetricTile(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    /**
+     * The value's colour, decided by the caller because only the caller knows whether the number is
+     * real. A day with nothing in it states a dash in the muted tone instead of shouting "0 min" in
+     * the same white as a day with four hours behind it.
+     */
+    valueColor: Color = Color.Unspecified,
+) {
     Surface(
-        modifier.fillMaxHeight(),
+        // A tile is a label and a number that only mean something together: "3/9" read on its own
+        // tells a screen reader nothing about what was counted. The tile states the pair as one
+        // value, which is also what keeps the number from being read as a bare fraction.
+        modifier.fillMaxHeight().semantics(mergeDescendants = true) {
+            stateDescription = "$label: $value"
+        },
         shape = RoutineShapes.Card,
         color = RoutineColors.Surface1,
         border = BorderStroke(1.dp, RoutineColors.CardBorder),
@@ -190,17 +213,26 @@ fun MetricTile(label: String, value: String, modifier: Modifier = Modifier) {
             Modifier.fillMaxWidth().padding(RoutineSpacing.md),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
         ) {
-            RoutineText(value, style = MaterialTheme.typography.titleMedium, color = RoutineColors.TextPrimary,
-                maxLines = RoutineTextDefaults.Body)
+            RoutineText(
+                value,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (valueColor == Color.Unspecified) RoutineColors.TextPrimary else valueColor,
+                maxLines = RoutineTextDefaults.Body,
+            )
             RoutineLabel(label, style = MaterialTheme.typography.labelMedium, color = RoutineColors.TextSecondary)
         }
     }
 }
 
+/**
+ * One entry of the calendar legend. The shape is the same composable the grid draws, so the legend
+ * cannot promise a symbol the grid does not use; the label stays a separate node, which keeps the
+ * words readable exactly as before.
+ */
 @Composable
-fun Legend(label: String, color: Color) {
+fun Legend(label: String, color: Color, mark: MonthMark) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
-        Box(Modifier.size(6.dp).background(color, CircleShape))
+        MonthMarkIcon(mark, color = color)
         RoutineLabel(label, style = MaterialTheme.typography.labelSmall, color = RoutineColors.TextSecondary)
     }
 }

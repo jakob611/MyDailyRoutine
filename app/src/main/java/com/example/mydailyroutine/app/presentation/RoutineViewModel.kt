@@ -10,6 +10,7 @@ import com.example.mydailyroutine.domain.health.*
 import com.example.mydailyroutine.domain.presets.PresetFactory
 import com.example.mydailyroutine.domain.repository.PlanningRepository
 import com.example.mydailyroutine.domain.repository.GoalsRepository
+import com.example.mydailyroutine.core.platform.Diagnostics
 import com.example.mydailyroutine.domain.model.nominalMinutes
 import com.example.mydailyroutine.domain.routines.*
 import com.example.mydailyroutine.domain.repository.ExampleDataRepository
@@ -54,6 +55,12 @@ class RoutineViewModel(
     private val goals: GoalsRepository,
     private val clock: Clock = Clock.systemUTC(),
 ) : ViewModel() {
+    /** When this process started answering for the app; the first half of "install to first block". */
+    private val startedAt: java.time.Instant = java.time.Instant.now()
+
+    private fun onboardingSeconds(): Long =
+        java.time.Duration.between(startedAt, java.time.Instant.now()).seconds
+
     private fun today(): LocalDate = LocalDate.now(clock.withZone(ZoneId.systemDefault()))
     private val initialDate = today()
     private val selectedDate = savedState.getStateFlow("date", initialDate.toEpochDay())
@@ -195,7 +202,10 @@ class RoutineViewModel(
                     if (executionRepository.synchronize(state.value.preferences.planning, state.value.preferences.automaticHealingEnabled))
                         messages.send(TimelineEffect.Message(R.string.execution_boundary))
                 } catch (error: CancellationException) { throw error }
-                catch (_: Exception) { messages.send(TimelineEffect.Message(R.string.error_save)) }
+                catch (error: Exception) {
+                    Diagnostics.warn("save", error)
+                    messages.send(TimelineEffect.Message(R.string.error_save))
+                }
             }
             TimelineAction.OpenPlanning -> panels.update { it.copy(showPlanning = true, showAdd = false, showSettings = false) }
             TimelineAction.ClosePlanning -> if (!panels.value.isSaving) panels.update { it.copy(showPlanning = false) }
@@ -241,7 +251,13 @@ class RoutineViewModel(
                 settings.setPlanningConfig(action.config)
                 messages.send(TimelineEffect.Message(R.string.planning_saved))
             }
+            TimelineAction.OpenFirstBlock -> panels.update { it.copy(showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryPrefillTitle = null,
+                entryPrefill = EntryPrefill(RoutineCategory.FOCUS_ANALYTICAL, FirstBlockMinutes),
+                showSettings = false, editingMilestone = null, editingBlock = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false) }
+            // The remembered shape is the reader's own last answer, not a setting: it lives for as long
+            // as the process does, which is long enough for "the same block again" to be one tap.
             TimelineAction.OpenAdd -> panels.update { it.copy(showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryPrefillTitle = null,
+                entryPrefill = lastEntryShape,
                 showSettings = false, editingMilestone = null, editingBlock = null, editingSubject = null, pendingDelete = null, confirmDemo = false, showPlanning = false) }
             TimelineAction.OpenSettings -> panels.update { it.copy(showSettings = true, showAdd = false, showPlanning = false, editingBlock = null, editingMilestone = null) }
             TimelineAction.CloseAdd -> if (!panels.value.isSaving) panels.update { it.copy(showAdd = false, editingMilestone = null) }
@@ -249,7 +265,7 @@ class RoutineViewModel(
             TimelineAction.CloseEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingBlock = null) }
             is TimelineAction.Edit -> when (val item = action.item) {
                 is ResolvedTimelineItem.Block -> panels.update { it.copy(editingBlock = item) }
-                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryPrefillTitle = null, showSettings = false) }
+                is ResolvedTimelineItem.Milestone -> panels.update { it.copy(editingMilestone = item, showAdd = true, addSession = it.addSession + 1, entryContinuation = null, entryPrefillTitle = null, entryPrefill = null, showSettings = false) }
             }
             is TimelineAction.SaveEntry -> saveEntry(action.draft)
             is TimelineAction.SaveBlockEdit -> perform {
@@ -282,6 +298,10 @@ class RoutineViewModel(
             is TimelineAction.Restore -> perform { repository.restoreOccurrence(action.routineId, action.date) }
             is TimelineAction.ResetOverride -> perform { repository.resetOverride(action.item.routineBlockId, action.item.occurrenceDate) }
             is TimelineAction.RequestDelete -> panels.update { it.copy(pendingDelete = action.item) }
+            // Two decisions that last one evening and nothing more. Both are the reader's answer about
+            // their own plan, so they are remembered as a date rather than applied to everything after.
+            is TimelineAction.ShowEveningFull -> panels.update { it.copy(eveningFullDay = action.date) }
+            is TimelineAction.HideSkipped -> panels.update { it.copy(skippedHiddenDay = action.date) }
             TimelineAction.DismissDelete -> panels.update { it.copy(pendingDelete = null) }
             TimelineAction.ConfirmDelete -> panels.value.pendingDelete?.let { target -> perform {
                 when (target) {
@@ -295,7 +315,7 @@ class RoutineViewModel(
                 messages.send(TimelineEffect.Message(R.string.message_deleted))
             } }
             is TimelineAction.EditSubject -> panels.update {
-                it.copy(editingSubject = action.subject ?: Subject(name = "", colorHex = RoutineColors.subjectSwatches.first(), defaultDurationMinutes = state.value.preferences.entryDefaults.lessonDurationMinutes))
+                it.copy(editingSubject = action.subject ?: Subject(name = "", colorHex = SubjectPalette.firstFree(state.value.content.subjects.map { subject -> subject.colorHex }), defaultDurationMinutes = state.value.preferences.entryDefaults.lessonDurationMinutes))
             }
             TimelineAction.CloseSubjectEditor -> if (!panels.value.isSaving) panels.update { it.copy(editingSubject = null) }
             is TimelineAction.SaveSubject -> perform {
@@ -320,6 +340,19 @@ class RoutineViewModel(
                 backup.importJson(action.json)
                 panels.update { it.copy(exportJson = null) }
                 messages.send(TimelineEffect.Message(R.string.message_imported))
+            }
+            is TimelineAction.FinishOnboarding -> perform {
+                if (action.schoolStart != action.schoolEnd) {
+                    settings.setSchoolWindow(action.schoolStart, action.schoolEnd)
+                }
+                settings.setUserName(action.userName)
+                settings.completeOnboarding()
+                if (action.loadExample) exampleData.load()
+                // How long the first run took, in the only place that can answer it: the device log.
+                // The number the product is judged by is minutes from install to a first block, and
+                // this is its first half.
+                Diagnostics.note("onboarding", "finished after ${onboardingSeconds()}s, example=${action.loadExample}")
+                messages.send(TimelineEffect.Message(R.string.onboarding_done))
             }
             TimelineAction.RequestDemo -> panels.update { it.copy(confirmDemo = true) }
             TimelineAction.DismissDemo -> if (!panels.value.isSaving) panels.update { it.copy(confirmDemo = false) }
@@ -414,7 +447,9 @@ class RoutineViewModel(
             is TimelineAction.TaskToSchedule -> {
                 action.task.dueDate?.takeIf { !it.isBefore(today()) }?.let { savedState["date"] = it.toEpochDay() }
                 panels.update {
-                    it.copy(showAdd = true, addSession = it.addSession + 1, entryPrefillTitle = action.task.title, entryContinuation = null,
+                    // A task that is being scheduled comes with its own title, so the remembered shape is
+                    // deliberately not applied: that prefill belongs to the plain "add a block" entry point.
+                    it.copy(showAdd = true, addSession = it.addSession + 1, entryPrefillTitle = action.task.title, entryContinuation = null, entryPrefill = null,
                         showTasks = false, showSettings = false, showPlanning = false, editingBlock = null, editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false)
                 }
             }
@@ -461,7 +496,7 @@ class RoutineViewModel(
                 goals.setActivityScheduled(action.activity.id, true)
                 action.activity.start.takeIf { !it.isBefore(today()) }?.let { savedState["date"] = it.toEpochDay() }
                 panels.update {
-                    it.copy(showAdd = true, addSession = it.addSession + 1, entryPrefillTitle = action.activity.title, entryContinuation = null,
+                    it.copy(showAdd = true, addSession = it.addSession + 1, entryPrefillTitle = action.activity.title, entryContinuation = null, entryPrefill = null,
                         showTasks = false, showSettings = false, showPlanning = false, editingBlock = null, editingMilestone = null, editingSubject = null, pendingDelete = null, confirmDemo = false)
                 }
             }
@@ -500,6 +535,9 @@ class RoutineViewModel(
         messages.send(TimelineEffect.Message(R.string.goals_seeded))
     }
 
+    /** The kind and length of the last written block, used as the editor's opening state (N4). */
+    private var lastEntryShape: EntryPrefill? = null
+
     private fun saveEntry(draft: EntryDraft) = perform {
         when (draft.kind) {
             EntryKind.BLOCK -> {
@@ -518,6 +556,8 @@ class RoutineViewModel(
                     priorityWeight = draft.priorityWeight, isFixedCommitment = fixed, rawDurationMinutes = raw)
                 val weekdays = Weekdays.fromMask(draft.repeatDaysMask).ifEmpty { setOf(draft.date.dayOfWeek) }
                 patternsRepository.create(RoutinePatternRequest(blueprint,weekdays,draft.repeatWeekly,draft.afterLessonBreakMinutes,draft.breakTitle))
+                // Remembered per successful write, so a failed save never teaches the wrong default.
+                lastEntryShape = EntryPrefill(draft.category, raw)
             }
             EntryKind.DEADLINE, EntryKind.EXAM -> repository.saveMilestone(Milestone(
                 id = draft.existingMilestoneId, subjectId = draft.subjectId, title = draft.title,
@@ -575,7 +615,10 @@ class RoutineViewModel(
                     }))
                 }
                 catch (_: IllegalArgumentException) { messages.send(TimelineEffect.Message(R.string.error_values)) }
-                catch (_: Exception) { messages.send(TimelineEffect.Message(R.string.error_save)) }
+                catch (error: Exception) {
+                    Diagnostics.warn("save", error)
+                    messages.send(TimelineEffect.Message(R.string.error_save))
+                }
                 finally {
                     panels.update { it.copy(isSaving = false) }
                 }

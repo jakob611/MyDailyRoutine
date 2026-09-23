@@ -1,6 +1,7 @@
 package com.example.mydailyroutine.app.presentation
 
 import com.example.mydailyroutine.core.presentation.*
+import com.example.mydailyroutine.core.platform.StartupTrace
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
@@ -26,7 +27,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,7 +48,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -58,10 +61,12 @@ import com.example.mydailyroutine.R
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.features.timeline.components.DateNavigator
 import com.example.mydailyroutine.features.entry.presentation.*
+import com.example.mydailyroutine.features.onboarding.presentation.OnboardingScreen
 import com.example.mydailyroutine.features.subjects.presentation.SubjectEditorDialog
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheet
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
+import com.example.mydailyroutine.core.designsystem.components.swipeToShift
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.haptics.*
@@ -82,20 +87,25 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.motion.LocalPulse
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
@@ -214,6 +224,21 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         }
         viewModel.onAction(action)
     } }
+    // First run owns the whole window: two questions asked inside a sheet the reader can swipe away
+    // would be asked twice, and there is nothing behind it worth guarding — the app holds no data yet
+    // and every default the flow sets is already what the app ships with. It answers with the same
+    // haptics and sounds as the rest of the app, so the first tap already feels like this app.
+    if (!state.preferences.onboardingDone) {
+        CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalRoutineSounds provides sounds) {
+            OnboardingScreen(
+                userName = state.preferences.userName,
+                schoolStart = state.preferences.schoolStart,
+                schoolEnd = state.preferences.schoolEnd,
+                onAction = onAction,
+            )
+        }
+        return
+    }
     val snackbars = remember { SnackbarHostState() }
     val now by minuteClock()
     LaunchedEffect(now, state.execution?.startedAt) {
@@ -228,6 +253,10 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             is TimelineEffect.Message -> snackbars.showSnackbar(if (effect.count != null) context.getString(effect.resource, effect.minutes, effect.count) else if (effect.minutes == null) context.getString(effect.resource) else context.getString(effect.resource, effect.minutes))
         } }
     }
+    // N19: the first day that is actually on screen is the end of the first-minute measurement.
+    LaunchedEffect(data.isLoading, data.error, data.mode, data.date) {
+        if (!data.isLoading && data.error == null) StartupTrace.firstDayDrawn()
+    }
     val warningKeys = data.days[data.date]?.warnings.orEmpty().map { "${it.type}:${it.itemKeys}:${it.atMinute}" }.toSet()
     var previousWarnings by remember(data.date) { mutableStateOf<Set<String>?>(null) }
     LaunchedEffect(warningKeys, data.isLoading) {
@@ -236,10 +265,20 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             previousWarnings = warningKeys
         }
     }
-    val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(now.toLocalDate()) }
+    // Two different things were one red dot before: work that is already late and work that is due
+    // today or tomorrow. The count is now written quietly, and red is kept for the second group only —
+    // a deadline that is still ahead is information, not a scolding (N3).
+    val today = now.toLocalDate()
+    val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(today) }
+    val dueSoonTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == today || due == today.plusDays(1)) }
+    val waitingTasks = overdueTasks + dueSoonTasks
+    // Read before the modifier: a semantics block is not a composable scope, so the string has to
+    // exist by the time the dot is described.
+    val badgeLabel = pluralStringResource(R.plurals.tasks_badge_waiting, waitingTasks, waitingTasks)
     val reduceMotion = rememberReduceMotion()
-    // The "Dodaj blok" container transform measures its endpoints in window pixels: the pill the
-    // finger just pressed and the window the sheet slides into.
+    // The "Dodaj blok" container transform measures its endpoints in root pixels: the pill the
+    // finger just pressed and the window-sized root the pane is laid out inside. Measuring and
+    // placing in the same space is what keeps the growing pane glued to the pill it starts from.
     var windowPx by remember { mutableStateOf(IntSize.Zero) }
     var pillBoundsPx by remember { mutableStateOf(Rect.Zero) }
     CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalRoutineSounds provides sounds,
@@ -253,6 +292,10 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         val density = LocalDensity.current
         // Measured, never assumed: the bar is three rows on the day view and one on goals.
         var topInset by remember { mutableStateOf(0.dp) }
+        // The same for the bottom: the add control floats above the navigation bar, and that bar is
+        // 0, 24 or 48 dp tall depending on the phone and on how the reader navigates. A constant was
+        // correct on one device and hid the last row of a list on the next.
+        var bottomInset by remember { mutableStateOf(RoutineMetrics.ListBottomInset) }
         // The bar folds while the reader scrolls and unfolds the moment they scroll back up, which
         // is what gives a content screen its room: ~48 dp of date chrome only when it is being used.
         var collapsed by remember { mutableStateOf(false) }
@@ -296,9 +339,16 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         scaleX = 1f - 0.08f * progress
                         scaleY = 1f - 0.08f * progress
                         alpha = 1f - 0.30f * progress
-                    }) { GoalsScreen(state.goals, state.panels.isSaving, onAction, topInset = topInset) }
+                    }) { GoalsScreen(state.goals, state.panels.isSaving, onAction, topInset = topInset, bottomInset = bottomInset) }
                     else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
-                        modifier = Modifier.fillMaxSize(), transitionSpec = {
+                        // Swipe sideways for the next or previous period — the same Shift the date
+                        // arrows fire, so both paths end in exactly one place. Day, week and month:
+                        // the year is a summary nobody flicks through, and a horizontal drag there
+                        // belongs to the month grid's own gestures.
+                        modifier = Modifier.fillMaxSize().swipeToShift(
+                            enabled = !state.panels.showGoals && data.mode != TimelineMode.YEAR,
+                            onShift = { direction -> onAction(TimelineAction.Shift(direction.toLong())) },
+                        ), transitionSpec = {
                             // Moving through time slides along a shared horizontal axis in the
                             // direction of travel; changing scale (day -> week) shares no geometry
                             // with what it replaces, so it cross-fades instead of pretending to slide.
@@ -329,10 +379,16 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 else -> when (shown.mode) {
                                     TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
                                         state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction,
-                                        topInset = topInset) }
-                                    TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
-                                    TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
-                                    TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
+                                        topInset = topInset, bottomInset = bottomInset, userName = state.preferences.userName,
+                                        eveningFull = state.panels.eveningFullDay == day.date,
+                                        skippedHidden = state.panels.skippedHiddenDay == day.date,
+                                        // Tomorrow's exam or deadline is what keeps tonight's plan untouched.
+                                        tomorrowHasDeadline = data.milestones.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) } ||
+                                            data.taskMarkers.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) } ||
+                                            data.goalMarkers.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) }) }
+                                    TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset, bottomInset = bottomInset) { onAction(TimelineAction.SelectDate(it, true)) }
+                                    TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset, bottomInset = bottomInset) { onAction(TimelineAction.SelectDate(it, true)) }
+                                    TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset, bottomInset = bottomInset) { onAction(TimelineAction.SelectDate(it, true)) }
                                 }
                             }
                         }
@@ -348,11 +404,16 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             // longer covers, under glass.
             Column(
                 Modifier.align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = RoutineSpacing.md, start = RoutineSpacing.md, end = RoutineSpacing.md)
+                    // Measured *outside* the insets and the gap, so the number is the whole footprint:
+                    // status bar, the gap above the pane, and the pane. The chain used to end with
+                    // onSizeChanged, which reports what is left after the paddings above it — the pane
+                    // alone — so on every screen the first line sat exactly the status bar deep under
+                    // the open island. The order of these modifiers is the fix, not a style choice.
                     .onSizeChanged { size ->
                         if (!collapsed) topInset = with(density) { size.height.toDp() }
-                    },
+                    }
+                    .statusBarsPadding()
+                    .padding(top = RoutineSpacing.md, start = RoutineSpacing.md, end = RoutineSpacing.md),
             ) {
                 RoutineGlassSurface(
                     modifier = Modifier.fillMaxWidth().testTag("app-top-bar"),
@@ -369,7 +430,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         ) {
                             if (state.panels.showGoals) {
                                 GlassIconButton(onClick = { onAction(TimelineAction.CloseGoals) }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back), Modifier.size(20.dp))
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back), Modifier.size(RoutineMetrics.IconSize))
                                 }
                                 RoutineLabel(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge)
                                 Spacer(Modifier.weight(1f))
@@ -380,7 +441,11 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                     AnimatedContent(targetState = collapsed, label = "header-title",
                                         transitionSpec = { ContentTransform(fadeIn(effectSpec<Float>(reduceMotion)), fadeOut(effectSpec<Float>(reduceMotion)), sizeTransform = SizeTransform(clip = false)) }) { isCollapsed ->
                                         if (isCollapsed) {
-                                            RoutineLabel(periodTitle(data), style = MaterialTheme.typography.titleLarge)
+                                            // Two lines, then still the auto-shrink inside RoutineLabel: the bar can be
+                                            // narrow with four actions beside it, and the period it
+                                            // names is the one thing that must never read "sreda, 16. sep…".
+                                            RoutineLabel(periodTitle(data), style = MaterialTheme.typography.titleLarge,
+                                                maxLines = RoutineTextDefaults.Body, heading = true)
                                         } else {
                                             // The brand answers the door: the LockIn mark with its wordmark
                                             // lives where the plain app-name text used to sit. This is the
@@ -395,9 +460,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 }
                                 // One pane of glass per action: each button is a piece of glass itself,
                                 // not a transparent click target painted on the bar's frame.
-                                GlassIconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open), Modifier.size(20.dp)) }
+                                GlassIconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open), Modifier.size(RoutineMetrics.IconSize)) }
                                 Box {
-                                    GlassIconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open), Modifier.size(20.dp)) }
+                                    GlassIconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open), Modifier.size(RoutineMetrics.IconSize)) }
                                     // The badge is the one hero moment allowed a bounce — and the one
                                     // animation that disappears entirely under remove-animations.
                                     val badgeEnter: EnterTransition =
@@ -408,14 +473,25 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                     // Fully qualified on purpose: inside Box{} the RowScope receiver is
                                     // DslMarker-restricted, so the scope extension is not a candidate and
                                     // the compiler wants the top-level one named explicitly.
-                                    androidx.compose.animation.AnimatedVisibility(visible = overdueTasks > 0,
-                                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
+                                    androidx.compose.animation.AnimatedVisibility(visible = waitingTasks > 0,
+                                        modifier = Modifier.align(Alignment.TopEnd).padding(top = BadgeInset, end = BadgeInset),
                                         enter = badgeEnter, exit = badgeExit) {
-                                        Box(Modifier.size(12.dp).padding(2.dp).clip(CircleShape).background(RoutineColors.Error))
+                                        // A dot, not a number. The count sat on the corner of a 40 dp glass
+                                        // pane and grew over the checklist glyph as soon as it reached two
+                                        // digits, which is exactly the "something is hidden under something"
+                                        // the design rules out. The dot keeps the colour meaning (red = a
+                                        // deadline today or tomorrow, quiet grey = something is late), and the
+                                        // number itself is spoken and lives one tap away in the tasks sheet.
+                                        Box(
+                                            Modifier.size(BadgeDot)
+                                                .clip(CircleShape)
+                                                .background(if (dueSoonTasks > 0) RoutineColors.Error else RoutineColors.TextMuted)
+                                                .semantics { contentDescription = badgeLabel },
+                                        )
                                     }
                                 }
-                                GlassIconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open), Modifier.size(20.dp)) }
-                                GlassIconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings), Modifier.size(20.dp)) }
+                                GlassIconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open), Modifier.size(RoutineMetrics.IconSize)) }
+                                GlassIconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings), Modifier.size(RoutineMetrics.IconSize)) }
                             }
                         }
                         // The marketing line does not earn 18 dp of every screen forever: it moved to the
@@ -425,8 +501,18 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                             enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
                             exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                         ) {
-                            DateNavigator(periodTitle(data), onPrevious = { onAction(TimelineAction.Shift(-1)) }, onNext = { onAction(TimelineAction.Shift(1)) },
-                                onToday = { onAction(TimelineAction.Today) }, onPick = { haptics.tap(); choosingDate = true })
+                            DateNavigator(periodTitle(data),
+                                onToday = { onAction(TimelineAction.Today) },
+                                onPick = { haptics.tap(); choosingDate = true },
+                                onShift = { direction -> onAction(TimelineAction.Shift(direction.toLong())) },
+                                // "Today" means different things at different scales: the day the reader is
+                                // living in, the week that contains it, the month, the school year. Each is
+                                // compared the way the screen itself defines the period.
+                                isCurrentPeriod = when (data.mode) {
+                                    TimelineMode.DAY -> data.date == now.toLocalDate()
+                                    TimelineMode.WEEK, TimelineMode.MONTH, TimelineMode.YEAR ->
+                                        data.date in PeriodRanges.range(now.toLocalDate(), data.mode).let { (first, last) -> first..last }
+                                })
                         }
                         AnimatedVisibility(
                             visible = !state.panels.showGoals,
@@ -441,7 +527,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 Modifier.fillMaxWidth()
                                     .padding(horizontal = RoutineSpacing.sm)
                                     .padding(bottom = RoutineSpacing.sm)
-                                    .height(40.dp),
+                                    // The strip is as tall as a finger needs, the capsule inside it keeps
+                                    // the 40 dp the design asked for.
+                                    .height(RoutineMetrics.TouchTarget),
                             ) {
                             val count = TimelineMode.entries.size
                             val cell = maxWidth / count
@@ -452,6 +540,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                             )
                             Box(
                                 Modifier.width(cell).fillMaxHeight()
+                                    .padding(vertical = 4.dp)
                                     // Draw-phase translation, not layout offset: the capsule glides
                                     // without re-measuring the row on every spring frame.
                                     .graphicsLayer { translationX = slide.toPx() }
@@ -495,7 +584,16 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         .height(56.dp).testTag("fast-add")
                         // The container transform's origin: the pane that grows into the sheet
                         // starts exactly where this pill sits, so it is measured, not estimated.
-                        .onGloballyPositioned { coordinates -> pillBoundsPx = coordinates.boundsInWindow() }
+                        // Root pixels, because root is the space the morph lays the pane out in —
+                        // the no-arg boundsInWindow() is hidden-deprecated in this Compose version.
+                        .onGloballyPositioned { coordinates ->
+                            pillBoundsPx = coordinates.boundsInRoot()
+                            // Distance from the bottom of the window to the top of the pill, plus the
+                            // gap the list keeps under it. Root pixels, the same space the morph uses.
+                            bottomInset = with(density) {
+                                (windowPx.height - coordinates.boundsInRoot().top).toDp()
+                            } + RoutineSpacing.md
+                        }
                         .routineGlassTouch(fastAddTouch, RoutineShapes.Pill)
                         .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control,
                             tilt = LocalGlassTilt.current)
@@ -561,7 +659,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         if (choosingDate) AppDatePicker(data.date, onDismiss = { choosingDate = false }, onDate = { onAction(TimelineAction.SelectDate(it)); choosingDate = false })
         RoutineSheet(state.panels.showAdd) { sheetState -> key(state.panels.addSession) {
             EntryEditorSheet(data.date, data.subjects, data.subjectPresets, state.planning.history, state.panels.editingMilestone, state.panels.isSaving, sheetState,
-                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, onEditSubject = { subject -> onAction(TimelineAction.EditSubject(subject)) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation, prefillTitle = state.panels.entryPrefillTitle)
+                onDismiss = { onAction(TimelineAction.CloseAdd) }, onSave = { onAction(TimelineAction.SaveEntry(it)) }, onNewSubject = { onAction(TimelineAction.EditSubject()) }, onEditSubject = { subject -> onAction(TimelineAction.EditSubject(subject)) }, defaults = state.preferences.entryDefaults, continuation = state.panels.entryContinuation, prefillTitle = state.panels.entryPrefillTitle,
+                prefill = state.panels.entryPrefill)
         } }
         RoutineSheet(state.panels.showSettings) { sheetState -> SettingsSheet(state.preferences, data.subjects, state.panels.isSaving, access, state.exampleLoaded, state.sleep, onAction = onAction,
             exportJson = state.panels.exportJson,
@@ -583,7 +682,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         }
         state.panels.editingSubject?.let { editing -> SubjectEditorDialog(editing, state.panels.isSaving, onDismiss = { onAction(TimelineAction.CloseSubjectEditor) },
             onSave = { subject -> onAction(TimelineAction.SaveSubject(subject)) },
-            onDelete = if (editing.id == 0L) null else { { onAction(TimelineAction.DeleteSubject(editing.id)); onAction(TimelineAction.CloseSubjectEditor) } }) }
+            onDelete = if (editing.id == 0L) null else { { onAction(TimelineAction.DeleteSubject(editing.id)); onAction(TimelineAction.CloseSubjectEditor) } },
+            // A new subject takes a colour no other subject is using; see SubjectPalette.firstFree.
+            takenColors = data.subjects.map { it.colorHex }) }
         state.panels.pendingDelete?.let { item ->
             val recurring = item is ResolvedTimelineItem.Block && !item.isOneOff
             val group = (item as? ResolvedTimelineItem.Block)?.takeIf { it.parentRoutineId == null && it.origin == com.example.mydailyroutine.domain.routines.RoutineOrigin.USER }?.seriesKey
@@ -663,7 +764,7 @@ private fun AddBlockMorph(
         // nothing is just a flicker. The sheet opens normally instead.
         if (reduceMotion || backdrop == null || window.width == 0 || pill.width <= 0f) return@LaunchedEffect
         progress = 0f
-        animateFloat(0f, 1f, tween(420, easing = FastOutSlowInEasing)) { progress = it }
+        animate(0f, 1f, animationSpec = tween(420, easing = FastOutSlowInEasing)) { value, _ -> progress = value }
         // The sheet owns the surface now; leave composition entirely so the pane stops sampling.
         progress = 0f
     }
@@ -674,12 +775,11 @@ private fun AddBlockMorph(
     val sheetTop = window.height * 0.08f
     val sheetTopRadius = with(density) { 24.dp.toPx() }
     val pillRadius = pill.height / 2f
-    val topPx = lerp(pill.top, sheetTop, p)
-    val left = with(density) { (pill.left * (1f - p)).toDp() }
-    val top = with(density) { topPx.toDp() }
     // Pixel precision for the growing pane: Dp would round through density and lose half a pixel.
-    val width = lerp(pill.width, window.width.toFloat(), p).roundToInt()
-    val height = (window.height - topPx).roundToInt()
+    val paneLeft = (pill.left * (1f - p)).roundToInt()
+    val paneTop = lerp(pill.top, sheetTop, p).roundToInt()
+    val paneWidth = lerp(pill.width, window.width.toFloat(), p).roundToInt().coerceAtLeast(0)
+    val paneHeight = (window.height - paneTop).coerceAtLeast(0)
     val shape = RoundedCornerShape(
         topStart = with(density) { lerp(pillRadius, sheetTopRadius, p).toDp() },
         topEnd = with(density) { lerp(pillRadius, sheetTopRadius, p).toDp() },
@@ -691,14 +791,23 @@ private fun AddBlockMorph(
             // Visible for the first 55% of the morph, then gone — the handover hides the point
             // where the sheet's own spring and the morph's easing stop agreeing.
             .graphicsLayer { alpha = 1f - ((p - 0.55f) / 0.45f).coerceIn(0f, 1f) }
-            .padding(start = left, top = top)
-            .width(width)
-            .height(height)
+            // Measured placement: the pane is laid out at its pixel rectangle inside the window
+            // instead of being nudged there, which is the layout invariant the whole app keeps.
+            .layout { measurable, constraints ->
+                val pane = measurable.measure(Constraints.fixed(paneWidth, paneHeight))
+                layout(constraints.constrainWidth(window.width), constraints.constrainHeight(window.height)) {
+                    pane.place(paneLeft, paneTop)
+                }
+            }
             .routineGlass(backdrop, shape, GlassRole.Bar, specular = true, tilt = LocalGlassTilt.current)
             .background(RoutineColors.Primary.copy(alpha = 0.16f), shape)
             .clip(shape),
     )
 }
+
+/** Size of the due-dot on the tasks button, and its distance from the button's corner. */
+private val BadgeDot = 8.dp
+private val BadgeInset = 6.dp
 
 /** Header text for the period being shown. Dates come from [RoutineDate] and never from an inline
  *  formatter, so the same period reads the same everywhere in the app. */

@@ -33,6 +33,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,6 +56,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.CategoryTabs
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
+import com.example.mydailyroutine.core.platform.Diagnostics
 import com.example.mydailyroutine.core.designsystem.components.RoutineSheetListScaffold
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
@@ -63,6 +65,7 @@ import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.sound.LocalRoutineSounds
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.presentation.TimelineAction
@@ -123,7 +126,10 @@ fun SettingsSheet(
     ) {
         RoutineSheetListScaffold(
             title = stringResource(R.string.settings_title),
-            subtitle = stringResource(R.string.privacy_summary),
+            // No subtitle here. The privacy sentence used to sit under the title, where it pushed the
+            // five tabs below the fold on a 640 dp screen and read as a manifesto before the reader
+            // had seen a single setting. It moved to the Data tab, which is where a reader who cares
+            // about privacy actually goes; the tabs are the first thing the sheet shows.
             closeLabel = stringResource(R.string.close),
             onClose = onDismiss,
             modifier = Modifier.testTag("settings-sheet"),
@@ -477,7 +483,7 @@ private fun LazyListScope.dataTab(
         items(subjects, key = { "subject:${it.id}" }) { subject ->
             OutlinedCard(
                 shape = RoutineShapes.Card,
-                border = BorderStroke(1.dp, RoutineColors.Border),
+                border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 modifier = Modifier.fillMaxWidth().clickable(enabled = !busy) { onAction(TimelineAction.EditSubject(subject)) },
             ) {
                 Row(
@@ -494,7 +500,7 @@ private fun LazyListScope.dataTab(
                             color = RoutineColors.TextSecondary,
                         )
                     }
-                    Icon(Icons.Outlined.Edit, null, Modifier.size(20.dp), tint = RoutineColors.TextMuted)
+                    Icon(Icons.Outlined.Edit, null, Modifier.size(RoutineMetrics.IconSize), tint = RoutineColors.TextMuted)
                 }
             }
         }
@@ -524,6 +530,10 @@ private fun LazyListScope.dataTab(
                 color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
         }
     }
+    item(key = "settings-privacy-summary") {
+        RoutineText(stringResource(R.string.privacy_summary), style = MaterialTheme.typography.bodySmall,
+            color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)
+    }
     item(key = "settings-backup") {
         Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
             RoutineText(stringResource(R.string.backup_heading), style = MaterialTheme.typography.titleLarge,
@@ -534,7 +544,7 @@ private fun LazyListScope.dataTab(
                 enabled = !busy,
                 onClick = { onAction(TimelineAction.ExportSchedule) },
                 shape = RoutineShapes.Pill,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = RoutineMetrics.ControlHeight),
             ) { RoutineLabel(stringResource(R.string.backup_export), style = MaterialTheme.typography.labelLarge) }
             OutlinedTextField(
                 value = importText,
@@ -548,11 +558,55 @@ private fun LazyListScope.dataTab(
                 enabled = !busy && importText.isNotBlank(),
                 onClick = { onAction(TimelineAction.ImportSchedule(importText)) },
                 shape = RoutineShapes.Pill,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = RoutineMetrics.ControlHeight),
             ) { RoutineLabel(stringResource(R.string.backup_import), style = MaterialTheme.typography.labelLarge) }
         }
     }
+    item(key = "settings-diagnostics") {
+        DiagnosticsSection()
+    }
     item(key = "settings-divider") { HorizontalDivider(color = RoutineColors.Border) }
+}
+
+/**
+ * The last few things that went wrong, on the device they went wrong on.
+ *
+ * Nothing here is uploaded: the app has no network at all. The point is that a vague "could not
+ * save" stops being the end of the story — the reader can see whether it happened once, ten minutes
+ * ago, or twenty times this week, and can say so out loud instead of guessing.
+ */
+@Composable
+private fun DiagnosticsSection() {
+    val recent by Diagnostics.recent.collectAsState()
+    Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+        RoutineText(stringResource(R.string.diagnostics_title), style = MaterialTheme.typography.titleLarge,
+            maxLines = RoutineTextDefaults.Body)
+        RoutineText(stringResource(R.string.diagnostics_description), style = MaterialTheme.typography.bodySmall,
+            color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
+        if (recent.isEmpty()) {
+            RoutineText(stringResource(R.string.diagnostics_empty), style = MaterialTheme.typography.bodyMedium,
+                color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
+        } else {
+            OutlinedCard(
+                shape = RoutineShapes.Card,
+                border = BorderStroke(1.dp, RoutineColors.CardBorder),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(RoutineSpacing.md),
+                    verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
+                ) {
+                    recent.forEach { line ->
+                        RoutineText(line, style = MaterialTheme.typography.bodySmall,
+                            color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Body)
+                    }
+                }
+            }
+            TextButton(onClick = { Diagnostics.clear() }) {
+                RoutineLabel(stringResource(R.string.diagnostics_clear), style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
 }
 
 @Composable

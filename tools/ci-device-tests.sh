@@ -1,6 +1,48 @@
 #!/usr/bin/env bash
 set -uo pipefail
 status=0
+
+# The device is put into the language the app is written for before anything is installed. The app
+# speaks the phone's language where it has a complete translation and Slovenian otherwise, so this
+# decides what the run is evidence of: the screenshots the design audit reads, the stress of the
+# longest strings (Slovenian runs longer than English), and the language the seeded school calendar
+# is written in. The tests themselves assert the rule, not this device's answer, so the suite also
+# passes on an English device — this only says which device this run describes.
+locale_now="$(adb shell getprop persist.sys.locale 2>/dev/null | tr -d '\r')"
+if [ "$locale_now" != "sl-SI" ]; then
+  adb root > /dev/null 2>&1 || true
+  adb wait-for-device > /dev/null 2>&1 || true
+  adb shell "setprop persist.sys.locale sl-SI" > /dev/null 2>&1 || true
+  # The framework reads the property while starting, so it is restarted rather than guessed at.
+  adb shell stop > /dev/null 2>&1 || true
+  adb shell start > /dev/null 2>&1 || true
+  adb wait-for-device > /dev/null 2>&1 || true
+  for _ in $(seq 1 40); do
+    [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+    sleep 3
+  done
+  # The framework comes back to the lock screen, and a window that never takes focus breaks the one
+  # test that presses the system back button (Espresso waits for focus, Compose's own injection does
+  # not). Dismissing the keyguard belongs to preparing the device, not to a test.
+  adb shell wm dismiss-keyguard > /dev/null 2>&1 || true
+  adb shell input keyevent 82 > /dev/null 2>&1 || true
+  sleep 3
+  adb shell wm dismiss-keyguard > /dev/null 2>&1 || true
+fi
+# A headless emulator may have its screen off, and Espresso refuses to work while the app's window
+# has no focus; Compose's own injection never notices. Keeping the device awake makes the one test
+# that presses the system back button able to run at all.
+adb shell svc power stayon true > /dev/null 2>&1 || true
+adb shell settings put system screen_off_timeout 1800000 > /dev/null 2>&1 || true
+adb shell input keyevent KEYCODE_WAKEUP > /dev/null 2>&1 || true
+adb shell wm dismiss-keyguard > /dev/null 2>&1 || true
+
+locale_now="$(adb shell getprop persist.sys.locale 2>/dev/null | tr -d '\r')"
+if [ "$locale_now" = "sl-SI" ]; then
+  echo "::notice title=device language::sl-SI (the app is Slovenian-first; screenshots and seeded calendar follow it)"
+else
+  echo "::warning title=device language::could not set sl-SI (device says '$locale_now'); the run describes that language instead"
+fi
 ./gradlew :app:connectedDebugAndroidTest --stacktrace 2>&1 | tee ci-device.log || status=$?
 
 # Collect the ui-audit screenshots. Gradle uninstalls both APKs when the connected-test task ends,
@@ -13,6 +55,33 @@ status=0
 # printed, then the emulator's crash buffer and the last AndroidRuntime lines. Without this a failed
 # instrumentation run is indistinguishable from a broken emulator.
 if [ "$status" -ne 0 ]; then
+  # One annotation that says exactly what this run executed and what failed inside it: the per-test
+  # annotations are capped, and "15 failed" without the fifteen names is not a report. The counts come
+  # from the XML files, which are the record the tooling actually agrees on.
+  python3 - > /tmp/device-summary.txt 2>&1 <<'SUMMARY_PY' || true
+import pathlib, xml.etree.ElementTree as ET
+rows, total, failed, skipped = [], 0, 0, 0
+for report in sorted(pathlib.Path('app/build').rglob('TEST-*.xml')):
+    try:
+        tree = ET.parse(report)
+    except ET.ParseError:
+        continue
+    cases = list(tree.iter('testcase'))
+    bad = [case for case in cases if case.findall('failure') or case.findall('error')]
+    total += len(cases); failed += len(bad)
+    skipped += sum(1 for case in cases if case.findall('skipped'))
+    rows.append('%s: %d run, %d failed' % (report.name.replace('TEST-', '').replace('.xml', ''), len(cases), len(bad)))
+    for case in bad:
+        error = (case.findall('failure') + case.findall('error'))[0]
+        detail = ' '.join(((error.attrib.get('message') or '') + ' ' + (error.text or '')).split())[:180]
+        rows.append('  - %s :: %s' % (case.attrib.get('name', ''), detail))
+rows.insert(0, 'total %d, failed %d, skipped %d' % (total, failed, skipped))
+print(' | '.join(rows)[:9000])
+SUMMARY_PY
+  if [ -s /tmp/device-summary.txt ]; then
+    summary="$(tr -d '\r' < /tmp/device-summary.txt | sed 's/%/%25/g' | cut -c1-9000)"
+    echo "::error title=device test summary::$summary"
+  fi
   adb logcat -d -b crash -v threadtime > ci-device-crash.log 2>&1 || true
   adb logcat -d -v threadtime > ci-device-logcat.log 2>&1 || true
   esc() { printf '%s' "$1" | tr -d '\r' | sed 's/%/%25/g' | cut -c1-400; }

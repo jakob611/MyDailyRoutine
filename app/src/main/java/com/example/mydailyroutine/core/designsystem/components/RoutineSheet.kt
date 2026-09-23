@@ -11,7 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.consumeAll
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 
@@ -52,7 +51,6 @@ fun Modifier.sheetFlingStabilizer(): Modifier = this.nestedScroll(
     object : NestedScrollConnection {
         // onPostFling is only ever dispatched for real flings, so consuming everything here
         // is exactly the residual that would otherwise reach the sheet and sink it.
-        override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
-            available.consumeAll()
+        override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
     },
 )
