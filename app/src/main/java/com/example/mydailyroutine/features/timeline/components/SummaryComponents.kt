@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.Icon
@@ -35,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
 import com.example.mydailyroutine.core.designsystem.components.GlassChipButton
+import com.example.mydailyroutine.core.designsystem.components.swipeToShift
 import com.example.mydailyroutine.core.designsystem.components.GlassContentChip
 import com.example.mydailyroutine.core.designsystem.components.GlassIconButton
 import com.example.mydailyroutine.core.designsystem.components.MonthMarkIcon
@@ -60,10 +59,11 @@ import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 @Composable
 fun DateNavigator(
     title: String,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
     onToday: () -> Unit,
     onPick: () -> Unit,
+    onShift: (Int) -> Unit,
+    /** True while the period on screen is the one the reader is living in. */
+    isCurrentPeriod: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val pickLabel = stringResource(R.string.choose_date)
@@ -72,13 +72,15 @@ fun DateNavigator(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
     ) {
-        GlassIconButton(onPrevious) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.previous_period), Modifier.size(20.dp))
-        }
-        // The title is the date picker: one control instead of a fourth icon competing for width.
+        // The title is the only control left in this row, and it is two things at once: it opens the
+        // date picker, and a sideways drag on it moves through time. The two arrows that used to sit
+        // beside it were redundant — the content already answers a sideways swipe, and an arrow pair
+        // pointing at a value that is usually "today" is chrome with nothing to say. Removing them
+        // also gave the title the full width, which is where its two lines actually fit.
         GlassContentChip(onClick = onPick, modifier = Modifier.weight(1f), label = pickLabel) {
             Row(
-                Modifier.padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
+                Modifier.swipeToShift(enabled = true, onShift = onShift)
+                    .padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
             ) {
@@ -93,10 +95,10 @@ fun DateNavigator(
                 Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(16.dp), tint = RoutineColors.TextSecondary)
             }
         }
-        GlassChipButton(stringResource(R.string.today), onToday)
-        GlassIconButton(onNext) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.next_period), Modifier.size(20.dp))
-        }
+        // "Danes" appears only when it would do something. On the day the reader is actually living
+        // in, a button that returns to where they already are is a button that teaches them the app
+        // has controls they do not need.
+        if (!isCurrentPeriod) GlassChipButton(stringResource(R.string.today), onToday)
     }
 }
 

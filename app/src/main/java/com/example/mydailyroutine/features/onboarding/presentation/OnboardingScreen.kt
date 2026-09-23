@@ -30,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -40,7 +39,6 @@ import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
-import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
@@ -48,23 +46,22 @@ import com.example.mydailyroutine.core.presentation.TimelineAction
 import java.time.LocalTime
 
 /**
- * The first run, in four short steps: who the reader is, when school is, what the screens mean, and
- * a way to have a day with a block in it before the second minute is over.
+ * The first run, in **two** steps: who the reader is, and what should be on today when they arrive.
  *
- * Three rules shaped it:
+ * It used to be four, and two of them were the app explaining itself: a step about school hours and a
+ * step that was a legend of colours, tabs and gestures. Both read as a manual handed over before the
+ * reader has seen anything, and both were answering questions nobody had asked yet — the colour
+ * legend even described the calendar the way it worked two versions ago. What is left is the two
+ * things the app genuinely cannot guess:
  *
- * * **Nothing here is required.** The name may be left empty, and the whole flow can be skipped; the
- *   defaults it would have set are already the ones the app ships with. A first screen that demands
- *   answers before it shows anything is the fastest way to lose the reader on a phone.
- * * **The last step produces a day, not a sentence.** "Load the IB example" fills today with blocks
- *   that can be ticked off straight away, which is the whole point of installing a routine app.
- * * **It explains, it does not sell.** The third step is a legend — the four scales, the add pill,
- *   the colours — because the interface already works, and a reader who knows what a colour means
- *   stops being afraid of tapping it.
+ * * **A name, which may be left empty.** It appears in one greeting on an empty day; skipping it
+ *   changes nothing else. Nothing here is required, and the whole flow can still be skipped.
+ * * **A first day.** Loading the IB example fills the timeline with blocks that can be ticked off
+ *   immediately, which is the only way to understand this app: it is a day, not a description of one.
  *
- * No cloud question is asked: there is no account and no server, so offering a "free backup" here
- * would be a promise the app cannot keep. When that changes, the step belongs between the third and
- * the fourth, and the flag in `SchedulePreferences` already exists to gate it.
+ * School hours moved to Settings → Ritem, where they already had a home and where a reader who knows
+ * their timetable will look for them. No cloud question is asked: there is no account and no server,
+ * so offering a "free backup" here would be a promise the app cannot keep.
  */
 @Composable
 fun OnboardingScreen(
@@ -76,17 +73,16 @@ fun OnboardingScreen(
 ) {
     var step by rememberSaveable { mutableIntStateOf(0) }
     var name by rememberSaveable { mutableStateOf(userName) }
-    var start by rememberSaveable { mutableStateOf(clock(schoolStart)) }
-    var end by rememberSaveable { mutableStateOf(clock(schoolEnd)) }
     val lastStep = Step.entries.lastIndex
-    val windowInvalid = start == end
 
+    // School hours are carried through unchanged: the flow no longer asks for them, but the
+    // preferences the app ships with still have to be written with the values it started from.
     fun finish(loadExample: Boolean) {
         onAction(
             TimelineAction.FinishOnboarding(
                 userName = name.trim(),
-                schoolStart = LocalTime.parse(start),
-                schoolEnd = LocalTime.parse(end),
+                schoolStart = schoolStart,
+                schoolEnd = schoolEnd,
                 loadExample = loadExample,
             ),
         )
@@ -97,7 +93,7 @@ fun OnboardingScreen(
             Modifier.fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = RoutineSpacing.xl, vertical = RoutineSpacing.lg),
+                .padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -126,36 +122,10 @@ fun OnboardingScreen(
                             modifier = Modifier.fillMaxWidth().testTag("onboarding-name"),
                         )
                     }
-                    Step.RHYTHM -> {
-                        Heading(stringResource(R.string.onboarding_rhythm_title))
-                        Body(stringResource(R.string.onboarding_rhythm_body))
-                        RoutineTimeField(
-                            value = start,
-                            onPick = { start = it },
-                            label = stringResource(R.string.onboarding_school_start),
-                            modifier = Modifier.fillMaxWidth(),
-                            wheelTag = "onboarding-start",
-                        )
-                        RoutineTimeField(
-                            value = end,
-                            onPick = { end = it },
-                            label = stringResource(R.string.onboarding_school_end),
-                            modifier = Modifier.fillMaxWidth(),
-                            supporting = if (windowInvalid) stringResource(R.string.onboarding_rhythm_error) else null,
-                            wheelTag = "onboarding-end",
-                        )
-                    }
-                    Step.MEANING -> {
-                        Heading(stringResource(R.string.onboarding_meaning_title))
-                        Meaning(RoutineColors.Primary, stringResource(R.string.onboarding_meaning_scales))
-                        Meaning(RoutineColors.Timer, stringResource(R.string.onboarding_meaning_swipe))
-                        Meaning(RoutineColors.Warning, stringResource(R.string.onboarding_meaning_add))
-                        Meaning(RoutineColors.FocusAccent, stringResource(R.string.onboarding_meaning_colors))
-                        Meaning(RoutineColors.Success, stringResource(R.string.onboarding_meaning_quiet))
-                    }
                     Step.START -> {
                         Heading(stringResource(R.string.onboarding_start_title))
                         Body(stringResource(R.string.onboarding_start_body))
+                        Body(stringResource(R.string.onboarding_rhythm_note))
                     }
                 }
             }
@@ -164,15 +134,6 @@ fun OnboardingScreen(
                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (step > 0) {
-                    OutlinedButton(
-                        onClick = { step -= 1 },
-                        shape = RoutineShapes.Pill,
-                        modifier = Modifier.testTag("onboarding-back"),
-                    ) {
-                        RoutineLabel(stringResource(R.string.onboarding_back), style = MaterialTheme.typography.labelLarge)
-                    }
-                }
                 when (Step.entries[step]) {
                     Step.START -> {
                         Button(
@@ -186,7 +147,6 @@ fun OnboardingScreen(
                     else -> {
                         Button(
                             onClick = { step += 1 },
-                            enabled = !(Step.entries[step] == Step.RHYTHM && windowInvalid),
                             shape = RoutineShapes.Pill,
                             modifier = Modifier.weight(1f).testTag("onboarding-next"),
                         ) {
@@ -204,15 +164,21 @@ fun OnboardingScreen(
                     RoutineLabel(stringResource(R.string.onboarding_start_empty), style = MaterialTheme.typography.labelLarge)
                 }
             }
+            if (step > 0) {
+                TextButton(
+                    onClick = { step -= 1 },
+                    modifier = Modifier.align(Alignment.CenterHorizontally).testTag("onboarding-back"),
+                ) {
+                    RoutineLabel(stringResource(R.string.onboarding_back), style = MaterialTheme.typography.labelLarge,
+                        color = RoutineColors.TextSecondary)
+                }
+            }
         }
     }
 }
 
 /** Which screen of the flow is showing; the order here is the order the reader walks. */
-private enum class Step { WELCOME, RHYTHM, MEANING, START }
-
-/** `07:45`, the shape every time field in the app speaks. */
-private fun clock(time: LocalTime): String = "%02d:%02d".format(time.hour, time.minute)
+private enum class Step { WELCOME, START }
 
 @Composable
 private fun Heading(text: String) {
@@ -231,17 +197,6 @@ private fun Body(text: String) {
         color = RoutineColors.TextSecondary,
         maxLines = RoutineTextDefaults.Paragraph,
     )
-}
-
-/** One line of the legend: a colour, a name for it, and what it does. */
-@Composable
-private fun Meaning(color: Color, text: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.md), verticalAlignment = Alignment.Top) {
-        Box(
-            Modifier.padding(top = RoutineSpacing.sm).size(10.dp).clip(CircleShape).background(color),
-        )
-        Body(text)
-    }
 }
 
 /** Four dots, one per step: where the reader is, without a number that sounds like a form. */

@@ -462,25 +462,24 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                     // DslMarker-restricted, so the scope extension is not a candidate and
                                     // the compiler wants the top-level one named explicitly.
                                     androidx.compose.animation.AnimatedVisibility(visible = waitingTasks > 0,
-                                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp),
+                                        modifier = Modifier.align(Alignment.TopEnd).padding(top = BadgeInset, end = BadgeInset),
                                         enter = badgeEnter, exit = badgeExit) {
-                                        val badgeLabel = pluralStringResource(R.plurals.tasks_badge_waiting, waitingTasks, waitingTasks)
+                                        // A dot, not a number. The count sat on the corner of a 40 dp glass
+                                        // pane and grew over the checklist glyph as soon as it reached two
+                                        // digits, which is exactly the "something is hidden under something"
+                                        // the design rules out. The dot keeps the colour meaning (red = a
+                                        // deadline today or tomorrow, quiet grey = something is late), and the
+                                        // number itself is spoken and lives one tap away in the tasks sheet.
                                         Box(
-                                            Modifier.defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
+                                            Modifier.size(BadgeDot)
                                                 .clip(CircleShape)
-                                                .background(RoutineColors.Surface1)
-                                                .padding(horizontal = 4.dp, vertical = 1.dp)
-                                                .semantics { contentDescription = badgeLabel },
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            // The number is the message; red only says "soon". Both colours were
-                                            // measured against the surface they sit on (see docs/PALETTE.md).
-                                            RoutineLabel(
-                                                text = waitingTasks.toString(),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = if (dueSoonTasks > 0) RoutineColors.Error else RoutineColors.TextMuted,
-                                            )
-                                        }
+                                                .background(if (dueSoonTasks > 0) RoutineColors.Error else RoutineColors.TextMuted)
+                                                .semantics {
+                                                    contentDescription = pluralStringResource(
+                                                        R.plurals.tasks_badge_waiting, waitingTasks, waitingTasks,
+                                                    )
+                                                },
+                                        )
                                     }
                                 }
                                 GlassIconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open), Modifier.size(20.dp)) }
@@ -494,8 +493,18 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                             enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
                             exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                         ) {
-                            DateNavigator(periodTitle(data), onPrevious = { onAction(TimelineAction.Shift(-1)) }, onNext = { onAction(TimelineAction.Shift(1)) },
-                                onToday = { onAction(TimelineAction.Today) }, onPick = { haptics.tap(); choosingDate = true })
+                            DateNavigator(periodTitle(data),
+                                onToday = { onAction(TimelineAction.Today) },
+                                onPick = { haptics.tap(); choosingDate = true },
+                                onShift = { direction -> onAction(TimelineAction.Shift(direction.toLong())) },
+                                // "Today" means different things at different scales: the day the reader is
+                                // living in, the week that contains it, the month, the school year. Each is
+                                // compared the way the screen itself defines the period.
+                                isCurrentPeriod = when (data.mode) {
+                                    TimelineMode.DAY -> data.date == now.toLocalDate()
+                                    TimelineMode.WEEK, TimelineMode.MONTH, TimelineMode.YEAR ->
+                                        data.date in PeriodRanges.range(now.toLocalDate(), data.mode).let { (first, last) -> first..last }
+                                })
                         }
                         AnimatedVisibility(
                             visible = !state.panels.showGoals,
@@ -780,6 +789,10 @@ private fun AddBlockMorph(
             .clip(shape),
     )
 }
+
+/** Size of the due-dot on the tasks button, and its distance from the button's corner. */
+private val BadgeDot = 8.dp
+private val BadgeInset = 6.dp
 
 /** Header text for the period being shown. Dates come from [RoutineDate] and never from an inline
  *  formatter, so the same period reads the same everywhere in the app. */
