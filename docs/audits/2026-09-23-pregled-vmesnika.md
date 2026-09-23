@@ -42,7 +42,7 @@ zapisana kot taka.
 ## 3. Kar ostaja odprto (in kdo to lahko zapre)
 
 1. **Vse iz tega kroga je bilo zeleno le v CI, ne na tvojem telefonu.** Zadnja gradbena številka
-   `0c66a29` je pognala 229 enotskih testov, 68 preizkusov na emulatorju (dva nova) in pet statičnih
+   `5c4f3c3` je pognala 229 enotskih testov, 68 preizkusov na emulatorju (dva nova) in pet statičnih
    gate-ov. Dve gradnji pred tem sta padli in obe napaki sta popravljeni: branje besedila znotraj
    `semantics { }` (ni @Composable obseg) in manjkajoči uvoz razširitve `getOrNull`. Emulator ni
    telefon: kaj vidiš ti, je edino merilo, ki šteje.
