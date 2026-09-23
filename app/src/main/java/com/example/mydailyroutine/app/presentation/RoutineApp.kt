@@ -367,7 +367,13 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 else -> when (shown.mode) {
                                     TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
                                         state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction,
-                                        topInset = topInset, userName = state.preferences.userName) }
+                                        topInset = topInset, userName = state.preferences.userName,
+                                        eveningFull = state.panels.eveningFullDay == day.date,
+                                        skippedHidden = state.panels.skippedHiddenDay == day.date,
+                                        // Tomorrow's exam or deadline is what keeps tonight's plan untouched.
+                                        tomorrowHasDeadline = data.milestones.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) } ||
+                                            data.taskMarkers.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) } ||
+                                            data.goalMarkers.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) }) }
                                     TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
                                     TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
                                     TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }

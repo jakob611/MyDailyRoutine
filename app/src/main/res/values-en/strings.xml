@@ -51,6 +51,10 @@
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
     <string name="keep">Keep</string>
+    <string name="evening_enough">That is enough for today.</string>
+    <string name="evening_show_all">Show everything</string>
+    <string name="evening_skipped_line">You can leave the skipped blocks for today.</string>
+    <string name="evening_hide_skipped">Hide for today</string>
     <string name="restore">Restore</string>
     <string name="reset">Reset</string>
     <string name="confirm">Confirm</string>
@@ -89,7 +93,7 @@
     <string name="overlap_notice">Overlaps another block</string>
     <string name="carry_in">Continues from %1$s</string>
     <string name="clock_change">Clock moved · started %1$s · actually lasted %2$s</string>
-    <string name="skipped_title">Skipped blocks</string>
+    <string name="skipped_title">Deferred</string>
     <string name="begins_on">Starts %1$s</string>
     <string name="one_off_block">One-off block</string>
     <string name="weekly_blueprint">Weekly blueprint · %1$s</string>
@@ -332,7 +336,7 @@
     <string name="error_block_edit">Enter a title and two different times as HH:mm.</string>
     <string name="error_thresholds">Check the ranges; the minimum gap cannot exceed the maximum.</string>
     <string name="message_updated">The timetable is updated.</string>
-    <string name="message_skipped">The occurrence is skipped. You can restore it below the timeline.</string>
+    <string name="message_skipped">Deferred. You can restore it below the timeline.</string>
     <string name="message_deleted">The entry is deleted.</string>
     <string name="message_quiet_saved">The quiet window is saved.</string>
     <string name="message_teaching_end_saved">The end of teaching is saved.</string>

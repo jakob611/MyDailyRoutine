@@ -298,6 +298,10 @@ class RoutineViewModel(
             is TimelineAction.Restore -> perform { repository.restoreOccurrence(action.routineId, action.date) }
             is TimelineAction.ResetOverride -> perform { repository.resetOverride(action.item.routineBlockId, action.item.occurrenceDate) }
             is TimelineAction.RequestDelete -> panels.update { it.copy(pendingDelete = action.item) }
+            // Two decisions that last one evening and nothing more. Both are the reader's answer about
+            // their own plan, so they are remembered as a date rather than applied to everything after.
+            is TimelineAction.ShowEveningFull -> panels.update { it.copy(eveningFullDay = action.date) }
+            is TimelineAction.HideSkipped -> panels.update { it.copy(skippedHiddenDay = action.date) }
             TimelineAction.DismissDelete -> panels.update { it.copy(pendingDelete = null) }
             TimelineAction.ConfirmDelete -> panels.value.pendingDelete?.let { target -> perform {
                 when (target) {

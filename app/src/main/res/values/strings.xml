@@ -46,6 +46,10 @@
     <string name="edit">Uredi</string>
     <string name="delete">Izbriši</string>
     <string name="keep">Obdrži</string>
+    <string name="evening_enough">Za danes je to dovolj.</string>
+    <string name="evening_show_all">Pokaži vse</string>
+    <string name="evening_skipped_line">Preskočene bloke lahko pustiš za danes.</string>
+    <string name="evening_hide_skipped">Skrij za danes</string>
     <string name="restore">Obnovi</string>
     <string name="reset">Ponastavi</string>
     <string name="confirm">Potrdi</string>
@@ -84,7 +88,7 @@
     <string name="overlap_notice">Prekrivanje z drugim blokom</string>
     <string name="carry_in">Nadaljevanje s %1$s</string>
     <string name="clock_change">Premik ure · začetek %1$s · dejansko trajanje %2$s</string>
-    <string name="skipped_title">Preskočeni bloki</string>
+    <string name="skipped_title">Odloženo</string>
     <string name="begins_on">Začetek %1$s</string>
     <string name="one_off_block">Enkratni blok</string>
     <string name="weekly_blueprint">Tedenska predloga · %1$s</string>
@@ -327,7 +331,7 @@
     <string name="error_block_edit">Vnesi naslov in dve različni uri v obliki UU:mm.</string>
     <string name="error_thresholds">Preveri obsege; najmanjša vrzel ne sme presegati največje.</string>
     <string name="message_updated">Urnik je posodobljen.</string>
-    <string name="message_skipped">Pojavitev je preskočena. Obnoviš jo lahko pod časovnico.</string>
+    <string name="message_skipped">Odloženo. Obnoviš jo lahko pod časovnico.</string>
     <string name="message_deleted">Zapis je izbrisan.</string>
     <string name="message_quiet_saved">Tiho okno je shranjeno.</string>
     <string name="message_teaching_end_saved">Datum zaključka pouka je shranjen.</string>

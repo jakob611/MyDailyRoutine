@@ -50,6 +50,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.presentation.DayUi
+import com.example.mydailyroutine.core.presentation.MinimalEvening
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.clockLabel
 import com.example.mydailyroutine.core.presentation.durationLabel
@@ -94,6 +95,12 @@ fun DailyTimeline(
     topInset: Dp = 0.dp,
     /** What the first-run flow was told to call the reader; empty when nobody was asked. */
     userName: String = "",
+    /** The reader already asked to see this whole evening (N15): the protocol stands down. */
+    eveningFull: Boolean = false,
+    /** The reader already put the skipped blocks aside for this date (N6). */
+    skippedHidden: Boolean = false,
+    /** Tomorrow holds an exam or a deadline: the minimal-state protocol never touches that evening. */
+    tomorrowHasDeadline: Boolean = false,
 ) {
     val today = day.date == now.toLocalDate()
     val nowMinute = now.hour * 60 + now.minute
@@ -124,6 +131,19 @@ fun DailyTimeline(
             now.toInstant() >= window.start && now.toInstant() < window.end
         }?.key
     }
+    // The minimal-state protocol, decided here because "the hour is late" is only true of a clock,
+    // not of a database row. It hides elastic focus work that has not started; everything the day is
+    // built on stays, and one line with "Pokaži vse" is what keeps the hiding reversible (N15).
+    val blocks = day.items.filterIsInstance<ResolvedTimelineItem.Block>()
+    val hiddenKeys = if (!eveningFull) MinimalEvening.hiddenKeys(blocks, nowMinute, runningKey = activeKey) else emptySet()
+    val eveningQuiet = MinimalEvening.engages(
+        blocks = blocks,
+        nowMinute = nowMinute,
+        isToday = today,
+        tomorrowHasDeadline = tomorrowHasDeadline,
+        requestedFull = eveningFull,
+    )
+    val items = if (eveningQuiet) day.items.filterNot { it.key in hiddenKeys } else day.items
     LazyColumn(
         // Tagged so a test can prove the list starts at the very top of the window and slides
         // under the glass bar instead of stopping below it.
@@ -277,6 +297,42 @@ fun DailyTimeline(
                     color = RoutineColors.TextSecondary,
                     maxLines = RoutineTextDefaults.Paragraph,
                 )
+                // The line that makes the quiet evening honest: the plan is still there, one tap away,
+                // and nothing was deleted on the reader's behalf.
+                if (eveningQuiet) Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+                ) {
+                    RoutineText(
+                        text = stringResource(R.string.evening_enough),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = RoutineColors.TextSecondary,
+                        maxLines = RoutineTextDefaults.Body,
+                    )
+                    TextButton(enabled = !busy, onClick = { onAction(TimelineAction.ShowEveningFull(day.date)) }) {
+                        RoutineLabel(stringResource(R.string.evening_show_all), style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+                // Neutral postponement (N6): after eight in the evening the day offers to put the skipped
+                // blocks aside. It is an offer, never a deletion, and it is not a warning colour.
+                if (today && day.cancelled.isNotEmpty() && !skippedHidden && nowMinute >= MinimalEvening.AmnestyHour * 60) Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
+                ) {
+                    RoutineText(
+                        text = stringResource(R.string.evening_skipped_line),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = RoutineColors.TextSecondary,
+                        maxLines = RoutineTextDefaults.Body,
+                    )
+                    TextButton(enabled = !busy, onClick = { onAction(TimelineAction.HideSkipped(day.date)) }) {
+                        RoutineLabel(stringResource(R.string.evening_hide_skipped), style = MaterialTheme.typography.labelLarge)
+                    }
+                }
             }
         }
         if (!SlovenianAcademicCalendar.covers(day.date)) {
@@ -354,7 +410,7 @@ fun DailyTimeline(
         }
         var previousEnd: Int? = null
         var nowPlaced = activeKey != null
-        day.items.forEach { entry ->
+        items.forEach { entry ->
             val before = previousEnd
             if (entry is ResolvedTimelineItem.Block && before != null && entry.startMinute > before) {
                 val minutes = entry.startMinute - before
@@ -400,7 +456,7 @@ fun DailyTimeline(
                 NowMarker(now.toLocalTime().clockLabel(), Modifier.fillMaxWidth().padding(vertical = RoutineSpacing.md))
             }
         }
-        if (day.cancelled.isNotEmpty()) {
+        if (day.cancelled.isNotEmpty() && !skippedHidden) {
             item(key = "cancelled") {
                 OutlinedCard(
                     Modifier.fillMaxWidth().padding(top = RoutineSpacing.md),
