@@ -1563,9 +1563,11 @@ private fun DeleteConfirmation(
  * showed as "0 h" and 45 minutes vanished. The two helpers below are the only place that converts a
  * stored amount into something a reader sees, and both are named after the unit they return.
  */
+@Composable
 private fun goalsHoursLabel(hours: Double): String =
     stringResource(R.string.goals_hours_total_log, formatHoursRounded(hours))
 
+@Composable
 private fun goalsMinutesLabel(minutes: Double): String =
     when {
         minutes < 60 -> stringResource(R.string.duration_minutes, minutes.roundToInt())

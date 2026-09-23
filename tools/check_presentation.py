@@ -129,6 +129,56 @@ for name, rel in screens.items():
     code = (ui_root / rel).read_text()
     assert re.search(rf'fun {name}\((?:[^()]|\([^()]*\))*topInset: Dp', code, re.S), f'{name} cannot clear the glass top bar: {rel}'
 
+# A helper that reads a string must be @Composable, and a semantics block is not a composable
+# scope at all. Both mistakes compile as far as this repository can tell — there is no local
+# compiler — and both cost a full CI cycle (runs 35854122996 and 35905305407), so they are
+# checked here instead.
+def body_of(code, open_index):
+    depth, i = 0, open_index
+    while i < len(code):
+        if code[i] == '{':
+            depth += 1
+        elif code[i] == '}':
+            depth -= 1
+            if depth == 0:
+                return code[open_index:i]
+        i += 1
+    return code[open_index:]
+
+declaration = re.compile('^((?:private |internal |public |protected )?fun [A-Za-z0-9_.]+[(])', re.M)
+for file in ui_files:
+    code = file.read_text()
+    for match in declaration.finditer(code):
+        line_end = code.find(chr(10), match.end())
+        signature_tail = code[match.end():line_end if line_end != -1 else len(code)]
+        if '=' in signature_tail and '{' not in signature_tail:
+            # An expression body usually continues on the following lines, indented:
+            # take them up to where the next member starts at column zero.
+            rest = code[match.end():match.end() + 800]
+            cut = re.search(chr(10) + '[^ ]', rest)
+            body = rest[:cut.start()] if cut else rest
+        else:
+            close_paren = code.find(')', match.end() - 1)
+            brace = code.find('{', match.end() - 1)
+            if brace == -1 or close_paren > brace:
+                continue  # an interface or an expected declaration, with no body to read
+            body = body_of(code, brace)
+        # A LazyListScope builder is not composable itself: its item{} lambdas are, and the
+        # strings inside them are read in a composable scope. Those builders are skipped.
+        builder = 'LazyListScope' in match.group(1) or 'LazyGridScope' in match.group(1)
+        if builder or not re.search('stringResource[(]|pluralStringResource[(]', body):
+            continue
+        # The annotations of this declaration: everything back to the previous blank line or to
+        # where the previous member ended with a closing brace.
+        head = code[max(0, match.start() - 400):match.start()]
+        # rfind, not a regex: the segment is everything after the previous blank line
+        # or the closing brace of the previous member, whichever came last.
+        boundary = max(head.rfind('}' + chr(10)), head.rfind(chr(10) + chr(10)))
+        segment = head[boundary + 1:]
+        if '@Composable' not in segment:
+            name = match.group(1).split('fun ')[1].rstrip('(')
+            assert False, 'Helper ' + name + '() in ' + str(file) + ' reads a string but is not @Composable'
+
 models = list((root / 'core/src/main').rglob('*.kt')) + list((root / 'app/src/main').rglob('*.kt'))
 assert sum('sealed interface ResolvedTimelineItem' in p.read_text() for p in models) == 1
 for file in (root / 'core/src/main').rglob('*.kt'):
