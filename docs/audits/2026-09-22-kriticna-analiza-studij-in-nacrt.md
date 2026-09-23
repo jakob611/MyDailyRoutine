@@ -267,16 +267,26 @@ bilo videti najceneje.
 | --- | --- | --- | --- |
 | `2b657b5` | **N1, N2** | Prazen dan ne izriše povzetka (ostane naslov in kartica z vabilom); vrstica rezerve se pokaže le, kadar je resnična; "Uskladi zamudo", "Čakalna vrsta" in pojasnilo le, kadar je dan zamujen ali je čakalna vrsta polna; ničle so pomišljaj v tihi barvi; "3/9" je postalo "3 od 9" | nov test `anEmptyDayDoesNotShoutZeroes`, posodobljen test ploščic, vse statične preveritve zelene |
 | `1c54398` | **N5, N12** | Razpon v istem mesecu pove mesec enkrat ("21.–27. sep"), prek meseca pa ostane stara oblika; tedenski pogled je izgubil dve vrstici navodil o drsenju | nov enotni test `DateRangeTest`, statične preveritve zelene |
-| `177eb9a` | popravek | Test ploščic si je nalagal primer IB in s tem onesnažil bazo za vse naslednje teste v isti seji (štirje padci v CI). Zdaj se ob praznem dnevu preveri kartica z vabilom, primera pa testi ne nalagajo | CI |
+| `177eb9a` | popravek | Test ploščic si je nalagal primer IB in s tem onesnažil bazo za vse naslednje teste v isti seji (štiri padci v CI). Zdaj se ob praznem dnevu preveri kartica z vabilom, primera pa testi ne nalagajo | CI |
+| `8dcecab` | **N9** | Barve, ki jih je mogoče prebrati tudi v soncu: kartica `#1A2238`, tiho besedilo `#94A3B8` (meja v `check_contrast.py` zvišana na 4,5), nova pomenska tokna `FieldOutline` `#74849C` za obrobe polj, tir stikala `SwitchOn` `#0D9488` | `check_contrast.py` (109 preverb), `derive_palette.py --check`, `docs/PALETTE.md` |
+| `9eb2e90` | **N7, N8** | Mesec: količino nosijo do tri črtice (izrisane, ne izmerjene), vrsto dneva ena ploska barva v treh stopnjah, pomene pa oblike (trikotnik = test, diamant = rok, obroč = prost dan, pika = fokus). Legenda in mreža rišeta isti komponent (`MonthMarkIcon`), opis za bralnik zaslona pove količino in vrsto z besedo | nov enotni test `MonthSignalsTest` |
+| `097a492` | **N10, N13, N14** | Zavihki so ena vodoravna drsna vrstica s prelivom na robu (nič več 3+2), glava nastavitev je izgubila stavek o zasebnosti (preselil se je v zavihek Podatki), vse ure dobijo spodnjo mejo 13 sp in težo Medium (`timeLabelStyle()`) | `check_presentation.py`, `check_translations.py`; test v `TimelineUiTest` popravljen, ker je zavihek "Podatki" po novem lahko za robom |
+| `38974ec` | **N3, N4, N11** | Rdeča pika zapadlosti je postala tiho število (rdeče le za rok danes ali jutri), list si zapomni zadnjo vrsto in dolžino bloka (`EntryPrefill`), kartica praznega dne pa odpre list s 45-minutnim blokom fokusa ob trenutni uri (`OpenFirstBlock`) | nova `plurals tasks_badge_waiting`; obstoječi testi ostajajo zeleni |
+| `803f854` | **N6, N15** | Preskočen blok je "Odloženo" (nevtralno, brez barve opozorila), po 20. uri ponudi povzetek vrstico "Preskočene bloke lahko pustiš za danes." z "Skrij za danes"; nov `MinimalEvening` vklopi mirni večer, ko sta dva zaporedna bloka minila brez oznake in je ura po 18., ter s časovnice umakne le prožne bloke fokusa, ki se niso začeli | nov enotni test `MinimalEveningTest` (devet primerov) |
+| `f26b99a` | **N16–N19** | Dokazi: oblike v `AccessibilityTest`, navpični položaj zavihkov pri 1,45× pisavi, tarče dotika v spodnji polovici zaslona z izpisom meritev, `StartupTrace` (prva minuta v dnevnik, brez analitike), `tools/compare_shots.py` s primerjavo posnetkov proti referenci (`ui-baseline`) | preizkušen na treh sintetičnih posnetkih |
+| ta dokument | **N20, N21** | Pregled vseh 777 nizov v obeh jezikih (pet popravkov z utemeljitvijo) in tržna zgodba: obljuba v dveh dolžinah, seznam črtanega, za koga izdelek ni, tri prepovedane trditve, trije pogoji pred trgovino | `docs/audits/2026-09-23-besedila-in-trzna-zgodba.md` |
 
-**Kar je iz tega ostalo odprto:**
+**Kar je iz tega ostalo odprto (stanje po drugem krogu):**
 
-* N3 (tiha zapadlost namesto rdeče pike) in N4 (pilula si zapomni) sta majhna, a se dotakneta
-  `RoutineApp.kt` — naj gresta skupaj z N10/N13 v isti krog (naloga 04).
-* N11 je s `2b657b5` pokrit v bistvu (prazen dan je miren), popolna različica ("prvi blok en dotik
-  stran" z uro ob trenutni uri) pa je del naloge 02, če se po ogledu posnetkov izkaže, da je
-  kartica z vabilom premalo.
-* Vse ostalo iz §5 je odprto in razpisano po nalogah.
+* **N16 čaka na prvo referenco.** `tools/compare_shots.py` in korak v CI sta na mestu, `ui-baseline`
+  pa mora posejati človek z ročnim zagonom delovnega toka (`workflow_dispatch`, vhod
+  `seed_baseline`). Do takrat korak pove, da reference ni, in ne pade. Zagon tega iz okolja brez
+  emulatorja ni mogoč, zato je to edina naloga, ki je končana le do polovice.
+* **N21 čaka na tri zunanje modele.** Prompt iz §8.8 je popravljen in pripravljen; obljuba v tem
+  dokumentu je moja, zato je vredna toliko kot en človek. Ko jo pošlješ trem modelom in primerjaš,
+  dobiš tisto, česar en sam ne more dati: kar se ponovi v vseh treh.
+* **Na pravem telefonu še ni bilo preverjeno nič od tega** (uvoz iz PDF-ja, baterija, prava ura).
+  Emulator je pokazal, da se izriše in da testi tečejo; to ni isto.
 
 **Pravilo, ki se je izkazalo za koristno:** vsak test, ki v skupni bazi pusti nove predmete, bloke ali
 nastavitve, pokvari teste, ki tečejo za njim (isti proces, ista baza). Test sme ustvariti največ toliko
@@ -293,18 +303,20 @@ stanja, kolikor ga potrebuje njegova trditev, in nikoli ne sme nalagati primera 
 
 ## 11. Kaj narediti v naslednjih treh korakih (za človeka)
 
-1. **Preberi §0 in §4.** Tam so odločitve, ki jih nihče drug ne more sprejeti namesto tebe: spodnja
-   navigacija, števec, rdeča pika, večerna amnestija. Vse drugo je izvedba.
-2. **Odpri študije in poišči svoje strinjanje.** Če se s katero sodbo v §4 ne strinjaš, se odločitev
-   spremeni — zapiši jo v §4 skupaj z razlogom, da je ne bo naslednji krog znova odpiral.
-3. **Pošlji naloge po vrstnem redu iz `docs/agents/README.md`.** Prva je `01-barve-brez-izgube-znacaja.md`
-   (neodvisna od vsega), nato `02-mirni-dan-in-prvi-zaslon.md` (najbolj viden očitek, deloma že
-   narejen), nato `04-kompaktna-glava-in-pisava.md`. Po vsaki nalogi pogledaj posnetke iz CI
-   (opombe `UI screenshot`) in preveri, ali je videti bolje — koda in številke ne vidijo, ali je
-   lepo.
+Naloge iz §5 so izvedene; ostane tisto, česar agent ne more: telefon, emulator in trije zunanji modeli.
 
-**Kaj bi naredil, če bi moral izbrati samo eno stvar:** prvo minuto po namestitvi. Aplikacija ima
-zdaj (po `2b657b5`) miren prvi zaslon, a še vedno nobene ure in nobenega bloka — samo kartico z
-vabilom. Naslednji dotik, ki bi ga dodal, je gumb, ki v enem pritisku vstavi **en** blok ob trenutni
-uri (45 minut fokusa ali 30 minut počitka, odvisno od ure), ker je to tisto, kar dijak vidi in
-obkljuka v prvih petih minutah — in to je edini trenutek, ko se odloči, ali bo aplikacijo obdržal.
+1. **Namesti `app-release.apk` iz izdaje `debug-latest` in ga uporabljaj en teden.**
+   Povej, kje te ustavi: prva minuta, dodajanje bloka, urejanje, ura ob zamudi. Noben test ne vidi
+   tega, kar vidi palec. V izdaji iz istega zagona CI se zapiše tudi `first-day-rendered` v dnevnik
+   (`adb logcat -s LockIn`), če te zanima številka.
+2. **Poženi `Android verification` ročno z `seed_baseline: true`.** To posname referenco posnetkov;
+   vsak naslednji zagon se bo od nje samodejno primerjal in v opombah javil, kateri zaslon se je
+   spremenil za več kot 2 %.
+3. **Pošlji prompt iz §8.8 trem različnim modelom** (navodila: `docs/agents/06-trzna-zgodba-in-besedila.md`,
+   pravila v `docs/audits/2026-09-22-prompti-za-zunanje-ai.md`). Moja obljuba v
+   `docs/audits/2026-09-23-besedila-in-trzna-zgodba.md` je izhodišče za primerjavo; kar se v treh
+   odgovorih ponovi, je verjetno res.
+
+**Ena stvar, ki bi jo naredil naslednjo, če bi bila samo ena:** prvi zagon naj ponudi tudi "vrzi
+teden pouka iz šole" poleg primera IB — dijaku je to edini podatek, ki ga že ima, in teden pouka je
+tisto, kar naredi časovnico videti resnično brez truda.

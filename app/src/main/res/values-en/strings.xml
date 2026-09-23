@@ -120,14 +120,14 @@
     <string name="warning_concentration">Time for a short break</string>
     <string name="warning_cognitive">Room to recover</string>
     <string name="warning_transition">An easier transition after lessons</string>
-    <string name="warning_daily">Let us balance the rest of the day</string>
+    <string name="warning_daily">A full day</string>
     <string name="warning_physical">A little movement would help</string>
     <string name="warning_fragmented">A chance for a calm break</string>
-    <string name="warning_concentration_body">Focus has run for more than %1$d min without a break. Try 10–15 minutes of quiet rest.</string>
+    <string name="warning_concentration_body">Focus has run for more than %1$d min without a break. 10–15 minutes of quiet rest is usually enough.</string>
     <string name="warning_cognitive_body">Lessons and study together exceed %1$d min without at least 20 min of restorative rest. Plan movement or screen-free rest.</string>
     <string name="warning_transition_body">After lessons, leave at least %1$d min before studying for a meal and a mental transition.</string>
     <string name="warning_daily_body">Daily focus exceeds your limit of %1$d min. Consider shortening or moving some work; a break alone does not reduce the amount of study.</string>
-    <string name="warning_physical_body">Sitting work has lasted more than %1$d min. Stand up, look into the distance or take a short walk.</string>
+    <string name="warning_physical_body">Sitting work has lasted more than %1$d min. A short walk or a look into the distance helps.</string>
     <string name="warning_fragmented_body">There is %1$d–%2$d min of unscheduled time during study. Merge the blocks or turn the gap into deliberate rest.</string>
     <string name="insert_break">＋%1$d min break</string>
     <string name="insert_break_description">Insert the recommended break: %1$d minutes</string>
@@ -655,7 +655,7 @@
     <string name="tasks_add">Add</string>
     <string name="tasks_quick_add_hint">E.g. Homework — Economics</string>
     <string name="tasks_no_due">no deadline</string>
-    <string name="tasks_clear_date">remove</string>
+    <string name="tasks_clear_date">Remove the date</string>
     <string name="tasks_subject_any">subject</string>
     <string name="tasks_subject_none">No subject</string>
     <string name="tasks_section_overdue">Overdue</string>

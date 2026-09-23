@@ -115,14 +115,14 @@
     <string name="warning_concentration">Čas za kratek odmor</string>
     <string name="warning_cognitive">Prostor za obnovo</string>
     <string name="warning_transition">Lažji prehod po pouku</string>
-    <string name="warning_daily">Uravnotežimo preostanek dneva</string>
+    <string name="warning_daily">Dan je poln</string>
     <string name="warning_physical">Malo gibanja bo dobrodošlo</string>
     <string name="warning_fragmented">Priložnost za miren odmor</string>
-    <string name="warning_concentration_body">Fokus traja več kot %1$d min brez prekinitve. Poskusi 10–15 minut mirnega odmora.</string>
+    <string name="warning_concentration_body">Fokus traja več kot %1$d min brez prekinitve. 10–15 minut mirnega odmora običajno zadošča.</string>
     <string name="warning_cognitive_body">Pouk in učenje skupaj presegata %1$d min brez vsaj 20 min obnovitvenega odmora. Načrtuj gibanje ali počitek brez zaslona.</string>
     <string name="warning_transition_body">Po pouku pred učenjem pusti vsaj %1$d min za obrok in miselni prehod.</string>
     <string name="warning_daily_body">Dnevni fokus presega tvojo mejo %1$d min. Premisli o krajšanju ali prestavitvi dela; odmor sam ne zmanjša količine učenja.</string>
-    <string name="warning_physical_body">Sedeče delo traja več kot %1$d min. Vstani, poglej v daljavo ali pojdi na kratek sprehod.</string>
+    <string name="warning_physical_body">Sedeče delo traja več kot %1$d min. Kratek sprehod ali pogled v daljavo pomaga.</string>
     <string name="warning_fragmented_body">Med učenjem je %1$d–%2$d min nenačrtovanega časa. Združi bloka ali vrzel spremeni v nameren počitek.</string>
     <string name="insert_break">＋%1$d min pavze</string>
     <string name="insert_break_description">Vstavi priporočen odmor: %1$d minut</string>
@@ -331,7 +331,7 @@
     <string name="error_block_edit">Vnesi naslov in dve različni uri v obliki UU:mm.</string>
     <string name="error_thresholds">Preveri obsege; najmanjša vrzel ne sme presegati največje.</string>
     <string name="message_updated">Urnik je posodobljen.</string>
-    <string name="message_skipped">Odloženo. Obnoviš jo lahko pod časovnico.</string>
+    <string name="message_skipped">Odloženo. Obnoviš ga lahko pod časovnico.</string>
     <string name="message_deleted">Zapis je izbrisan.</string>
     <string name="message_quiet_saved">Tiho okno je shranjeno.</string>
     <string name="message_teaching_end_saved">Datum zaključka pouka je shranjen.</string>
@@ -654,7 +654,7 @@
     <string name="tasks_add">Dodaj</string>
     <string name="tasks_quick_add_hint">Npr. Domača naloga — Ekonomija</string>
     <string name="tasks_no_due">brez roka</string>
-    <string name="tasks_clear_date">odstrani</string>
+    <string name="tasks_clear_date">Odstrani datum</string>
     <string name="tasks_subject_any">predmet</string>
     <string name="tasks_subject_none">Brez predmeta</string>
     <string name="tasks_section_overdue">Zapadli</string>
