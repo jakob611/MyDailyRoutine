@@ -456,7 +456,7 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
-                    Modifier.fillMaxWidth().padding(RoutineSpacing.lg),
+                    Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                     verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                 ) {
                     RoutineLabel(stringResource(R.string.year_big_picture), style = MaterialTheme.typography.labelLarge,
@@ -651,7 +651,7 @@ private fun LazyListScope.milestoneSection(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
-                Modifier.fillMaxWidth().padding(RoutineSpacing.lg),
+                Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
             ) {

@@ -83,6 +83,22 @@ for file in ui_files:
     assert 'BorderStroke(1.dp, RoutineColors.Border)' not in code, f'Card outline is not the shared CardBorder: {file}'
     assert not re.search(r'\.size\(\s*\d+(?:\.\d+)?\.dp\)', code), \
         f'Size invented per screen (use a RoutineMetrics token): {file}'
+# A semantics block is a plain lambda, not a composable scope: reading a string there compiles only
+# until the compiler is run, and this repository has no local compiler.
+for file in ui_files:
+    code = file.read_text()
+    for match in re.finditer(r'\.semantics\s*[({]', code):
+        depth, i = 0, match.end() - 1
+        while i < len(code):
+            if code[i] in '({': depth += 1
+            elif code[i] in ')}':
+                depth -= 1
+                if depth == 0: break
+            i += 1
+        block = code[match.end():i]
+        assert 'stringResource(' not in block and 'pluralStringResource(' not in block, \
+            f'String read inside a semantics block (not a composable scope): {file}'
+
 for name, rel in (('DailyTimeline', 'features/timeline/presentation/DailyTimeline.kt'),
                   ('WeeklyOverview', 'features/timeline/presentation/overview/OverviewScreens.kt'),
                   ('GoalsScreen', 'features/goals/presentation/GoalsScreen.kt')):
@@ -90,6 +106,9 @@ for name, rel in (('DailyTimeline', 'features/timeline/presentation/DailyTimelin
     if 'contentPadding = PaddingValues' in code:
         assert 'RoutineMetrics.ScreenPadding' in code, f'{name} does not use the shared screen inset: {rel}'
         assert 'RoutineMetrics.ListBottomInset' in code, f'{name} does not clear the floating control: {rel}'
+for rel in ('features/timeline/presentation/overview/OverviewScreens.kt',):
+    code = (ui_root / rel).read_text()
+    assert 'padding(RoutineSpacing.lg)' not in code, f'Card body uses the screen inset instead of CardPadding: {rel}'
 sheet_skeleton = (ui_root / 'core/designsystem/components/RoutineText.kt').read_text()
 assert sheet_skeleton.count('RoutineMetrics.ScreenPadding') >= 3, 'sheet scaffold no longer starts at the screen inset'
 

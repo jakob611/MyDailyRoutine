@@ -272,6 +272,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(today) }
     val dueSoonTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == today || due == today.plusDays(1)) }
     val waitingTasks = overdueTasks + dueSoonTasks
+    // Read before the modifier: a semantics block is not a composable scope, so the string has to
+    // exist by the time the dot is described.
+    val badgeLabel = pluralStringResource(R.plurals.tasks_badge_waiting, waitingTasks, waitingTasks)
     val reduceMotion = rememberReduceMotion()
     // The "Dodaj blok" container transform measures its endpoints in root pixels: the pill the
     // finger just pressed and the window-sized root the pane is laid out inside. Measuring and
@@ -474,11 +477,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                             Modifier.size(BadgeDot)
                                                 .clip(CircleShape)
                                                 .background(if (dueSoonTasks > 0) RoutineColors.Error else RoutineColors.TextMuted)
-                                                .semantics {
-                                                    contentDescription = pluralStringResource(
-                                                        R.plurals.tasks_badge_waiting, waitingTasks, waitingTasks,
-                                                    )
-                                                },
+                                                .semantics { contentDescription = badgeLabel },
                                         )
                                     }
                                 }

@@ -198,6 +198,12 @@ object RoutineMetrics {
      * started at 12. [RoutineSpacing.lg] is the value; the name is what makes it a rule.
      */
     val ScreenPadding = RoutineSpacing.lg
+    /**
+     * Padding inside a card. Deliberately one step tighter than [ScreenPadding]: a card is already
+     * inset by the screen, and giving it the same 16 dp again reads as a box inside a box. Every
+     * card body in the app uses this value — the overview rows were the last two that did not.
+     */
+    val CardPadding = RoutineSpacing.md
     /** Bottom clearance a list needs so its last row is never under the floating add control. */
     val ListBottomInset = 108.dp
     /** Categorical chips are capped so one long label cannot own a whole card line. */
