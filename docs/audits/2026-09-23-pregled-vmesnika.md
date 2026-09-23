@@ -46,7 +46,11 @@ zapisana kot taka.
    ure/besede/stopenj ne delajo). Vsak od teh treh je druga napaka v drugem delu kode, in brez
    telefona je ugibanje dražje od vprašanja.
 2. **Na pravem telefonu ni bilo preverjeno še nič**, kar je bilo narejeno v zadnjih dveh dneh. Vse
-   skupaj je bilo preverjeno v CI na emulatorju (66 testov) in s šestimi statičnimi gate-i.
+   skupaj je bilo preverjeno v CI (gradnja `8bfb941`: 229 enotskih testov, 66 na emulatorju, pet
+   statičnih gate-ov) in v osnutku na tem telefonskem zaslonu, ne pa na pravem telefonu.
+   Prejšnja gradnja je padla na eni vrstici — besedilo za bralnik zaslona se je bralo znotraj
+   `semantics { }`, ki ni @Composable obseg; popravljeno, in gate `check_presentation.py` tako
+   branje odslej prepove.
 3. **Grafična regresija čaka na prvo referenco.** Korak v CI je pripravljen; reference še ni, ker jo
    mora posejati ročni zagon (`Android verification`, vhod `seed_baseline`), ki ga tokratni žeton ne
    sme sprožiti (HTTP 403).
