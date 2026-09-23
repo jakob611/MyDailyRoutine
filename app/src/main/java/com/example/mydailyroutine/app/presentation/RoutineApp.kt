@@ -292,6 +292,10 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         val density = LocalDensity.current
         // Measured, never assumed: the bar is three rows on the day view and one on goals.
         var topInset by remember { mutableStateOf(0.dp) }
+        // The same for the bottom: the add control floats above the navigation bar, and that bar is
+        // 0, 24 or 48 dp tall depending on the phone and on how the reader navigates. A constant was
+        // correct on one device and hid the last row of a list on the next.
+        var bottomInset by remember { mutableStateOf(RoutineMetrics.ListBottomInset) }
         // The bar folds while the reader scrolls and unfolds the moment they scroll back up, which
         // is what gives a content screen its room: ~48 dp of date chrome only when it is being used.
         var collapsed by remember { mutableStateOf(false) }
@@ -335,7 +339,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         scaleX = 1f - 0.08f * progress
                         scaleY = 1f - 0.08f * progress
                         alpha = 1f - 0.30f * progress
-                    }) { GoalsScreen(state.goals, state.panels.isSaving, onAction, topInset = topInset) }
+                    }) { GoalsScreen(state.goals, state.panels.isSaving, onAction, topInset = topInset, bottomInset = bottomInset) }
                     else AnimatedContent(targetState = data, contentKey = { it.date to it.mode }, label = "period-switch",
                         // Swipe sideways for the next or previous period — the same Shift the date
                         // arrows fire, so both paths end in exactly one place. Day, week and month:
@@ -375,16 +379,16 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 else -> when (shown.mode) {
                                     TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
                                         state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction,
-                                        topInset = topInset, userName = state.preferences.userName,
+                                        topInset = topInset, bottomInset = bottomInset, userName = state.preferences.userName,
                                         eveningFull = state.panels.eveningFullDay == day.date,
                                         skippedHidden = state.panels.skippedHiddenDay == day.date,
                                         // Tomorrow's exam or deadline is what keeps tonight's plan untouched.
                                         tomorrowHasDeadline = data.milestones.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) } ||
                                             data.taskMarkers.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) } ||
                                             data.goalMarkers.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) }) }
-                                    TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
-                                    TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
-                                    TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset) { onAction(TimelineAction.SelectDate(it, true)) }
+                                    TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset, bottomInset = bottomInset) { onAction(TimelineAction.SelectDate(it, true)) }
+                                    TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset, bottomInset = bottomInset) { onAction(TimelineAction.SelectDate(it, true)) }
+                                    TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset, bottomInset = bottomInset) { onAction(TimelineAction.SelectDate(it, true)) }
                                 }
                             }
                         }
@@ -400,11 +404,16 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             // longer covers, under glass.
             Column(
                 Modifier.align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = RoutineSpacing.md, start = RoutineSpacing.md, end = RoutineSpacing.md)
+                    // Measured *outside* the insets and the gap, so the number is the whole footprint:
+                    // status bar, the gap above the pane, and the pane. The chain used to end with
+                    // onSizeChanged, which reports what is left after the paddings above it — the pane
+                    // alone — so on every screen the first line sat exactly the status bar deep under
+                    // the open island. The order of these modifiers is the fix, not a style choice.
                     .onSizeChanged { size ->
                         if (!collapsed) topInset = with(density) { size.height.toDp() }
-                    },
+                    }
+                    .statusBarsPadding()
+                    .padding(top = RoutineSpacing.md, start = RoutineSpacing.md, end = RoutineSpacing.md),
             ) {
                 RoutineGlassSurface(
                     modifier = Modifier.fillMaxWidth().testTag("app-top-bar"),
@@ -577,7 +586,14 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         // starts exactly where this pill sits, so it is measured, not estimated.
                         // Root pixels, because root is the space the morph lays the pane out in —
                         // the no-arg boundsInWindow() is hidden-deprecated in this Compose version.
-                        .onGloballyPositioned { coordinates -> pillBoundsPx = coordinates.boundsInRoot() }
+                        .onGloballyPositioned { coordinates ->
+                            pillBoundsPx = coordinates.boundsInRoot()
+                            // Distance from the bottom of the window to the top of the pill, plus the
+                            // gap the list keeps under it. Root pixels, the same space the morph uses.
+                            bottomInset = with(density) {
+                                (windowPx.height - coordinates.boundsInRoot().top).toDp()
+                            } + RoutineSpacing.md
+                        }
                         .routineGlassTouch(fastAddTouch, RoutineShapes.Pill)
                         .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control,
                             tilt = LocalGlassTilt.current)

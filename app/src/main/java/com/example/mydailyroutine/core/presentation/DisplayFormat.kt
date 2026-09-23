@@ -26,7 +26,7 @@ import java.util.Locale
  * `RoutineApplication` sets from the same decision the resources use: a language change recreates the
  * process, so nothing here can go stale while a screen is on.
  */
-internal val interfaceLocale: Locale = uiLocaleFor(Locale.getDefault().language)
+val interfaceLocale: Locale = uiLocaleFor(Locale.getDefault().language)
 
 /** True when the interface speaks Slovenian, which is also what decides the date patterns below. */
 private val slovenianInterface: Boolean = interfaceLocale.language == "sl"

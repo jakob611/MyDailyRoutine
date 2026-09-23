@@ -716,8 +716,7 @@
     <string name="goals_category_stage">Stage</string>
     <string name="goals_hours_log">Hours</string>
     <string name="goals_hours_total">Hours: %1$d / %2$d (guideline)</string>
-    <string name="goals_hours_total_log">Hours logged: %1$d</string>
-    <string name="goals_hours_item">%1$d h</string>
+    <string name="goals_hours_total_log">Hours logged: %1$s</string>
     <string name="goals_minutes_step">+%1$d min</string>
     <string name="goals_hours_step">+%1$d h</string>
     <string name="goals_words_total">Words: %1$d / %2$d</string>

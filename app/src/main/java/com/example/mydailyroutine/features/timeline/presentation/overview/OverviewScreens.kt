@@ -104,7 +104,7 @@ import java.time.temporal.TemporalAdjusters
  * block shows colour plus an accessible description instead of a clipped fragment of its title.
  */
 @Composable
-fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, onDate: (LocalDate) -> Unit) {
+fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, bottomInset: Dp = RoutineMetrics.ListBottomInset, onDate: (LocalDate) -> Unit) {
     val days = content.days.values.sortedBy { it.date }
     val blocks = days.flatMap { it.items.filterIsInstance<ResolvedTimelineItem.Block>() }.filter { it.origin != RoutineOrigin.SLEEP }
     val startHour = minOf(7, (blocks.minOfOrNull { it.startMinute } ?: 420) / 60)
@@ -113,7 +113,7 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
     val gridHeight = minuteHeight * ((endHour - startHour) * 60)
     val gridColor = RoutineColors.CardBorder
     LazyColumn(
-        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, RoutineMetrics.ListBottomInset),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, bottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
@@ -295,11 +295,11 @@ private fun WeeklyBlockCell(position: PositionedBlock, date: LocalDate, onDate: 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, onDate: (LocalDate) -> Unit) {
+fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, bottomInset: Dp = RoutineMetrics.ListBottomInset, onDate: (LocalDate) -> Unit) {
     val month = YearMonth.from(content.date)
     val dates = content.days.keys.sorted()
     LazyColumn(
-        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, RoutineMetrics.ListBottomInset),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, bottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
@@ -428,7 +428,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
 private fun Modifier.aspectRatioCell(): Modifier = aspectRatio(RoutineMetrics.MonthCellRatio)
 
 @Composable
-fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, onDate: (LocalDate) -> Unit) {
+fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, bottomInset: Dp = RoutineMetrics.ListBottomInset, onDate: (LocalDate) -> Unit) {
     val (start, end) = PeriodRanges.range(content.date, TimelineMode.YEAR)
     val target = preferences.teachingEndDate
     val targetInCycle = target in start..end
@@ -445,7 +445,7 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
     var radarOpen by rememberSaveable { mutableStateOf(false) }
     var recoveryOpen by rememberSaveable { mutableStateOf(true) }
     LazyColumn(
-        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, RoutineMetrics.ListBottomInset),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, bottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {

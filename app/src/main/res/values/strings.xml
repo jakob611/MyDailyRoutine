@@ -721,8 +721,7 @@
     <string name="goals_category_stage">Faza</string>
     <string name="goals_hours_log">Ure</string>
     <string name="goals_hours_total">Ure: %1$d / %2$d (smernica)</string>
-    <string name="goals_hours_total_log">Zabeležene ure: %1$d</string>
-    <string name="goals_hours_item">%1$d h</string>
+    <string name="goals_hours_total_log">Zabeležene ure: %1$s</string>
     <string name="goals_minutes_step">+%1$d min</string>
     <string name="goals_hours_step">+%1$d h</string>
     <string name="goals_words_total">Besede: %1$d / %2$d</string>

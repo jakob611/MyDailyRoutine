@@ -109,6 +109,10 @@ import com.example.mydailyroutine.domain.model.GoalMilestone
 import com.example.mydailyroutine.domain.model.GoalProgress
 import com.example.mydailyroutine.domain.model.GoalsProject
 import com.example.mydailyroutine.core.presentation.GoalsUiState
+import com.example.mydailyroutine.core.presentation.durationLabel
+import com.example.mydailyroutine.core.presentation.interfaceLocale
+import java.text.NumberFormat
+import java.util.Locale
 import com.example.mydailyroutine.features.entry.presentation.AppDatePicker
 import java.time.LocalDate
 import java.time.YearMonth
@@ -157,7 +161,8 @@ private fun starterAction(context: Context, kind: String): TimelineAction = when
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -> Unit, topInset: Dp = 0.dp) {
+fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -> Unit, topInset: Dp = 0.dp,
+    bottomInset: Dp = RoutineMetrics.ListBottomInset) {
     val haptics = LocalRoutineHaptics.current
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editingActivity by remember { mutableStateOf<GoalActivity?>(null) }
@@ -269,7 +274,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                     LazyColumn(
                         Modifier.fillMaxSize().testTag("goal-tab-body"),
                         contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, RoutineSpacing.xs,
-                            RoutineMetrics.ScreenPadding, RoutineMetrics.ListBottomInset),
+                            RoutineMetrics.ScreenPadding, bottomInset),
                         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
                     ) {
                         when (tab) {
@@ -484,7 +489,7 @@ private fun ProgressLog(
                             when (entry.kind) {
                                 "word" -> stringResource(R.string.goals_progress_words, entry.amount.toInt())
                                 "reflection" -> stringResource(R.string.goals_progress_kind_reflection)
-                                else -> stringResource(R.string.goals_hours_item, entry.amount.toInt())
+                                else -> goalsMinutesLabel(entry.amount)
                             },
                             Modifier.weight(1f),
                             style = MaterialTheme.typography.labelMedium,
@@ -581,7 +586,8 @@ private fun StatusCard(
             val hourTarget = project.targetHours
             if (hourTarget != null) {
                 GoalBar((hours / hourTarget).toFloat(), RoutineColors.Primary)
-                RoutineLabel(stringResource(R.string.goals_hours_total, hours.roundToInt(), hourTarget.roundToInt()),
+                val recorded = goalsHoursLabel(hours)
+                RoutineLabel(stringResource(R.string.goals_hours_total, recorded, hourTarget.roundToInt()),
                     style = MaterialTheme.typography.labelMedium)
             }
             if (project.kind == "CAS") {
@@ -595,7 +601,9 @@ private fun StatusCard(
                             RoutineLabel(stringResource(res), style = MaterialTheme.typography.labelSmall,
                                 color = goalCategoryStyle(category).accent)
                             RoutineLabel(
-                                stringResource(R.string.goals_hours_item, categoryHours[category]?.sumOf { it.amount }?.roundToInt() ?: 0),
+                                // Divided by 60 again: the label takes a duration in minutes, the
+                                // same unit the "+30 min" button writes.
+                                goalsMinutesLabel(categoryHours[category]?.sumOf { it.amount } ?: 0.0),
                                 style = MaterialTheme.typography.labelMedium,
                             )
                         }
@@ -817,8 +825,21 @@ private fun GoalGantt(
 
 private val GanttStripHeight = 18.dp
 
+/**
+ * Vertical rhythm of one Gantt lane. One geometry for both the lane and the bars inside it, because
+ * they used to be two: the lane reserved 28 dp for a single row while a bar was measured 20 dp tall
+ * with 4 dp of its own padding, so a bar's bottom edge sat *exactly* on the next row's top edge. Two
+ * activities in one lane were drawn touching, and the next lane's first bar sat against the previous
+ * lane's last one — the reader called that "occasionally one thing is hidden under another".
+ */
+private val GanttBarHeight = 20.dp
+private val GanttBarGap = 6.dp
+private val GanttBarsTopPad = 4.dp
+
+private fun ganttRowStep(): Dp = GanttBarHeight + GanttBarGap
+
 private fun laneHeight(rows: List<List<GoalActivity>>): Dp =
-    GanttStripHeight + (if (rows.size <= 1) 28.dp else (rows.size * 22 + 6).dp)
+    GanttStripHeight + GanttBarsTopPad + ganttRowStep() * rows.size.coerceAtLeast(1)
 
 /** Milestone diamonds: measured placement inside their own strip, above the bars. */
 @Composable
@@ -870,9 +891,9 @@ private fun GanttBars(
     ) { measurables, constraints ->
         val flat = mutableListOf<Pair<Int, GoalActivity>>()
         rows.forEachIndexed { rowIndex, row -> row.forEach { activity -> flat.add(rowIndex to activity) } }
-        val barHeight = (if (rows.size <= 1) 20.dp else 18.dp).roundToPx()
-        val rowStep = 22.dp.roundToPx()
-        val topPad = 4.dp.roundToPx()
+        val barHeight = GanttBarHeight.roundToPx()
+        val rowStep = ganttRowStep().roundToPx()
+        val topPad = GanttBarsTopPad.roundToPx()
         val minWidth = 14.dp.roundToPx()
         val placed = measurables.mapIndexed { index, measurable ->
             val (rowIndex, activity) = flat[index]
@@ -880,11 +901,15 @@ private fun GanttBars(
             val right = xOf(activity.end).roundToPx().coerceIn(left, constraints.maxWidth)
             val width = (right - left).coerceAtLeast(minWidth).coerceAtMost((constraints.maxWidth - left).coerceAtLeast(1))
             val placeable = measurable.measure(Constraints.fixed(width, barHeight))
-            val y = (topPad + rowIndex * rowStep).coerceAtMost((constraints.maxHeight - barHeight).coerceAtLeast(0))
-            Triple(placeable, left, y)
+            val y = topPad + rowIndex * rowStep
+            // A bar that would poke out of its lane is the thing the reader described, so a row that
+            // does not fit is left out rather than drawn on top of the row above it. The lane height
+            // comes from the same three constants, so this can only trigger if a later change forgets
+            // one of them — and even then a missing bar beats two bars on top of each other.
+            if (y + barHeight > constraints.maxHeight) null else Triple(placeable, left, y)
         }
         layout(constraints.maxWidth, constraints.maxHeight) {
-            placed.forEach { (placeable, x, y) -> placeable.placeRelative(x, y) }
+            placed.forEach { row -> row?.let { (placeable, x, y) -> placeable.placeRelative(x, y) } }
         }
     }
 }
@@ -962,7 +987,7 @@ private fun ActivityList(
                 projectNameOf(activity.projectId),
                 stringResource(R.string.date_range, RoutineDate.normal(activity.start), RoutineDate.normal(activity.end)),
                 categoryLabel(activity.category),
-                if (hours > 0.0) stringResource(R.string.goals_hours_item, hours.roundToInt()) else null,
+                if (hours > 0.0) goalsMinutesLabel(hours) else null,
                 if (activity.isScheduled) stringResource(R.string.goals_scheduled) else null,
                 if (activity.isCasProject) stringResource(R.string.goals_cas_project_short) else null,
                 if (activity.isDone) stringResource(R.string.goals_activity_done) else null,
@@ -1205,7 +1230,7 @@ private fun ActivityEditorSheet(
             )
             if (saved && initial != null) {
                 val hours = progress.filter { it.kind == "hour" && it.activityId == initial.id }.sumOf { it.amount }
-                RoutineText(stringResource(R.string.goals_hours_total_log, hours.roundToInt()),
+                RoutineText(stringResource(R.string.goals_hours_total_log, goalsHoursLabel(hours)),
                     style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
                 RoutineLabel(stringResource(R.string.goals_hours_log), style = MaterialTheme.typography.labelMedium,
                     color = RoutineColors.TextSecondary)
@@ -1531,6 +1556,33 @@ private fun DeleteConfirmation(
             }
         },
     )
+}
+
+/**
+ * Progress is stored as decimal hours; the rows used to read it back with `toInt()`, so half an hour
+ * showed as "0 h" and 45 minutes vanished. The two helpers below are the only place that converts a
+ * stored amount into something a reader sees, and both are named after the unit they return.
+ */
+private fun goalsHoursLabel(hours: Double): String =
+    stringResource(R.string.goals_hours_total_log, formatHoursRounded(hours))
+
+private fun goalsMinutesLabel(minutes: Double): String =
+    when {
+        minutes < 60 -> stringResource(R.string.duration_minutes, minutes.roundToInt())
+        else -> durationLabel(minutes.roundToInt())
+    }
+
+/**
+ * Rounds to one decimal in both languages, so Slovenian writes "1,5 h" and English "1.5 h". The
+ * locale is a parameter with the interface's own as its default: a unit test can then pass one
+ * explicitly instead of depending on the machine it happens to run on.
+ */
+internal fun formatHoursRounded(hours: Double, locale: Locale = interfaceLocale): String {
+    val rounded = (hours * 10).roundToInt() / 10.0
+    return if (rounded % 1.0 == 0.0) rounded.toInt().toString()
+    else NumberFormat.getNumberInstance(locale).apply {
+        minimumFractionDigits = 1; maximumFractionDigits = 1
+    }.format(rounded)
 }
 
 private fun logProgress(projectId: Long, activityId: Long, hours: Double): TimelineAction =

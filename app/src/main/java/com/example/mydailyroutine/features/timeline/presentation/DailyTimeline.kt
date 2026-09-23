@@ -93,6 +93,8 @@ fun DailyTimeline(
     dueTasks: List<Task>,
     onAction: (TimelineAction) -> Unit,
     topInset: Dp = 0.dp,
+    /** Space the floating add control and the navigation bar take; measured, see RoutineApp. */
+    bottomInset: Dp = RoutineMetrics.ListBottomInset,
     /** What the first-run flow was told to call the reader; empty when nobody was asked. */
     userName: String = "",
     /** The reader already asked to see this whole evening (N15): the protocol stands down. */
@@ -149,7 +151,7 @@ fun DailyTimeline(
         // under the glass bar instead of stopping below it.
         Modifier.fillMaxSize().testTag("day-list"),
         contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md,
-            RoutineMetrics.ScreenPadding, RoutineMetrics.ListBottomInset),
+            RoutineMetrics.ScreenPadding, bottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) {
         item(key = "summary") {

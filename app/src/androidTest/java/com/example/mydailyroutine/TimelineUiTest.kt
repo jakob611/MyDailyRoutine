@@ -166,7 +166,18 @@ class TimelineUiTest {
         val bar = compose.onNodeWithTag("app-top-bar").fetchSemanticsNode().boundsInRoot
         val list = compose.onNodeWithTag("day-list").fetchSemanticsNode().boundsInRoot
         assertTrue("top bar collapsed to ${'$'}{bar.height}px", bar.height > 0f)
+        // The container still runs under the glass, which is the point of the floating island: a list
+        // that stopped below the bar would leave a visible band of nothing behind it.
         assertTrue("day list starts at ${'$'}{list.top}px, below the bar at ${'$'}{bar.bottom}px", list.top < bar.bottom)
+        // What must *not* be under the glass is the reading. The bar is measured from the outside of
+        // its insets now, so the first line of the day sits below its bottom edge even while the
+        // island is open — this is the assertion that fails if the inset is measured inside the
+        // status bar padding again.
+        val firstLine = compose.onNodeWithText(text(R.string.day_heading)).fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "first line top at ${'$'}{firstLine.top}px is under the open island (bottom ${'$'}{bar.bottom}px)",
+            firstLine.top >= bar.bottom,
+        )
         capture("05-glass-day")
     }
     /** One project selector plus four short tabs, instead of a single thousand-dp scroll. */
