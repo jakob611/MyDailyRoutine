@@ -70,7 +70,10 @@ class LargeFontUiTest {
         compose.waitUntil(10000) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithTag("settings-tab-rhythm").fetchSemanticsNodes().isNotEmpty() }
-        val window = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        // Not `onRoot()`: an open sheet is a second root of its own, so the window is the tallest root
+        // rather than "the" root. Both share the screen size, but asking for one of two is a test that
+        // fails for the wrong reason.
+        val window = compose.onAllNodes(isRoot()).fetchSemanticsNodes().maxBy { it.boundsInRoot.height }.boundsInRoot
         val tabs = listOf("rhythm", "reminders", "plan", "rules", "data").mapNotNull { tab ->
             runCatching { compose.onNodeWithTag("settings-tab-$tab").fetchSemanticsNode() }.getOrNull()
         }
