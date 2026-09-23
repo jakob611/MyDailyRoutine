@@ -179,6 +179,66 @@ for file in ui_files:
             name = match.group(1).split('fun ')[1].rstrip('(')
             assert False, 'Helper ' + name + '() in ' + str(file) + ' reads a string but is not @Composable'
 
+# A format string and the value handed to it are two halves of one promise, and neither the
+# compiler nor the resource merger checks them: `%1$d` fed a String throws at runtime, inside a
+# Compose composition, which is a crash on a screen the reader is looking at (run 35905963160).
+# Values are resolved one assignment deep — enough for the shape this keeps taking: a helper
+# builds the text, the call site passes it to a %d.
+specifiers = {}
+for resource in (root / 'app/src/main/res/values/strings.xml',).__iter__():
+    for name, value in re.findall(r'<string name="([^"]+)"[^>]*>(.*?)</string>', resource.read_text(), re.S):
+        found = re.findall(r'%([0-9]+)[$][a-zA-Z.]*([a-zA-Z])', value)
+        if found:
+            slots = {}
+            for index, kind in found:
+                slots[int(index)] = kind
+            specifiers[name] = slots
+numeric_tail = re.compile(r'(toInt|roundToInt|toLong|toFloat|count|size|length|ordinal|days|hour|minute)[(]?$')
+number_literal = re.compile(r'^-?[0-9]+([.][0-9]+)?$')
+text_helper = re.compile(r'(Label|Text|Title|Name|Hint|Description|Body|Message)[(]')
+string_call = re.compile(r'stringResource[(]|pluralStringResource[(]|toString[(]')
+quoted = re.compile('"[^"]*"')
+
+def is_string_value(expr):
+    expr = expr.strip()
+    if '{' in expr:
+        return False  # a lambda in the expression is not the value being formatted
+    if numeric_tail.search(expr):
+        return False
+    return bool(string_call.search(expr) or text_helper.search(expr) or quoted.search(expr))
+
+def is_number_value(expr):
+    expr = expr.strip()
+    return bool(number_literal.match(expr) or numeric_tail.search(expr))
+
+for file in ui_files:
+    code = file.read_text()
+    bindings = dict(re.findall(r'(?:val|var) ([A-Za-z_][A-Za-z0-9_]*) = ([^\n]+)', code))
+    for match in re.finditer('stringResource[(]R[.]string[.]([A-Za-z0-9_]+)', code):
+        name = match.group(1)
+        if name not in specifiers:
+            continue
+        depth, i = 0, code.index('(', match.start())
+        while i < len(code):
+            if code[i] == '(':
+                depth += 1
+            elif code[i] == ')':
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        args = [part for part in code[match.end():i].split(',')]  # the name itself was consumed
+        args = [a for a in args[1:] if a.strip()]
+        for position, kind in specifiers[name].items():
+            if position - 1 >= len(args):
+                continue
+            raw = args[position - 1].strip()
+            value = bindings.get(raw, raw)
+            if kind in 'dxXofe' and is_string_value(value):
+                assert False, ('String into %' + str(position) + '$' + kind + ' of ' + name + ' in ' + str(file))
+            if kind == 's' and is_number_value(value) and not is_string_value(value):
+                assert False, ('Number into %' + str(position) + '$s of ' + name + ' in ' + str(file))
+
 models = list((root / 'core/src/main').rglob('*.kt')) + list((root / 'app/src/main').rglob('*.kt'))
 assert sum('sealed interface ResolvedTimelineItem' in p.read_text() for p in models) == 1
 for file in (root / 'core/src/main').rglob('*.kt'):
