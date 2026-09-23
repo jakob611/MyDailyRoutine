@@ -270,6 +270,9 @@ fun SettingRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
     ) {
+        // The label column is the flexible one, the control keeps its measured width: a switch is a
+        // fixed 52 dp object in a list whose titles run to two lines in Slovenian, and a control that
+        // is allowed to be squeezed is a control that ends up drawn over its own label.
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
             RoutineText(title, style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
             if (description != null) {
@@ -426,7 +429,7 @@ private fun SheetHeader(
     Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet,
         tilt = LocalGlassTilt.current)) {
         Row(
-            Modifier.fillMaxWidth().padding(start = RoutineSpacing.xl, end = RoutineSpacing.md,
+            Modifier.fillMaxWidth().padding(start = RoutineMetrics.ScreenPadding, end = RoutineSpacing.md,
                 top = RoutineSpacing.md, bottom = RoutineSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
@@ -524,7 +527,9 @@ fun RoutineSheetScaffold(
         // the fling before the sheet's own drag logic, one level up, ever receives it.
         Column(
             Modifier.fillMaxWidth().sheetFlingStabilizer().verticalScroll(rememberScrollState()).layerBackdrop(backdrop)
-                .padding(horizontal = RoutineSpacing.xl)
+                // The same inset the screens behind use: the reader swipes a sheet up and finds the
+                // text on the same vertical line it was on before (see RoutineMetrics.ScreenPadding).
+                .padding(horizontal = RoutineMetrics.ScreenPadding)
                 .padding(top = header + RoutineSpacing.lg, bottom = RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
         ) { content() }
@@ -548,8 +553,8 @@ fun RoutineSheetListScaffold(
     SheetShell(title, modifier, closeLabel, onClose, subtitle, footer) { backdrop, header ->
         LazyColumn(
             Modifier.fillMaxWidth().layerBackdrop(backdrop).sheetFlingStabilizer(),
-            contentPadding = PaddingValues(RoutineSpacing.xl, header + RoutineSpacing.lg,
-                RoutineSpacing.xl, RoutineSpacing.lg),
+            contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, header + RoutineSpacing.lg,
+                RoutineMetrics.ScreenPadding, RoutineSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
             content = content,
         )

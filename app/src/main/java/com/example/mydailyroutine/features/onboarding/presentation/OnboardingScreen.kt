@@ -73,7 +73,6 @@ fun OnboardingScreen(
 ) {
     var step by rememberSaveable { mutableIntStateOf(0) }
     var name by rememberSaveable { mutableStateOf(userName) }
-    val lastStep = Step.entries.lastIndex
 
     // School hours are carried through unchanged: the flow no longer asks for them, but the
     // preferences the app ships with still have to be written with the values it started from.

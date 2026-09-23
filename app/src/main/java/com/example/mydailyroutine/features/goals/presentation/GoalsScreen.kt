@@ -181,7 +181,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                 // Projects scroll sideways: a wrapping chip row grew to four lines with three projects.
                 LazyRow(
                     Modifier.fillMaxWidth().padding(top = topInset + RoutineSpacing.sm),
-                    contentPadding = PaddingValues(horizontal = RoutineSpacing.lg),
+                    contentPadding = PaddingValues(horizontal = RoutineMetrics.ScreenPadding),
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
                 ) {
                     items(goals.projects, key = { it.id }) { candidate ->
@@ -237,7 +237,8 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                     )
                     LazyColumn(
                         Modifier.fillMaxSize().testTag("goal-tab-body"),
-                        contentPadding = PaddingValues(RoutineSpacing.lg, RoutineSpacing.xs, RoutineSpacing.lg, RoutineSpacing.xl),
+                        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, RoutineSpacing.xs,
+                            RoutineMetrics.ScreenPadding, RoutineMetrics.ListBottomInset),
                         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
                     ) {
                         when (tab) {
@@ -377,7 +378,7 @@ private fun ProgressLog(progress: List<GoalProgress>, activities: List<GoalActiv
         entries.forEach { entry ->
             OutlinedCard(
                 shape = RoutineShapes.Card,
-                border = BorderStroke(1.dp, RoutineColors.Border),
+                border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 modifier = Modifier.fillMaxWidth().testTag("goal-progress-${entry.id}"),
             ) {
                 Column(
@@ -465,7 +466,7 @@ private fun StatusCard(
     OutlinedCard(
         Modifier.fillMaxWidth(),
         shape = RoutineShapes.Card,
-        border = BorderStroke(1.dp, RoutineColors.Border),
+        border = BorderStroke(1.dp, RoutineColors.CardBorder),
     ) {
         Column(
             Modifier.fillMaxWidth().padding(RoutineSpacing.md),
@@ -591,8 +592,8 @@ private fun GoalBar(fraction: Float, color: Color) {
     LaunchedEffect(fraction) { shown = fraction }
     val width by animateFloatAsState(shown.coerceIn(0f, 1f),
         if (LocalReduceMotion.current) snap<Float>() else SnappySpring, label = "goal-progress")
-    Box(Modifier.fillMaxWidth().height(RoutineSpacing.sm).clip(RoundedCornerShape(4.dp)).background(RoutineColors.Surface2)) {
-        Box(Modifier.fillMaxWidth(width).height(RoutineSpacing.sm).clip(RoundedCornerShape(4.dp)).background(color))
+    Box(Modifier.fillMaxWidth().height(RoutineSpacing.sm).clip(RoutineShapes.Chip).background(RoutineColors.Surface2)) {
+        Box(Modifier.fillMaxWidth(width).height(RoutineSpacing.sm).clip(RoutineShapes.Chip).background(color))
     }
 }
 
@@ -676,7 +677,7 @@ private fun GoalGantt(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
-                            Box(Modifier.size(6.dp).clip(CircleShape)
+                            Box(Modifier.size(RoutineMetrics.DotSize).clip(CircleShape)
                                 .background(goalCategoryStyle(if (lane.kind == "CAS") "CREATIVITY" else "STAGE").accent))
                             // A lane label names a project, so it wraps to a second line instead of
                             // ending in an ellipsis: "Extended essay" is two words in a 64 dp column,
@@ -733,17 +734,17 @@ private fun GanttMilestoneStrip(milestones: List<GoalMilestone>, modifier: Modif
         content = {
             milestones.forEach { milestone ->
                 Box(
-                    Modifier.size(9.dp).rotate(45f)
+                    Modifier.size(RoutineMetrics.DiamondSize).rotate(45f)
                         .background(
                             if (milestone.isDone) RoutineColors.TextDisabled else RoutineColors.Error,
-                            RoundedCornerShape(2.dp),
+                            RoutineShapes.Diamond,
                         )
                         .semantics { contentDescription = RoutineDate.normal(milestone.dueDate) },
                 )
             }
         },
     ) { measurables, constraints ->
-        val side = 9.dp.roundToPx()
+        val side = RoutineMetrics.DiamondSize.roundToPx()
         val placed = measurables.mapIndexed { index, measurable ->
             val placeable = measurable.measure(Constraints.fixed(side, side))
             val x = (xOf(milestones[index].dueDate).roundToPx() - placeable.width / 2)
@@ -804,10 +805,10 @@ private fun GanttBar(activity: GoalActivity, onActivity: (GoalActivity) -> Unit)
         RoutineDate.normal(activity.start),
         RoutineDate.normal(activity.end),
     )
-    val border = if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.FocusAccent, RoundedCornerShape(5.dp)) else Modifier
+    val border = if (activity.isCasProject) Modifier.border(1.dp, RoutineColors.FocusAccent, RoutineShapes.Chip) else Modifier
     val dim = if (activity.isDone) Modifier.alpha(0.55f) else Modifier
     BoxWithConstraints(
-        Modifier.clip(RoundedCornerShape(5.dp))
+        Modifier.clip(RoutineShapes.Chip)
             .background(style.container)
             .then(border)
             .then(dim)
@@ -873,7 +874,7 @@ private fun ActivityList(
                 onClick = { onEdit(activity) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoutineShapes.Card,
-                border = BorderStroke(1.dp, RoutineColors.Border),
+                border = BorderStroke(1.dp, RoutineColors.CardBorder),
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
@@ -921,7 +922,7 @@ private fun MilestoneList(
                 color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
         }
         milestones.forEach { milestone ->
-            OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border),
+            OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 modifier = Modifier.fillMaxWidth()) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.xs),
@@ -1114,7 +1115,7 @@ private fun ActivityEditorSheet(
                         color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
                 }
                 reflections.forEach { entry ->
-                    OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.Border),
+                    OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder),
                         modifier = Modifier.fillMaxWidth()) {
                         Column(
                             Modifier.fillMaxWidth().padding(RoutineSpacing.md),

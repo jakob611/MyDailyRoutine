@@ -113,7 +113,7 @@ fun WeeklyOverview(content: TimelineContent, onGoals: () -> Unit = {}, topInset:
     val gridHeight = minuteHeight * ((endHour - startHour) * 60)
     val gridColor = RoutineColors.CardBorder
     LazyColumn(
-        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, RoutineMetrics.ListBottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
@@ -263,7 +263,7 @@ private fun WeeklyBlockCell(position: PositionedBlock, date: LocalDate, onDate: 
         duration,
     )
     BoxWithConstraints(
-        Modifier.clip(RoundedCornerShape(6.dp))
+        Modifier.clip(RoutineShapes.Cell)
             .background(if (block.isSuppressed) RoutineColors.Surface3 else accent.copy(alpha = 0.22f))
             .clickable { onDate(date) }
             .semantics { contentDescription = description }
@@ -299,7 +299,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
     val month = YearMonth.from(content.date)
     val dates = content.days.keys.sorted()
     LazyColumn(
-        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, RoutineMetrics.ListBottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
@@ -373,7 +373,7 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                                 modifier = Modifier.weight(1f).aspectRatioCell()
                                     .alpha(if (inMonth) 1f else 0.4f)
                                     .semantics { contentDescription = description },
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoutineShapes.Cell,
                                 color = background,
                                 border = if (date == today) androidx.compose.foundation.BorderStroke(2.dp, RoutineColors.Primary) else null,
                             ) {
@@ -445,14 +445,14 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
     var radarOpen by rememberSaveable { mutableStateOf(false) }
     var recoveryOpen by rememberSaveable { mutableStateOf(true) }
     LazyColumn(
-        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 108.dp),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md, RoutineMetrics.ScreenPadding, RoutineMetrics.ListBottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.lg),
     ) {
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = RoutineColors.Surface1),
                 shape = RoutineShapes.Card,
-                border = androidx.compose.foundation.BorderStroke(1.dp, RoutineColors.Border),
+                border = androidx.compose.foundation.BorderStroke(1.dp, RoutineColors.CardBorder),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
@@ -614,7 +614,7 @@ private fun MilestoneRadar(milestones: List<Milestone>, today: LocalDate, expand
                     Spacer(Modifier.weight((1f - fraction).coerceAtLeast(0.05f)))
                     Box(
                         Modifier.fillMaxWidth().weight(fraction.coerceAtLeast(0.02f))
-                            .clip(RoundedCornerShape(6.dp)).background(RoutineColors.Error.copy(alpha = 0.7f)),
+                            .clip(RoutineShapes.Chip).background(RoutineColors.Error.copy(alpha = 0.7f)),
                     )
                     Spacer(Modifier.height(RoutineSpacing.xs))
                     RoutineLabel(RoutineDate.axisDay(start),

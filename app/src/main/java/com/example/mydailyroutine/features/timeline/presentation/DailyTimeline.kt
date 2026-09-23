@@ -148,7 +148,8 @@ fun DailyTimeline(
         // Tagged so a test can prove the list starts at the very top of the window and slides
         // under the glass bar instead of stopping below it.
         Modifier.fillMaxSize().testTag("day-list"),
-        contentPadding = PaddingValues(RoutineSpacing.lg, topInset + RoutineSpacing.md, RoutineSpacing.lg, 112.dp),
+        contentPadding = PaddingValues(RoutineMetrics.ScreenPadding, topInset + RoutineSpacing.md,
+            RoutineMetrics.ScreenPadding, RoutineMetrics.ListBottomInset),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) {
         item(key = "summary") {
@@ -461,7 +462,7 @@ fun DailyTimeline(
                 OutlinedCard(
                     Modifier.fillMaxWidth().padding(top = RoutineSpacing.md),
                     shape = RoutineShapes.Card,
-                    border = BorderStroke(1.dp, RoutineColors.Border),
+                    border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 ) {
                     Column(Modifier.fillMaxWidth().padding(RoutineSpacing.lg), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                         SectionHeader(stringResource(R.string.skipped_title), style = MaterialTheme.typography.titleSmall)

@@ -119,6 +119,14 @@ fun categoryStyle(category: RoutineCategory, subjectColor: Long? = null): Catego
 object RoutineShapes {
     val Card = RoundedCornerShape(16.dp)
     val Chip = RoundedCornerShape(8.dp)
+    /**
+     * A calendar cell, in either overview: the month grid's day square and the week grid's block.
+     * They are the same kind of object — a small filled area that stands for a period of time — so
+     * they were the least defensible place for two different radii (12 dp and 6 dp). They now share
+     * this one, which is deliberately smaller than a card's: at 100 dp wide, a 16 dp corner would
+     * make a week cell look like a button.
+     */
+    val Cell = RoundedCornerShape(12.dp)
     val Pill = RoundedCornerShape(50)
     val Sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     /**
@@ -130,6 +138,8 @@ object RoutineShapes {
     val GlassBar = RoundedCornerShape(22.dp)
     val GlassPanel = RoundedCornerShape(28.dp)
     val GlassChip = RoundedCornerShape(14.dp)
+    /** The rotated square that marks a milestone on the Gantt; 2 of its 9 dp, so it still reads sharp. */
+    val Diamond = RoundedCornerShape(2.dp)
     val GlassSheetHeader = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
     val GlassSheetFooter = RoundedCornerShape(18.dp)
 }
@@ -181,6 +191,15 @@ object RoutineMetrics {
     val TouchTarget = 48.dp
     /** Compact liquid-glass control: the icon buttons and chips that live in the floating chrome. */
     val GlassControlSize = 40.dp
+    /**
+     * Horizontal inset of every scrollable screen and of every sheet body. One number, because a
+     * reader who swipes from the day to the settings should not see the text move sideways: sheets
+     * used to start at 24 dp while the screens behind them started at 16, and a row inside a card
+     * started at 12. [RoutineSpacing.lg] is the value; the name is what makes it a rule.
+     */
+    val ScreenPadding = RoutineSpacing.lg
+    /** Bottom clearance a list needs so its last row is never under the floating add control. */
+    val ListBottomInset = 108.dp
     /** Categorical chips are capped so one long label cannot own a whole card line. */
     val ChipMaxWidth = 190.dp
     /**
@@ -188,6 +207,18 @@ object RoutineMetrics {
      * sliver: the reader sees half a chip at the edge and cannot tell a cut label from a short one.
      */
     val ChipMinWidth = 92.dp
+    /** Height of a primary or secondary button inside a sheet. One number for all of them. */
+    val ControlHeight = 52.dp
+    /** Icon sizes: a glyph inside a row, or inside a 40 dp glass control. Two, not six. */
+    val IconSmall = 16.dp
+    val IconSize = 20.dp
+    /** The categorical dot: the one mark small enough to sit inside a line of text. */
+    val DotSize = 6.dp
+    /** Side of the rotated square that marks a milestone on the Gantt. */
+    val DiamondSize = 9.dp
+    /** Subject swatches in the picker: the shelf, and the small square for a custom colour. */
+    val SwatchSize = 48.dp
+    val SwatchSmall = 28.dp
     /** Geometry of the NOW band drawn over the running block. */
     val NowBandHeight = 18.dp
     val NowDotSize = 8.dp

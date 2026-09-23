@@ -284,7 +284,7 @@ fun TimelineBlockCard(
                             Icon(
                                 Icons.Outlined.ExpandMore,
                                 contentDescription = expandLabel,
-                                modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f),
+                                modifier = Modifier.size(RoutineMetrics.IconSize).rotate(if (expanded) 180f else 0f),
                                 tint = RoutineColors.TextSecondary,
                             )
                             if (canStart && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
@@ -317,7 +317,7 @@ fun TimelineBlockCard(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
                             ) {
-                                Icon(categoryIcon(block.category), null, Modifier.size(16.dp), tint = style.content)
+                                Icon(categoryIcon(block.category), null, Modifier.size(RoutineMetrics.IconSmall), tint = style.content)
                                 MetaChip(block.category.label(), style = style)
                             }
                             if (block.reviewId != null) MetaChip(stringResource(R.string.review_badge), style = RoutineColors.School)
@@ -522,7 +522,7 @@ fun WarningBadge(warning: WarningUi, busy: Boolean, onInsert: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.Psychology, null, Modifier.size(16.dp).alpha(pulse), tint = RoutineColors.Warning)
+            Icon(Icons.Outlined.Psychology, null, Modifier.size(RoutineMetrics.IconSmall).alpha(pulse), tint = RoutineColors.Warning)
             RoutineLabel(
                 text = stringResource(R.string.insert_break, warning.recoveryMinutes),
                 style = MaterialTheme.typography.labelSmall,
@@ -609,7 +609,7 @@ fun MilestoneCard(
                         Icon(
                             Icons.Outlined.ExpandMore,
                             contentDescription = expandLabel,
-                            modifier = Modifier.size(18.dp).rotate(if (expanded) 180f else 0f),
+                            modifier = Modifier.size(RoutineMetrics.IconSize).rotate(if (expanded) 180f else 0f),
                             tint = RoutineColors.TextSecondary,
                         )
                         Checkbox(

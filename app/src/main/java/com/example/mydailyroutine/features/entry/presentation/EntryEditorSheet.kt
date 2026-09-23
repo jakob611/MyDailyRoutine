@@ -241,7 +241,7 @@ fun EntryEditorSheet(
                 }
                 // One rail, one job: fast entries. Standard presets plus the selected subject's own,
                 // each an explicit tap that says what it will fill in.
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                     items(quickPresets, key = { it.key }) { preset ->
                         val color = preset.colorHex?.let { Color(it.toInt()) } ?: RoutineColors.Primary
                         SuggestionChip(onClick = { applyPreset(preset) }, enabled = !busy, shape = RoutineShapes.Chip,
@@ -249,7 +249,7 @@ fun EntryEditorSheet(
                             label = { RoutineLabel(preset.label(context), color = color) })
                     }
                 }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
                     FilterChip(subjectId == null, onClick = { subjectId = null; haptics.selection() }, enabled = !busy,
                         label = { RoutineLabel(stringResource(R.string.subject_all)) }, shape = RoutineShapes.Chip)
                     subjects.forEach { subject ->
@@ -266,7 +266,7 @@ fun EntryEditorSheet(
                                 // the time, category or title - presets are an explicit tap below.
                                 subjectId = subject.id
                                 haptics.selection()
-                            }, label = { RoutineLabel(subject.name, modifier = Modifier.widthIn(max = 180.dp)) })
+                            }, label = { RoutineLabel(subject.name, modifier = Modifier.widthIn(max = RoutineMetrics.ChipMaxWidth)) })
                     }
                     SuggestionChip(onClick = onNewSubject, enabled = !busy, shape = RoutineShapes.Chip,
                         label = { RoutineLabel(stringResource(R.string.new_subject)) })
@@ -296,7 +296,7 @@ fun EntryEditorSheet(
                     enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
                     exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.md)) {
                         RoutineTimeField(startText, { times = times.withStart(it); error = null },
                             label = stringResource(if (kind == EntryKind.BLOCK) R.string.entry_start else R.string.entry_due),
                             enabled = !busy, modifier = Modifier.weight(1f).testTag("entry-start"), wheelTag = "entry-start",
@@ -308,7 +308,7 @@ fun EntryEditorSheet(
                     }
                 }
                 if (kind == EntryKind.BLOCK) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
                         RoutineCategory.entries.forEach { option -> FilterChip(category == option, {
                             category = option; haptics.selection()
                             // A school block IS a lesson: picking the category states its standard
@@ -319,7 +319,7 @@ fun EntryEditorSheet(
                             }
                         }, enabled = !busy,
                             label = { RoutineLabel(option.label()) },
-                            leadingIcon = { Icon(categoryIcon(option), null, Modifier.size(16.dp)) }, shape = RoutineShapes.Chip) }
+                            leadingIcon = { Icon(categoryIcon(option), null, Modifier.size(RoutineMetrics.IconSmall)) }, shape = RoutineShapes.Chip) }
                     }
                     if (category == RoutineCategory.SCHOOL) {
                         SettingRow(
@@ -342,7 +342,7 @@ fun EntryEditorSheet(
                     }
                     ActionRow {
                         TextButton(onClick = { advanced = !advanced; haptics.tap() }) {
-                            Icon(Icons.Outlined.ExpandMore, null, Modifier.size(18.dp).rotate(advancedChevron))
+                            Icon(Icons.Outlined.ExpandMore, null, Modifier.size(RoutineMetrics.IconSize).rotate(advancedChevron))
                             Spacer(Modifier.width(RoutineSpacing.sm))
                             RoutineLabel(stringResource(R.string.entry_more_options), style = MaterialTheme.typography.labelLarge)
                         }
@@ -352,7 +352,7 @@ fun EntryEditorSheet(
                         enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
                         exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md)) {
                             RoutineText(stringResource(R.string.elastic_settings), style = MaterialTheme.typography.titleSmall,
                                 maxLines = RoutineTextDefaults.Body)
                             SettingRow(
@@ -428,7 +428,7 @@ fun EntryEditorSheet(
                     if (editing == null && subjects.isNotEmpty()) {
                         RoutineText(stringResource(R.string.scheduled_test_hint), style = MaterialTheme.typography.bodySmall,
                             color = RoutineColors.TextSecondary, maxLines = RoutineTextDefaults.Paragraph)
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                             items(subjectPresets.filter { it.kind == PresetKind.SUBJECT_TEST }, key = { it.key }) { test ->
                                 OutlinedButton(enabled = !busy, shape = RoutineShapes.Pill, onClick = { save(test) }) {
                                     RoutineLabel(stringResource(R.string.scheduled_test, test.subjectName.orEmpty()),

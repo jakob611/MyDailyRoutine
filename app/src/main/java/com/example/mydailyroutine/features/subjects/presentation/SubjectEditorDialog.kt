@@ -42,6 +42,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.domain.model.Subject
 import com.example.mydailyroutine.domain.model.SubjectPalette
@@ -138,7 +139,7 @@ fun SubjectEditorDialog(
                         val label = stringResource(colorLabels[index])
                         val description = if (color == value) stringResource(R.string.selected_color, label) else label
                         Box(
-                            Modifier.size(48.dp)
+                            Modifier.size(RoutineMetrics.SwatchSize)
                                 .border(
                                     BorderStroke(if (color == value) 3.dp else 1.dp,
                                         if (color == value) RoutineColors.TextPrimary else RoutineColors.Border),
@@ -165,7 +166,7 @@ fun SubjectEditorDialog(
                 ) {
                     val custom = color !in RoutineColors.subjectSwatches
                     Box(
-                        Modifier.size(28.dp)
+                        Modifier.size(RoutineMetrics.SwatchSmall)
                             .border(
                                 BorderStroke(if (custom) 3.dp else 1.dp,
                                     if (custom) RoutineColors.TextPrimary else RoutineColors.Border),

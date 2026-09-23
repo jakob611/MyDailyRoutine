@@ -71,6 +71,28 @@ glass = [f for f in callers if 'RoutineBackdropProvider' in f.read_text()]
 assert len(glass) == 1, f'The window backdrop must be provided exactly once: {[str(f) for f in glass]}'
 layers = [f for f in callers if '.routineBackdropLayer(' in f.read_text()]
 assert len(layers) == 1, f'The window content layer must be marked exactly once: {[str(f) for f in layers]}'
+# Screens' rules for one shared geometry (the 2026-09-23 pass): a screen and a sheet start at the
+# same inset, a list ends above the floating control, every card uses the decorative hairline, and no
+# feature file rounds its own corners or picks its own icon size. Drift here is what makes two screens
+# look like two apps, and it is invisible in a diff.
+for file in ui_files:
+    code = file.read_text()
+    if '/designsystem/' in str(file):
+        continue
+    assert not re.search(r'RoundedCornerShape\(\s*\d', code), f'Corner radius invented outside the design system: {file}'
+    assert 'BorderStroke(1.dp, RoutineColors.Border)' not in code, f'Card outline is not the shared CardBorder: {file}'
+    assert not re.search(r'\.size\(\s*\d+(?:\.\d+)?\.dp\)', code), \
+        f'Size invented per screen (use a RoutineMetrics token): {file}'
+for name, rel in (('DailyTimeline', 'features/timeline/presentation/DailyTimeline.kt'),
+                  ('WeeklyOverview', 'features/timeline/presentation/overview/OverviewScreens.kt'),
+                  ('GoalsScreen', 'features/goals/presentation/GoalsScreen.kt')):
+    code = (ui_root / rel).read_text()
+    if 'contentPadding = PaddingValues' in code:
+        assert 'RoutineMetrics.ScreenPadding' in code, f'{name} does not use the shared screen inset: {rel}'
+        assert 'RoutineMetrics.ListBottomInset' in code, f'{name} does not clear the floating control: {rel}'
+sheet_skeleton = (ui_root / 'core/designsystem/components/RoutineText.kt').read_text()
+assert sheet_skeleton.count('RoutineMetrics.ScreenPadding') >= 3, 'sheet scaffold no longer starts at the screen inset'
+
 screens = {'DailyTimeline': 'features/timeline/presentation/DailyTimeline.kt',
            'WeeklyOverview': 'features/timeline/presentation/overview/OverviewScreens.kt',
            'MonthlyOverview': 'features/timeline/presentation/overview/OverviewScreens.kt',

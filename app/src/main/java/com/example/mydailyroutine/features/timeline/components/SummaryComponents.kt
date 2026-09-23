@@ -41,6 +41,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.presentation.MonthMark
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
@@ -92,7 +93,7 @@ fun DateNavigator(
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = RoutineTextDefaults.Body,
                 )
-                Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(16.dp), tint = RoutineColors.TextSecondary)
+                Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(RoutineMetrics.IconSmall), tint = RoutineColors.TextSecondary)
             }
         }
         // "Danes" appears only when it would do something. On the day the reader is actually living
@@ -154,7 +155,7 @@ fun CalendarNoticeCard(entries: List<CalendarEntry>) {
         color = style.container,
         contentColor = style.content,
         shape = RoutineShapes.Card,
-        border = BorderStroke(1.dp, RoutineColors.Border),
+        border = BorderStroke(1.dp, RoutineColors.CardBorder),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(

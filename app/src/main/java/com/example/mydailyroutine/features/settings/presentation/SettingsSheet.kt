@@ -65,6 +65,7 @@ import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.sound.LocalRoutineSounds
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
+import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.presentation.TimelineAction
@@ -482,7 +483,7 @@ private fun LazyListScope.dataTab(
         items(subjects, key = { "subject:${it.id}" }) { subject ->
             OutlinedCard(
                 shape = RoutineShapes.Card,
-                border = BorderStroke(1.dp, RoutineColors.Border),
+                border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 modifier = Modifier.fillMaxWidth().clickable(enabled = !busy) { onAction(TimelineAction.EditSubject(subject)) },
             ) {
                 Row(
@@ -499,7 +500,7 @@ private fun LazyListScope.dataTab(
                             color = RoutineColors.TextSecondary,
                         )
                     }
-                    Icon(Icons.Outlined.Edit, null, Modifier.size(20.dp), tint = RoutineColors.TextMuted)
+                    Icon(Icons.Outlined.Edit, null, Modifier.size(RoutineMetrics.IconSize), tint = RoutineColors.TextMuted)
                 }
             }
         }
@@ -543,7 +544,7 @@ private fun LazyListScope.dataTab(
                 enabled = !busy,
                 onClick = { onAction(TimelineAction.ExportSchedule) },
                 shape = RoutineShapes.Pill,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = RoutineMetrics.ControlHeight),
             ) { RoutineLabel(stringResource(R.string.backup_export), style = MaterialTheme.typography.labelLarge) }
             OutlinedTextField(
                 value = importText,
@@ -557,7 +558,7 @@ private fun LazyListScope.dataTab(
                 enabled = !busy && importText.isNotBlank(),
                 onClick = { onAction(TimelineAction.ImportSchedule(importText)) },
                 shape = RoutineShapes.Pill,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = RoutineMetrics.ControlHeight),
             ) { RoutineLabel(stringResource(R.string.backup_import), style = MaterialTheme.typography.labelLarge) }
         }
     }
@@ -588,7 +589,7 @@ private fun DiagnosticsSection() {
         } else {
             OutlinedCard(
                 shape = RoutineShapes.Card,
-                border = BorderStroke(1.dp, RoutineColors.Border),
+                border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(

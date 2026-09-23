@@ -418,7 +418,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         ) {
                             if (state.panels.showGoals) {
                                 GlassIconButton(onClick = { onAction(TimelineAction.CloseGoals) }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back), Modifier.size(20.dp))
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.tasks_back), Modifier.size(RoutineMetrics.IconSize))
                                 }
                                 RoutineLabel(stringResource(R.string.goals_title), style = MaterialTheme.typography.titleLarge)
                                 Spacer(Modifier.weight(1f))
@@ -448,9 +448,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                 }
                                 // One pane of glass per action: each button is a piece of glass itself,
                                 // not a transparent click target painted on the bar's frame.
-                                GlassIconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open), Modifier.size(20.dp)) }
+                                GlassIconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open), Modifier.size(RoutineMetrics.IconSize)) }
                                 Box {
-                                    GlassIconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open), Modifier.size(20.dp)) }
+                                    GlassIconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open), Modifier.size(RoutineMetrics.IconSize)) }
                                     // The badge is the one hero moment allowed a bounce — and the one
                                     // animation that disappears entirely under remove-animations.
                                     val badgeEnter: EnterTransition =
@@ -482,8 +482,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                         )
                                     }
                                 }
-                                GlassIconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open), Modifier.size(20.dp)) }
-                                GlassIconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings), Modifier.size(20.dp)) }
+                                GlassIconButton(onClick = { onAction(TimelineAction.OpenGoals) }) { Icon(Icons.Outlined.Flag, stringResource(R.string.goals_open), Modifier.size(RoutineMetrics.IconSize)) }
+                                GlassIconButton(onClick = { onAction(TimelineAction.OpenSettings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings), Modifier.size(RoutineMetrics.IconSize)) }
                             }
                         }
                         // The marketing line does not earn 18 dp of every screen forever: it moved to the
