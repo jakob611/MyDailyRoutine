@@ -1,6 +1,7 @@
 package com.example.mydailyroutine.app.presentation
 
 import com.example.mydailyroutine.core.presentation.*
+import com.example.mydailyroutine.core.platform.StartupTrace
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
@@ -251,6 +252,10 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             TimelineEffect.Completed -> { haptics.complete(); sounds.confirm() }
             is TimelineEffect.Message -> snackbars.showSnackbar(if (effect.count != null) context.getString(effect.resource, effect.minutes, effect.count) else if (effect.minutes == null) context.getString(effect.resource) else context.getString(effect.resource, effect.minutes))
         } }
+    }
+    // N19: the first day that is actually on screen is the end of the first-minute measurement.
+    LaunchedEffect(data.isLoading, data.error, data.mode, data.date) {
+        if (!data.isLoading && data.error == null) StartupTrace.firstDayDrawn()
     }
     val warningKeys = data.days[data.date]?.warnings.orEmpty().map { "${it.type}:${it.itemKeys}:${it.atMinute}" }.toSet()
     var previousWarnings by remember(data.date) { mutableStateOf<Set<String>?>(null) }

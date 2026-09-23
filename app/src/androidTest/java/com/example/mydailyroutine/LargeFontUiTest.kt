@@ -62,6 +62,31 @@ class LargeFontUiTest {
         assertTrue("the add pill ends at ${pill.right}, the screen at $screenWidth", pill.right <= screenWidth + 1f)
     }
 
+    @Test fun theSettingsTabsStayAboveTheFoldAtLargeType() {
+        // N13 was a promise about height: the privacy sentence used to sit under the title and pushed
+        // the five tabs below the fold on a 640 dp screen. Vertical position is what the test can
+        // measure, so it measures that — the row may still scroll sideways, which is N10's deliberate
+        // trade, and the fade at its edge is what says so.
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("settings-tab-rhythm").fetchSemanticsNodes().isNotEmpty() }
+        val window = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        val tabs = listOf("rhythm", "reminders", "plan", "rules", "data").mapNotNull { tab ->
+            runCatching { compose.onNodeWithTag("settings-tab-$tab").fetchSemanticsNode() }.getOrNull()
+        }
+        assertTrue(
+            "a tab that is not even composed is below the fold: ${tabs.size} of 5",
+            tabs.size == 5,
+        )
+        tabs.forEachIndexed { index, node ->
+            val top = node.boundsInRoot.top
+            assertTrue(
+                "tab #${index + 1} starts at $top, the window ends at ${window.bottom}",
+                top < window.bottom - 24f,
+            )
+        }
+    }
+
     private fun click(label: String) = compose.onNodeWithText(label).performClick()
     private fun capture(name: String) = saveUiAudit(compose.activity, name, compose.onRoot(useUnmergedTree = true).captureToImage())
 

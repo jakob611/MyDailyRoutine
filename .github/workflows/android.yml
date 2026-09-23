@@ -5,6 +5,13 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      # M9/N16: the first run that seeds the baseline is the manual one, because a baseline captured
+      # by the same run it is compared against would prove nothing.
+      seed_baseline:
+        description: "Seed the UI screenshot baseline from this run (N16)"
+        type: boolean
+        default: false
 concurrency:
   group: android-${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
@@ -161,6 +168,32 @@ jobs:
       - name: Publish device diagnostics
         if: always()
         run: python3 tools/report_ci_failures.py
+      # N16: the screenshots this run captured are compared with the seeded baseline, screen by screen.
+      # Advisory on purpose: a changed picture is a question ("did we mean to change that?"), and the
+      # answer belongs to the reader of the run, not to a failing step.
+      - name: Compare screenshots with the seeded baseline
+        if: always() && github.event.inputs.seed_baseline != 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          baseline=baseline-shots
+          id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=ui-baseline&per_page=1" --jq '.artifacts[0].id // empty' 2>/dev/null || true)
+          if [ -n "$id" ]; then
+            echo "::notice::comparing against ui-baseline artifact $id"
+            mkdir -p "$baseline"
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > /tmp/ui-baseline.zip \
+              && unzip -q -o /tmp/ui-baseline.zip -d "$baseline" \
+              || { echo "::warning title=Screenshot regression::baseline artifact could not be unpacked"; rm -rf "$baseline"; }
+          fi
+          python3 tools/compare_shots.py --baseline "$baseline" --current app/build/ui-audit
+      # Seeding is a manual, deliberate run: the pictures it captured become the reference.
+      - uses: actions/upload-artifact@v4
+        if: always() && github.event.inputs.seed_baseline == 'true'
+        with:
+          name: ui-baseline
+          path: app/build/ui-audit/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

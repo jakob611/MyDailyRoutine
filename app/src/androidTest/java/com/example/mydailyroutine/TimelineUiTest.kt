@@ -54,10 +54,13 @@ class TimelineUiTest {
         // The landing tab is rhythm: sleep and lesson defaults, not a 40-item scroll.
         compose.onNodeWithText(text(R.string.sleep_heading)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(text(R.string.demo_heading)).assertDoesNotExist()
-        compose.onNodeWithTag("settings-tab-rules").performClick()
+        // The tab strip scrolls sideways since N10 (five chips no longer fit a phone in one line, and
+        // they must not wrap into a 3+2 block). A test therefore has to bring the chip into view before
+        // it taps it — exactly what a finger does — instead of clicking a coordinate off the screen.
+        compose.onNodeWithTag("settings-tab-rules").performScrollTo().performClick()
         // Health thresholds are no longer hidden behind an "advanced" expander.
         compose.onNodeWithText(text(R.string.threshold_focus)).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("settings-tab-data").performClick()
+        compose.onNodeWithTag("settings-tab-data").performScrollTo().performClick()
         compose.onNodeWithText(text(R.string.demo_heading)).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(text(R.string.threshold_focus)).assertDoesNotExist()
         captureTag("06-settings-data", "settings-sheet")

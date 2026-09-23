@@ -118,6 +118,26 @@ class AccessibilityTest {
         compose.onAllNodesWithText(text(R.string.empty_day_title)).assertCountEquals(1)
     }
 
+    @Test fun theCalendarShapesAreNotInterchangeable() {
+        // A test and a deadline used to be the same red dot, so the legend explained two meanings with
+        // one symbol and a reader who cannot tell the two reds apart lost both. Since N8 each meaning
+        // has its own shape, and this reads the four names off the month screen where the legend lives.
+        compose.onNodeWithText(text(R.string.nav_month)).performClick()
+        awaitHeading(R.string.month_heading)
+        val shapes = listOf(
+            R.string.mark_shape_triangle,
+            R.string.mark_shape_diamond,
+            R.string.mark_shape_ring,
+            R.string.mark_shape_dot,
+        ).map { text(it) }
+        assertTrue("two meanings may not share a symbol: $shapes", shapes.toSet().size == shapes.size)
+        shapes.forEach { shape ->
+            compose.waitUntil(10000) {
+                compose.onAllNodesWithContentDescription(shape).fetchSemanticsNodes().isNotEmpty()
+            }
+        }
+    }
+
     @Test fun aTimeFieldStatesWhichTimeItHolds() {
         // "08:45" alone does not say which end of the block it is, so the field states the label with
         // the value and the sheet reads as "Začetek: 08:45" rather than as a bare number.

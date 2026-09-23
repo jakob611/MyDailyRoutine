@@ -1,6 +1,7 @@
 package com.example.mydailyroutine
 
 import androidx.annotation.StringRes
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -45,6 +46,29 @@ class TouchTargetsTest {
         listOf(R.string.nav_day, R.string.nav_week, R.string.nav_month, R.string.nav_year).forEach { id ->
             assertTouchTarget("the \"${text(id)}\" tab", compose.onNodeWithText(text(id)).fetchSemanticsNode())
         }
+    }
+
+    @Test fun everyTargetInTheLowerHalfOfTheScreenIsHittable() {
+        // The thumb's half of the screen is where a miss is most expensive: the day's own cards, the
+        // add pill and the actions inside a card all live there. Every clickable node whose centre is
+        // below the middle of the window is measured — and printed, so the CI log carries the numbers
+        // that were measured rather than only the one that failed (N18).
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
+        val window = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        val density = compose.activity.resources.displayMetrics.density
+        val lowerHalf = window.top + window.height / 2f
+        val clickable = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.OnClick)).fetchSemanticsNodes()
+        val lower = clickable.filter {
+            it.touchBoundsInRoot.height > 0f && it.touchBoundsInRoot.center.y >= lowerHalf
+        }
+        assertTrue("nothing tappable in the lower half of the day: ${clickable.size} clickable nodes", lower.isNotEmpty())
+        val measured = lower.joinToString(" · ") { node ->
+            val width = node.touchBoundsInRoot.width / density
+            val height = node.touchBoundsInRoot.height / density
+            "%.0fx%.0f".format(width, height)
+        }
+        println("ui-audit: lower-half touch targets (dp): $measured")
+        lower.forEachIndexed { index, node -> assertTouchTarget("lower-half target #${index + 1}", node) }
     }
 
     @Test fun everySettingsSwitchIsAFullTouchTarget() {
