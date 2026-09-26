@@ -83,6 +83,10 @@ object RoutineColors {
     val GlassTintAlpha = 0.52f
     val GlassTintCompactAlpha = 0.58f
     val GlassTintStrongAlpha = 0.68f
+    // The shadow under a glass pane is the background deepened, not black: on an OLED canvas a
+    // black shadow is invisible exactly where the pane already sits on black, and muddy over a card.
+    val GlassShadowAlpha = 0.10f
+    val GlassShadow = Background.copy(alpha = GlassShadowAlpha)
     val GlassFallback = Color(0x94151C2E)
     val GlassFallbackStrong = Color(0xAD0F1422)
     val GlassRim = TextPrimary

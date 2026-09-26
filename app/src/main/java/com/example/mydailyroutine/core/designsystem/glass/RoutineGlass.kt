@@ -39,7 +39,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -55,6 +54,9 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
+import com.kyant.backdrop.shadow.Shadow
 
 /**
  * Liquid glass for the floating chrome of the app (Kyant0's Backdrop, `io.github.kyant0:backdrop`).
@@ -175,20 +177,21 @@ enum class GlassRole(
     val depth: Boolean,
     val dispersion: Boolean,
     val rim: Float,
+    val shadowRadius: Dp,
     val tintAlpha: Float,
     val fallback: Color,
 ) {
     /** Top bar and other standard chrome floating over scrolling content. */
-    Bar(6.dp, 18.dp, 32.dp, depth = true, dispersion = false, rim = 0.16f,
+    Bar(6.dp, 18.dp, 32.dp, depth = true, dispersion = false, rim = 0.16f, shadowRadius = 16.dp,
         tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallback),
     /** Sheet header: broad enough to stay readable over a busy scrolling backdrop. */
-    Sheet(6.dp, 24.dp, 44.dp, depth = true, dispersion = true, rim = 0.18f,
+    Sheet(6.dp, 24.dp, 44.dp, depth = true, dispersion = true, rim = 0.18f, shadowRadius = 20.dp,
         tintAlpha = RoutineColors.GlassTintStrongAlpha, fallback = RoutineColors.GlassFallbackStrong),
     /** Small pills and controls. Chromatic dispersion is intentionally disabled at this size. */
-    Chip(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.12f,
+    Chip(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.12f, shadowRadius = 8.dp,
         tintAlpha = RoutineColors.GlassTintCompactAlpha, fallback = RoutineColors.GlassFallback),
     /** Floating action button and other compact primary controls. */
-    Control(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.14f,
+    Control(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.14f, shadowRadius = 10.dp,
         tintAlpha = RoutineColors.GlassTintCompactAlpha, fallback = RoutineColors.GlassFallback),
 }
 
@@ -234,6 +237,15 @@ fun rememberGlassTilt(): GlassTilt {
 
 /** Rim hairline. Drawn centred on the shape outline, so the clip leaves half of it: ~0.8 dp of light. */
 private val RimWidth = 1.6.dp
+
+/**
+ * The white intensity each highlight style paints at, from the library's own definitions.
+ *
+ * `HighlightStyle.Default` is Apple's angled edge — brightest at the top-left corner, falling away
+ * to the bottom-right — and `Ambient` is the same hairline with no direction to it.
+ */
+private const val SpecularHighlightIntensity = 0.5f
+private const val AmbientHighlightIntensity = 0.38f
 
 /** Creates the window backdrop and publishes it to the subtree; the ambient wash is drawn into it. */
 @Composable
@@ -352,13 +364,6 @@ fun Modifier.routineGlass(
                 ),
             )
         }
-        // Specular rim, drawn last so it sits on top of the wash and survives the clip as a hairline.
-        drawOutline(
-            outline = shape.createOutline(size, layoutDirection, this),
-            brush = rimBrush(role.rim, Offset.Zero, Offset(size.width, size.height)),
-            style = Stroke(width = RimWidth.toPx()),
-        )
-        if (specular) drawSpecular(role)
     }
     return this.drawBackdrop(
         backdrop = backdrop,
@@ -371,6 +376,22 @@ fun Modifier.routineGlass(
             blur(role.blur.toPx())
             lens(role.lensRadius.toPx(), role.lensDepth.toPx(), role.depth, role.dispersion)
         },
+        // The edge, drawn once. `drawBackdrop` defaults these two to `Highlight.Default` and
+        // `Shadow.Default`, so a call that passes neither still gets both — this file used to hand
+        // them the defaults and then draw its own rim and specular line on top, which is two edges
+        // stacked and a 24 dp shadow under a 40 dp chip. Now the role table owns both.
+        highlight = {
+            // `rim` is the alpha the edge should land on. The style paints white at its own
+            // intensity, so the alpha handed over is divided by it; otherwise every role would be
+            // quietly fainter than the table says.
+            val intensity = if (specular) SpecularHighlightIntensity else AmbientHighlightIntensity
+            Highlight(
+                width = RimWidth / 2f,
+                alpha = (role.rim / intensity).coerceAtMost(1f),
+                style = if (specular) HighlightStyle.Default else HighlightStyle.Ambient,
+            )
+        },
+        shadow = { Shadow(role.shadowRadius, color = RoutineColors.GlassShadow) },
         onDrawSurface = surface,
     )
 }
