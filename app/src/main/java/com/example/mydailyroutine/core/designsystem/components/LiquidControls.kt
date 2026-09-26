@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
@@ -46,10 +47,21 @@ import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
 import com.example.mydailyroutine.core.designsystem.glass.LocalInsideGlass
 import com.example.mydailyroutine.core.designsystem.glass.LocalRoutineBackdrop
+import com.example.mydailyroutine.core.designsystem.glass.glassSupported
+import com.example.mydailyroutine.core.designsystem.glass.rememberReduceTransparency
 import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
 import com.example.mydailyroutine.core.designsystem.motion.glassMorphSpec
 import com.example.mydailyroutine.core.designsystem.motion.glassTouchSpec
 import com.example.mydailyroutine.core.designsystem.theme.PopSpring
@@ -79,11 +91,37 @@ private val SwitchHeight = 32.dp
 private val SwitchKnob = 24.dp
 private val SwitchPad = 4.dp
 
+/** The knob's own optics. Lens height stays under the knob's radius, as the library requires. */
+private val SwitchKnobRim = 0.8.dp
+private val SwitchKnobShadow = 6.dp
+private val SwitchKnobBlur = 6.dp
+private val SwitchKnobLens = 6.dp
+private val SwitchKnobLensDepth = 12.dp
+private val SwitchKnobInnerShadow = 4.dp
+
+/** How far the disc clears while the finger is on it. Not all the way: a switch has to keep
+ *  reading as on or off, and a knob that disappears into its own track answers neither. */
+private const val SwitchKnobClearance = 0.55f
+
+/** Kyant0's squash: the knob stretches along the direction of travel, anchored at its leading edge. */
+private const val SwitchKnobStretch = 0.18f
+
 /**
- * Replacement for the Material switch: a capsule track that fills with the brand turquoise, a white
- * knob that can be dragged or tapped, and a horizontal squash on press (Kyant0's LiquidToggle uses
- * the same velocity squash). Semantics stay `Role.Switch` + toggleable, so TalkBack and the device
- * tests keep working unchanged.
+ * Replacement for the Material switch: a capsule track that fills with the brand turquoise and a
+ * knob that can be dragged or tapped.
+ *
+ * The knob is **glass**, and it refracts the track it slides over. The track publishes its own
+ * layer and the knob — its sibling, never its child — samples that layer and nothing else.
+ * Deliberately not the window: most of these switches live inside a sheet, which is its own
+ * window, and a control sampling the window backdrop from in there reads as a hole punched through
+ * the sheet. The track is also all it needs, because the turquoise bending under the disc *is* the
+ * effect.
+ *
+ * At rest the disc is opaque white over a blur. Under the finger the blur gives way to the lens,
+ * an inner shadow and an ambient edge, and the disc clears — but only part of the way, because a
+ * switch has to keep reading as on or off. Semantics stay `Role.Switch` + toggleable, so TalkBack
+ * and the device tests keep working unchanged, and without a backdrop to sample (Android 11 and
+ * below, or maximum contrast requested) it is the flat disc it has always been.
  */
 @Composable
 fun RoutineSwitch(
@@ -108,6 +146,15 @@ fun RoutineSwitch(
     )
     val density = LocalDensity.current
     val travelPx = with(density) { (SwitchWidth - SwitchKnob - SwitchPad * 2).toPx() }
+    // The knob samples the track's own layer and nothing else. Deliberately not the window: most
+    // of these switches live inside a sheet, which is a different window, and a control that
+    // sampled the window backdrop from in there would read as a hole punched through the sheet.
+    // The track is also all the knob needs — the turquoise bending under the disc is the effect.
+    val trackBackdrop = rememberLayerBackdrop()
+    // Read unconditionally: behind `&&` the composable call would be skipped on Android 11,
+    // and a composable that is sometimes called is a composable that sometimes loses its slot.
+    val reduceTransparency = rememberReduceTransparency()
+    val glassKnob = glassSupported && !reduceTransparency
 
     Box(
         modifier
@@ -159,6 +206,9 @@ fun RoutineSwitch(
         val track = RoundedCornerShape(percent = 50)
         Box(
             Modifier.fillMaxSize()
+                // First in the chain, so what the layer records is the track's own fill — a
+                // `layerBackdrop` placed after `background` would record an empty box.
+                .layerBackdrop(trackBackdrop)
                 .clip(track)
                 .background(lerp(RoutineColors.Surface4, RoutineColors.SwitchOn, position.value))
                 // One hairline of light along the top of the track: the same lit-edge idea as the
@@ -178,21 +228,55 @@ fun RoutineSwitch(
                     track,
                 ),
         )
+        // The squash is handed to the glass as its `layerBlock` rather than applied around it: the
+        // library inverse-transforms the sampled backdrop by that block, so the track stays still
+        // while the disc stretches over it. Applied outside, the refraction would stretch too.
+        val squashBlock: GraphicsLayerScope.() -> Unit = {
+            scaleX = 1f + squash * SwitchKnobStretch
+            transformOrigin = TransformOrigin(if (position.value < 0.5f) 1f else 0f, 0.5f)
+        }
         Box(
             Modifier
                 .size(SwitchKnob)
+                // Draw-phase translation: the knob rides the spring without re-laying out the track.
                 .graphicsLayer {
-                    // Draw-phase translation: the knob rides the spring without re-laying out the
-                    // track, and Kyant0's squash stretches it along the direction of travel,
-                    // anchored at the leading edge, never more than a fifth of itself.
                     translationX = with(density) { SwitchPad.toPx() } + position.value * travelPx
-                    val stretch = squash * 0.18f
-                    scaleX = 1f + stretch
-                    transformOrigin = TransformOrigin(if (position.value < 0.5f) 1f else 0f, 0.5f)
                 }
-                .clip(CircleShape)
-                .background(RoutineColors.TextPrimary)
-                .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.25f), CircleShape),
+                .then(
+                    if (glassKnob) {
+                        Modifier.drawBackdrop(
+                            backdrop = trackBackdrop,
+                            shape = { CircleShape },
+                            effects = {
+                                // At rest a plain disc; under the finger the blur gives way to the
+                                // lens, and that is the moment the turquoise bends through it.
+                                blur(SwitchKnobBlur.toPx() * (1f - squash))
+                                lens(SwitchKnobLens.toPx() * squash, SwitchKnobLensDepth.toPx() * squash)
+                            },
+                            highlight = {
+                                Highlight(SwitchKnobRim, alpha = squash, style = HighlightStyle.Ambient)
+                            },
+                            // Always on: the lift is what separates the knob from its track, and it
+                            // is the one thing the old flat disc never had.
+                            shadow = { Shadow(SwitchKnobShadow, color = RoutineColors.GlassShadow) },
+                            innerShadow = {
+                                InnerShadow(SwitchKnobInnerShadow * squash, alpha = squash)
+                            },
+                            layerBlock = squashBlock,
+                            onDrawSurface = {
+                                drawRect(RoutineColors.TextPrimary.copy(alpha = 1f - squash * SwitchKnobClearance))
+                            },
+                        )
+                    } else {
+                        // No backdrop to sample: Android 11 and below, or the reader asked for
+                        // maximum contrast. The disc the switch has always been.
+                        Modifier
+                            .graphicsLayer(squashBlock)
+                            .clip(CircleShape)
+                            .background(RoutineColors.TextPrimary)
+                            .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.25f), CircleShape)
+                    },
+                ),
         )
     }
     }
