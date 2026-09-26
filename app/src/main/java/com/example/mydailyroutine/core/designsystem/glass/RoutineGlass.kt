@@ -94,9 +94,14 @@ val LocalRoutineBackdrop = staticCompositionLocalOf<Backdrop?> { null }
  *
  * A bottom sheet is its own window with its own sampling layer (see `SheetShell`): the app
  * window's backdrop behind the sheet is not what a glass control in the sheet should refract —
- * it would read as a hole through the sheet to the screen behind it. `SheetShell` publishes the
- * sheet layer here for the whole sheet subtree, and the sheet's buttons read it before falling
- * back to the window's backdrop.
+ * it would read as a hole through the sheet to the screen behind it.
+ *
+ * It is published to the sheet's **chrome only**, and rule 2 above is the reason. The sheet's
+ * scrolling body is the node that carries `layerBackdrop`, so a control inside the body that
+ * sampled this layer would be sampling the layer it is drawn into — self-reference, SIGSEGV on
+ * the render thread. The footer is a sibling of that body, not a child of it, so its buttons may
+ * refract it; everything inside the body reads `null` here and falls back to a solid surface,
+ * which is what rule 1 asks for anyway.
  */
 val LocalSheetBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 

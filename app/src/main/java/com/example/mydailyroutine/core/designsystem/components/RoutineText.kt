@@ -78,7 +78,6 @@ import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
-import com.example.mydailyroutine.core.designsystem.glass.LocalRoutineBackdrop
 import com.example.mydailyroutine.core.designsystem.glass.LocalSheetBackdrop
 import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
@@ -495,16 +494,20 @@ private fun SheetShell(
     }
     val density = LocalDensity.current
     var headerHeight by remember { mutableStateOf(0.dp) }
-    // Everything glass inside the sheet — header, footer and the buttons in between — samples the
-    // sheet's own layer, never the app window behind it.
-    CompositionLocalProvider(LocalSheetBackdrop provides sheetBackdrop) {
-        Column(modifier.fillMaxWidth().imePadding()) {
-            Box(Modifier.weight(1f, fill = false).fillMaxWidth()) {
-                body(sheetBackdrop, headerHeight)
-                SheetHeader(title, subtitle, closeLabel, onClose, sheetBackdrop,
-                    Modifier.align(Alignment.TopCenter).fillMaxWidth()
-                        .onSizeChanged { headerHeight = with(density) { it.height.toDp() } })
-            }
+    Column(modifier.fillMaxWidth().imePadding()) {
+        Box(Modifier.weight(1f, fill = false).fillMaxWidth()) {
+            // The body carries `layerBackdrop`, so it is the one place in the sheet that must not
+            // be told about that layer: a node that samples the layer it is drawn into draws
+            // itself into itself and takes the render thread down with it (SIGSEGV). A control in
+            // the body therefore finds no backdrop and falls back to its solid surface — which is
+            // also the rule the glass is supposed to follow: chrome refracts, content is refracted.
+            body(sheetBackdrop, headerHeight)
+            SheetHeader(title, subtitle, closeLabel, onClose, sheetBackdrop,
+                Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                    .onSizeChanged { headerHeight = with(density) { it.height.toDp() } })
+        }
+        // The footer is a sibling of that layer, not a child of it, so its buttons may sample it.
+        CompositionLocalProvider(LocalSheetBackdrop provides sheetBackdrop) {
             SheetFooter(footer)
         }
     }
@@ -573,8 +576,12 @@ fun RoutineSheetListScaffold(
  * The button **is** the liquid glass: one turquoise-tinted pane (the theme's `primary` hue over
  * the refracted sheet, the background as its ink) that compresses under the finger and blooms at
  * the touch point — Apple's `.interactive()` through [rememberGlassTouch], not a solid capsule
- * sitting on top of a glass frame. Inside a sheet it samples the sheet's own layer through
- * [LocalSheetBackdrop], so what it refracts is the sheet, not the window behind it.
+ * sitting on top of a glass frame. What it refracts is the sheet's own layer
+ * ([LocalSheetBackdrop]) and nothing else: in a sheet footer that layer is a sibling and the
+ * glass is real, and anywhere else — inside the scrolling body, or outside a sheet entirely —
+ * there is no layer to sample and the pane falls back to its solid surface. Reaching past the
+ * sheet to the window behind it is not an option: it is a different window, and a control that
+ * sampled the layer it is drawn into would take the render thread down with it.
  */
 @Composable
 fun SheetPrimaryButton(
@@ -583,7 +590,7 @@ fun SheetPrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val backdrop = LocalSheetBackdrop.current ?: LocalRoutineBackdrop.current
+    val backdrop = LocalSheetBackdrop.current
     val touch = rememberGlassTouch(LocalReduceMotion.current)
     Box(
         modifier
@@ -620,7 +627,7 @@ fun SheetSecondaryButton(
     enabled: Boolean = true,
     contentColor: Color = Color.Unspecified,
 ) {
-    val backdrop = LocalSheetBackdrop.current ?: LocalRoutineBackdrop.current
+    val backdrop = LocalSheetBackdrop.current
     val touch = rememberGlassTouch(LocalReduceMotion.current)
     Box(
         modifier
