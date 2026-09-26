@@ -30,7 +30,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
@@ -49,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -79,6 +79,7 @@ import com.example.mydailyroutine.core.presentation.categoryColor
 import com.example.mydailyroutine.core.presentation.durationLabel
 import com.example.mydailyroutine.core.presentation.minuteLabel
 import com.example.mydailyroutine.core.presentation.RoutineDate
+import com.example.mydailyroutine.core.platform.calendarTitle
 import com.example.mydailyroutine.domain.calendar.SlovenianAcademicCalendar
 import com.example.mydailyroutine.domain.health.PositionedBlock
 import com.example.mydailyroutine.domain.health.WeeklyLayout
@@ -546,37 +547,73 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                 onToggle = { recoveryOpen = !recoveryOpen },
                 tag = "year-recovery-toggle",
             ) {
-                val vacations = content.calendar.filter { it.isWorkFreeDay && (it.title.contains("počitnice") || it.title.contains("oddih")) }
+                // Asked of the dataset, never of the text on screen. The database stores the
+                // calendar in dataset keys and this screen translates them on the way out, so a
+                // filter that looked for "počitnice" in the title found nothing the moment the
+                // interface spoke English — and the section went empty in exactly one language.
+                val vacations = content.calendar.filter { it.title in SlovenianAcademicCalendar.vacationTitles }
                     .groupBy { it.title }.entries.sortedBy { entry -> entry.value.minOf { it.date } }
                 if (vacations.isEmpty()) {
                     RoutineText(stringResource(R.string.year_no_vacations), style = MaterialTheme.typography.bodyMedium,
                         maxLines = RoutineTextDefaults.Paragraph)
                 }
                 vacations.forEach { (title, dates) ->
-                    ListItem(
-                        headlineContent = {
-                            RoutineText(title, style = MaterialTheme.typography.bodyLarge, maxLines = RoutineTextDefaults.Body)
-                        },
-                        supportingContent = {
-                            RoutineLabel(
-                                stringResource(
-                                    R.string.date_range,
-                                    RoutineDate.normal(dates.minOf { it.date }),
-                                    RoutineDate.normalYear(dates.maxOf { it.date }),
-                                ),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = RoutineColors.TextSecondary,
-                            )
-                        },
-                        trailingContent = {
-                            RoutineLabel(dates.size.toString(), style = MaterialTheme.typography.labelLarge)
-                        },
-                        modifier = Modifier.clickable { onDate(dates.minOf { it.date }) },
-                    )
+                    val from = dates.minOf { it.date }
+                    VacationRow(title, from, dates.maxOf { it.date }, dates.size) { onDate(from) }
                 }
             }
         }
         milestoneSection(R.string.upcoming_milestones, upcomingMilestones, upcomingTasks, upcomingGoals, onGoals, onDate)
+    }
+}
+
+/**
+ * One school vacation: how many days off, what it is called, and when it runs.
+ *
+ * The same card the milestone rows below use — one shape, one padding, one press target for every
+ * row in this screen. It was a bare Material list item, the one row in the year view that did not
+ * look like it belonged here.
+ *
+ * Takes the window as values rather than as the entries it was derived from, so the row is
+ * skippable while the year scrolls.
+ */
+@Composable
+private fun VacationRow(title: String, from: LocalDate, through: LocalDate, days: Int, onOpen: () -> Unit) {
+    // Read before the chip: a semantics block is not a composable scope.
+    val daysLabel = pluralStringResource(R.plurals.vacation_days, days, days)
+    OutlinedCard(onClick = onOpen, shape = RoutineShapes.Card, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().padding(RoutineSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
+        ) {
+            // How much rest, in the green the month bars right above already use for days off. The
+            // number carries the plural as its description, so a screen reader hears "5 prostih
+            // dni" and not the digit alone.
+            Surface(
+                color = RoutineColors.Recovery.container,
+                contentColor = RoutineColors.Recovery.accent,
+                shape = RoutineShapes.Chip,
+            ) {
+                RoutineLabel(
+                    days.toString(),
+                    modifier = Modifier
+                        .semantics { contentDescription = daysLabel }
+                        .padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+                // The row holds a dataset key; the language is chosen here, at the display.
+                RoutineText(calendarTitle(title), style = MaterialTheme.typography.titleMedium,
+                    maxLines = RoutineTextDefaults.Body)
+                RoutineLabel(
+                    stringResource(R.string.date_range, RoutineDate.normal(from), RoutineDate.normalYear(through)),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = RoutineColors.TextSecondary,
+                )
+            }
+        }
     }
 }
 

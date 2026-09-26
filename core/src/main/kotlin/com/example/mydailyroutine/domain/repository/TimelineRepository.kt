@@ -46,6 +46,13 @@ interface PreferencesRepository {
     suspend fun setHealthConfig(config: HealthConfig)
     suspend fun setPlanningConfig(config: com.example.mydailyroutine.domain.planning.PlanningConfig)
     suspend fun setPeriodicBreak(config: PeriodicBreakConfig)
+
+    /**
+     * Stores the reader's explicit interface language; `null` removes the choice and returns the
+     * app to following the device. The value is normalized ([AppLanguage.normalize]) before it is
+     * stored, so the store can never hold a language that does not ship.
+     */
+    suspend fun setAppLanguage(language: String?)
 }
 
 /** Opt-in sample import, separate from application/database initialization. */

@@ -1,5 +1,6 @@
 package com.example.mydailyroutine.core.designsystem.glass
 
+import android.app.UiModeManager
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -10,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import kotlin.math.round
 import android.os.Build
+import android.provider.Settings
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,7 +39,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -53,15 +54,18 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
+import com.kyant.backdrop.shadow.Shadow
 
 /**
  * Liquid glass for the floating chrome of the app (Kyant0's Backdrop, `io.github.kyant0:backdrop`).
  *
  * Three rules, taken from the library's own documentation and from where glass is supposed to live:
  *
- * 1. **Glass is only for the navigation layer** — the top bar, sticky list headers, sheet headers and
- *    footers, floating buttons. Content (lists, cards, grids) never gets glass; it is what the glass
- *    refracts.
+ * 1. **Glass is only for the navigation layer** — the top bar, sticky list headers, the sheet
+ *    header, the sheet's action buttons (each one its own pane), floating buttons. Content
+ *    (lists, cards, grids) never gets glass; it is what the glass refracts.
  * 2. **A glass element must be a sibling of the layer it samples.** A node carrying both
  *    `layerBackdrop(b)` and `drawBackdrop(b)` draws itself into itself and kills the render thread
  *    with SIGSEGV, so [routineBackdropLayer] goes on the content and [routineGlass] only on chrome
@@ -89,9 +93,73 @@ import com.kyant.backdrop.effects.vibrancy
 /** Backdrop of the window the glass samples. `null` means "no glass here" and callers fall back. */
 val LocalRoutineBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
+/**
+ * The sheet's own backdrop, for the glass that lives *inside* a sheet.
+ *
+ * A bottom sheet is its own window with its own sampling layer (see `SheetShell`): the app
+ * window's backdrop behind the sheet is not what a glass control in the sheet should refract —
+ * it would read as a hole through the sheet to the screen behind it.
+ *
+ * It is published to the sheet's **chrome only**, and rule 2 above is the reason. The sheet's
+ * scrolling body is the node that carries `layerBackdrop`, so a control inside the body that
+ * sampled this layer would be sampling the layer it is drawn into — self-reference, SIGSEGV on
+ * the render thread. The footer is a sibling of that body, not a child of it, so its buttons may
+ * refract it; everything inside the body reads `null` here and falls back to a solid surface,
+ * which is what rule 1 asks for anyway.
+ */
+val LocalSheetBackdrop = staticCompositionLocalOf<Backdrop?> { null }
+
+/**
+ * True anywhere inside a glass surface.
+ *
+ * Glass does not nest, and this is the rule that enforces it. A control that puts its own pane
+ * inside a glass bar samples the same window backdrop the bar samples, so it shows the content
+ * *without* the bar's tint: it reads as a hole punched through the chrome, and the strip stops
+ * being one piece of glass and becomes five. Apple says the same in one line — do not give an
+ * inner control its own glass layer when its container already has one.
+ *
+ * [RoutineGlassSurface] sets this for its whole subtree and [GlassIconButton] answers to it, so
+ * the rule holds where chrome is built rather than where someone remembers it. Nothing is lost
+ * from the control: the press answer — the squash and the bloom at the touch point — lives in
+ * `routineGlassTouch`, which is a separate modifier from the pane.
+ */
+val LocalInsideGlass = staticCompositionLocalOf { false }
+
 /** Blur is `RenderEffect` (Android 12+), the lens is AGSL (Android 13+). The library skips whatever
  *  the platform cannot do, so these flags only decide whether to paint the solid fallback. */
 val glassSupported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+/** The legacy accessibility flag; from Android 14 the same intent arrives as a contrast level. */
+private const val HighTextContrastSetting = "high_text_contrast_enabled"
+
+/**
+ * Whether the reader has asked the system for maximum contrast.
+ *
+ * Android has no "reduce transparency" switch of its own. High-contrast text is the setting that
+ * carries the same intent — stop decorating, start reading — and from Android 14 the platform
+ * exposes it as a contrast level instead of a boolean.
+ *
+ * When it is on, [RoutineBackdropProvider] publishes no backdrop, so every glass element in the
+ * window takes the solid path it already takes on Android 11 and below. That is the point of
+ * routing it through the backdrop rather than adding a flag to each control: one fallback exists,
+ * one set of colours is measured by the contrast gate, and nothing can be left behind.
+ *
+ * Read once per composition host, exactly like `rememberReduceMotion`, so it takes effect the next
+ * time the screen is built rather than mid-frame.
+ */
+@Composable
+fun rememberReduceTransparency(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                (context.getSystemService(UiModeManager::class.java)?.contrast ?: 0f) > 0f
+            } else {
+                Settings.Secure.getInt(context.contentResolver, HighTextContrastSetting, 0) == 1
+            }
+        }.getOrDefault(false)
+    }
+}
 val lensSupported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
 /**
@@ -109,20 +177,21 @@ enum class GlassRole(
     val depth: Boolean,
     val dispersion: Boolean,
     val rim: Float,
+    val shadowRadius: Dp,
     val tintAlpha: Float,
     val fallback: Color,
 ) {
     /** Top bar and other standard chrome floating over scrolling content. */
-    Bar(6.dp, 18.dp, 32.dp, depth = true, dispersion = false, rim = 0.16f,
+    Bar(6.dp, 18.dp, 32.dp, depth = true, dispersion = false, rim = 0.16f, shadowRadius = 16.dp,
         tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallback),
-    /** Sheet header/footer: broad enough to stay readable over a busy scrolling backdrop. */
-    Sheet(6.dp, 24.dp, 44.dp, depth = true, dispersion = true, rim = 0.18f,
+    /** Sheet header: broad enough to stay readable over a busy scrolling backdrop. */
+    Sheet(6.dp, 24.dp, 44.dp, depth = true, dispersion = true, rim = 0.18f, shadowRadius = 20.dp,
         tintAlpha = RoutineColors.GlassTintStrongAlpha, fallback = RoutineColors.GlassFallbackStrong),
     /** Small pills and controls. Chromatic dispersion is intentionally disabled at this size. */
-    Chip(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.12f,
+    Chip(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.12f, shadowRadius = 8.dp,
         tintAlpha = RoutineColors.GlassTintCompactAlpha, fallback = RoutineColors.GlassFallback),
     /** Floating action button and other compact primary controls. */
-    Control(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.14f,
+    Control(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.14f, shadowRadius = 10.dp,
         tintAlpha = RoutineColors.GlassTintCompactAlpha, fallback = RoutineColors.GlassFallback),
 }
 
@@ -169,6 +238,15 @@ fun rememberGlassTilt(): GlassTilt {
 /** Rim hairline. Drawn centred on the shape outline, so the clip leaves half of it: ~0.8 dp of light. */
 private val RimWidth = 1.6.dp
 
+/**
+ * The white intensity each highlight style paints at, from the library's own definitions.
+ *
+ * `HighlightStyle.Default` is Apple's angled edge — brightest at the top-left corner, falling away
+ * to the bottom-right — and `Ambient` is the same hairline with no direction to it.
+ */
+private const val SpecularHighlightIntensity = 0.5f
+private const val AmbientHighlightIntensity = 0.38f
+
 /** Creates the window backdrop and publishes it to the subtree; the ambient wash is drawn into it. */
 @Composable
 fun RoutineBackdropProvider(content: @Composable () -> Unit) {
@@ -176,7 +254,10 @@ fun RoutineBackdropProvider(content: @Composable () -> Unit) {
         drawRect(RoutineColors.Background)
         drawContent()
     }
-    CompositionLocalProvider(LocalRoutineBackdrop provides backdrop) { content() }
+    // Withheld under maximum contrast: no backdrop means no element samples anything, the content
+    // layer is never even attached, and the whole window renders on the solid fallback surfaces.
+    val published = if (rememberReduceTransparency()) null else backdrop
+    CompositionLocalProvider(LocalRoutineBackdrop provides published) { content() }
 }
 
 /** Marks the *content* node whose pixels the chrome refracts. Sibling of every glass element. */
@@ -212,7 +293,15 @@ private fun DrawScope.drawSpecular(role: GlassRole) {
     )
 }
 
-private fun rimBrush(strength: Float, start: Offset = Offset.Zero, end: Offset = Offset.Unspecified) =
+/**
+ * The hairline along a glass edge.
+ *
+ * [end] defaults to [Offset.Infinite], not to `Offset.Unspecified`: "unspecified" is `NaN`, and a
+ * gradient whose end is `NaN` is not resolved against the node's size by Compose — it is handed to
+ * `android.graphics.LinearGradient`, which rejects it. `Infinite` is the value the platform reads
+ * as "the far edge of whatever this is drawn on".
+ */
+private fun rimBrush(strength: Float, start: Offset = Offset.Zero, end: Offset = Offset.Infinite) =
     Brush.linearGradient(
         0f to RoutineColors.GlassRim.copy(alpha = strength),
         0.42f to RoutineColors.GlassRim.copy(alpha = strength * RoutineColors.GlassRimWaist),
@@ -275,13 +364,6 @@ fun Modifier.routineGlass(
                 ),
             )
         }
-        // Specular rim, drawn last so it sits on top of the wash and survives the clip as a hairline.
-        drawOutline(
-            outline = shape.createOutline(size, layoutDirection, this),
-            brush = rimBrush(role.rim, Offset.Zero, Offset(size.width, size.height)),
-            style = Stroke(width = RimWidth.toPx()),
-        )
-        if (specular) drawSpecular(role)
     }
     return this.drawBackdrop(
         backdrop = backdrop,
@@ -294,6 +376,22 @@ fun Modifier.routineGlass(
             blur(role.blur.toPx())
             lens(role.lensRadius.toPx(), role.lensDepth.toPx(), role.depth, role.dispersion)
         },
+        // The edge, drawn once. `drawBackdrop` defaults these two to `Highlight.Default` and
+        // `Shadow.Default`, so a call that passes neither still gets both — this file used to hand
+        // them the defaults and then draw its own rim and specular line on top, which is two edges
+        // stacked and a 24 dp shadow under a 40 dp chip. Now the role table owns both.
+        highlight = {
+            // `rim` is the alpha the edge should land on. The style paints white at its own
+            // intensity, so the alpha handed over is divided by it; otherwise every role would be
+            // quietly fainter than the table says.
+            val intensity = if (specular) SpecularHighlightIntensity else AmbientHighlightIntensity
+            Highlight(
+                width = RimWidth / 2f,
+                alpha = (role.rim / intensity).coerceAtMost(1f),
+                style = if (specular) HighlightStyle.Default else HighlightStyle.Ambient,
+            )
+        },
+        shadow = { Shadow(role.shadowRadius, color = RoutineColors.GlassShadow) },
         onDrawSurface = surface,
     )
 }
@@ -314,7 +412,9 @@ fun RoutineGlassSurface(
 ) {
     val backdrop = LocalRoutineBackdrop.current
     Box(modifier.routineGlass(backdrop, shape, role, tint, hue, specular, tilt = LocalGlassTilt.current)
-        .clip(shape)) { content() }
+        .clip(shape)) {
+        CompositionLocalProvider(LocalInsideGlass provides true) { content() }
+    }
 }
 
 /**

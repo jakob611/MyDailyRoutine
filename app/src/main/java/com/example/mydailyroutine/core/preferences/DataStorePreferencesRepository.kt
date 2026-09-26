@@ -1,6 +1,7 @@
 package com.example.mydailyroutine.core.preferences
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -10,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.mydailyroutine.domain.health.HealthConfig
 import com.example.mydailyroutine.domain.health.PeriodicBreakConfig
+import com.example.mydailyroutine.domain.model.AppLanguage
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.routines.EntryDefaults
 import com.example.mydailyroutine.domain.model.ScheduleValidation
@@ -20,11 +22,58 @@ import java.time.LocalTime
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 
 private val Context.scheduleDataStore by preferencesDataStore(name = "schedule_preferences")
 
+private val appLanguageKey = stringPreferencesKey("app_language")
+
+private const val LocaleMirrorFile = "locale_mirror"
+private const val LocaleMirrorLanguage = "app_language"
+
+/**
+ * A one-key `SharedPreferences` file that shadows the language choice.
+ *
+ * `DataStore` is the source of truth for every preference, including this one, and it is
+ * deliberately asynchronous. `attachBaseContext` is deliberately synchronous: it must decide which
+ * language the whole process speaks before anything can await a coroutine. Those two facts do not
+ * meet, so the one value needed that early is also kept where a synchronous read is the supported
+ * operation rather than a blocking workaround.
+ *
+ * Deliberately **not** `applicationContext`: inside `Application.attachBaseContext` the application
+ * object is still being built and `getApplicationContext()` answers null. The context handed to
+ * that method can open its own preferences, and the instance returned here holds no reference back
+ * to it.
+ */
+private fun Context.localeMirror(): SharedPreferences =
+    getSharedPreferences(LocaleMirrorFile, Context.MODE_PRIVATE)
+
+private fun SharedPreferences.writeLanguage(language: String?) {
+    if (getString(LocaleMirrorLanguage, null) == language) return
+    edit().putString(LocaleMirrorLanguage, language).apply()
+}
+
+/**
+ * The reader's language choice, read synchronously at process start.
+ *
+ * One small file read on the cold-start critical path — a path an alarm or a widget can also wake.
+ * It used to be a `runBlocking` that held the main thread while DataStore read and deserialised the
+ * entire preference file for this single string.
+ *
+ * The mirror can only be behind the store if the process died between the two writes, or if a
+ * restore brought back one file without the other; the preference flow rewrites it on its first
+ * emission, so the drift lasts one launch and then heals itself.
+ */
+fun readPersistedAppLanguage(context: Context): String? =
+    // Guarded because this is the first line of the process: anything thrown here is a launch
+    // crash with no screen to report it on. Failing to read the mirror is not an error state, it
+    // is the absence of a choice — which already has a defined answer, the device's language.
+    runCatching { context.localeMirror().getString(LocaleMirrorLanguage, null) }
+        .getOrNull()?.let(AppLanguage::normalize)
+
 class DataStorePreferencesRepository(context: Context, private val onChanged: () -> Unit) : PreferencesRepository {
     private val store = context.applicationContext.scheduleDataStore
+    private val localeMirror = context.localeMirror()
     private val muteKey = booleanPreferencesKey("mute_during_school")
     private val nameKey = stringPreferencesKey("user_name")
     private val onboardingKey = booleanPreferencesKey("onboarding_done")
@@ -68,8 +117,16 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             ),
             teachingEndDate = values[teachingEndKey]?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
                 ?: defaults.teachingEndDate,
+            // A tag outside the two shipped translations reads as "no choice", never as a third
+            // language: the store is trusted for the key, not for its grammar.
+            appLanguage = AppLanguage.normalize(values[appLanguageKey]),
         )
-    }.distinctUntilChanged()
+    }.distinctUntilChanged().onEach {
+        // setAppLanguage writes the mirror, but this is the place that sees every value the store
+        // ever holds — including one that arrived without going through this process, such as a
+        // restored backup. After distinctUntilChanged, so it costs one comparison per real change.
+        localeMirror.writeLanguage(it.appLanguage)
+    }
 
     private fun time(minutes: Int?, fallback: LocalTime): LocalTime =
         minutes?.takeIf { it in 0..1439 }?.let { LocalTime.ofSecondOfDay(it * 60L) } ?: fallback
@@ -141,6 +198,19 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             it[periodicEveryKey] = config.everyMinutes
             it[periodicLenKey] = config.breakMinutes
         }
+        onChanged()
+    }
+
+    override suspend fun setAppLanguage(language: String?) {
+        val normalized = AppLanguage.normalize(language)
+        store.edit {
+            if (normalized == null) it.remove(appLanguageKey) else it[appLanguageKey] = normalized
+        }
+        // After the store, never before it: should the process die between the two writes, the next
+        // start reads a mirror that is behind the truth rather than ahead of it — the interface
+        // speaks the previous language and the settings sheet shows the previous choice, which is
+        // one consistent state instead of two contradicting ones.
+        localeMirror.writeLanguage(normalized)
         onChanged()
     }
 }

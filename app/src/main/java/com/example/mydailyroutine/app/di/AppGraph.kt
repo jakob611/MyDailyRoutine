@@ -6,6 +6,7 @@ import com.example.mydailyroutine.RoutineApplication
 import com.example.mydailyroutine.core.database.RoutineDatabase
 import com.example.mydailyroutine.features.examples.data.DemoDataSeeder
 import com.example.mydailyroutine.core.preferences.DataStorePreferencesRepository
+import com.example.mydailyroutine.core.platform.withRoutineLocale
 import com.example.mydailyroutine.features.timeline.data.RoomTimelineRepository
 import com.example.mydailyroutine.features.routines.data.RoomRoutinePatternsRepository
 import com.example.mydailyroutine.features.planning.data.RoomPlanningRepository
@@ -24,9 +25,13 @@ import kotlinx.coroutines.launch
 
 /** Small explicit composition root; no service locator inside the domain and no DI reflection. */
 class AppGraph(context: Context) {
+    // `RoutineApplication` resolves the reader's language choice before the graph is built, so
+    // every service below that formats user-visible text — calendar seeding, notifications,
+    // widget refresh, demo data — speaks the reader's language instead of the raw device one.
+    private val localized = context.withRoutineLocale()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val refreshRequests = Channel<Unit>(Channel.CONFLATED)
-    val database = RoutineDatabase.create(context)
+    val database = RoutineDatabase.create(localized)
     val repository = RoomTimelineRepository(database, ::requestRefresh)
     val patterns = RoomRoutinePatternsRepository(database, repository, ::requestRefresh)
     val planning = RoomPlanningRepository(database, repository, ::requestRefresh)
@@ -34,10 +39,10 @@ class AppGraph(context: Context) {
     val backup = RoomBackupRepository(database, repository, ::requestRefresh)
     val goals = RoomGoalsRepository(database, ::requestRefresh)
     val preferences = DataStorePreferencesRepository(context, ::requestRefresh)
-    val exampleData = DemoDataSeeder(context, database, preferences, ::requestRefresh, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches)
-    val scheduler = ScheduleAlarmScheduler(context)
-    val notifier = ScheduleNotifier(context)
-    val coordinator = ScheduleCoordinator(context, database, repository, preferences, scheduler, notifier)
+    val exampleData = DemoDataSeeder(localized, database, preferences, ::requestRefresh, com.example.mydailyroutine.core.designsystem.theme.RoutineColors.subjectSwatches)
+    val scheduler = ScheduleAlarmScheduler(localized)
+    val notifier = ScheduleNotifier(localized)
+    val coordinator = ScheduleCoordinator(localized, database, repository, preferences, scheduler, notifier)
 
     init {
         notifier.ensureChannels()

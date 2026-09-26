@@ -35,7 +35,7 @@ class TasksGoalsTest {
     private val date = LocalDate.of(2026, 9, 14)
 
     @Before fun before() {
-        db = Room.inMemoryDatabaseBuilder(context, RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback(context.resources)).build()
+        db = Room.inMemoryDatabaseBuilder(context, RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback()).build()
         timeline = RoomTimelineRepository(db, {})
         planning = RoomPlanningRepository(db, timeline, {})
         goals = RoomGoalsRepository(db, {})

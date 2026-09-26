@@ -2,11 +2,7 @@ package com.example.mydailyroutine.core.designsystem.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.graphicsLayer
-import com.example.mydailyroutine.core.designsystem.motion.AppleMotion
-import com.example.mydailyroutine.core.designsystem.motion.glassTouchSpec
 import androidx.compose.ui.unit.IntSize
 import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
@@ -42,16 +38,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,12 +78,17 @@ import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
+import com.example.mydailyroutine.core.designsystem.glass.LocalSheetBackdrop
+import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
+import com.example.mydailyroutine.core.designsystem.glass.rememberReduceTransparency
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
+import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -423,7 +422,7 @@ private fun SheetHeader(
     subtitle: String?,
     closeLabel: String?,
     onClose: (() -> Unit)?,
-    backdrop: LayerBackdrop,
+    backdrop: Backdrop?,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet,
@@ -453,14 +452,18 @@ private fun SheetHeader(
     }
 }
 
+/**
+ * The action row at the bottom of a sheet. No frame of its own: the buttons are their own panes of
+ * liquid glass (see [SheetPrimaryButton]), so there is no glass island to sit on top of — and one
+ * less full-width blur sampling the sheet on every frame while it slides.
+ */
 @Composable
-private fun ColumnScope.SheetFooter(footer: (@Composable ColumnScope.() -> Unit)?, backdrop: LayerBackdrop) {
+private fun ColumnScope.SheetFooter(footer: (@Composable ColumnScope.() -> Unit)?) {
     if (footer == null) return
     Column(
-        Modifier.fillMaxWidth().padding(RoutineSpacing.md)
-            .routineGlass(backdrop, RoutineShapes.GlassSheetFooter, GlassRole.Sheet,
-            tilt = LocalGlassTilt.current)
-            .padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.md),
+        Modifier.fillMaxWidth()
+            .padding(horizontal = RoutineMetrics.ScreenPadding)
+            .padding(top = RoutineSpacing.sm, bottom = RoutineSpacing.lg),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) { footer() }
 }
@@ -491,16 +494,27 @@ private fun SheetShell(
         drawRect(RoutineColors.SheetSurface)
         drawContent()
     }
+    // The body keeps recording into the layer — that is what the body is drawn into, not an effect
+    // it pays for — but under maximum contrast the chrome stops sampling it and goes solid.
+    val chromeBackdrop = if (rememberReduceTransparency()) null else sheetBackdrop
     val density = LocalDensity.current
     var headerHeight by remember { mutableStateOf(0.dp) }
     Column(modifier.fillMaxWidth().imePadding()) {
         Box(Modifier.weight(1f, fill = false).fillMaxWidth()) {
+            // The body carries `layerBackdrop`, so it is the one place in the sheet that must not
+            // be told about that layer: a node that samples the layer it is drawn into draws
+            // itself into itself and takes the render thread down with it (SIGSEGV). A control in
+            // the body therefore finds no backdrop and falls back to its solid surface — which is
+            // also the rule the glass is supposed to follow: chrome refracts, content is refracted.
             body(sheetBackdrop, headerHeight)
-            SheetHeader(title, subtitle, closeLabel, onClose, sheetBackdrop,
+            SheetHeader(title, subtitle, closeLabel, onClose, chromeBackdrop,
                 Modifier.align(Alignment.TopCenter).fillMaxWidth()
                     .onSizeChanged { headerHeight = with(density) { it.height.toDp() } })
         }
-        SheetFooter(footer, sheetBackdrop)
+        // The footer is a sibling of that layer, not a child of it, so its buttons may sample it.
+        CompositionLocalProvider(LocalSheetBackdrop provides chromeBackdrop) {
+            SheetFooter(footer)
+        }
     }
 }
 
@@ -562,10 +576,17 @@ fun RoutineSheetListScaffold(
 }
 
 /**
- * Primary sheet action: identical geometry everywhere, label never breaks. The brief's liquid
- * button: a solid turquoise capsule (the theme's `primary` with the background as its ink) that
- * compresses four percent under the finger and springs back — the soft-body press from Kyant0's
- * catalog, without pretending a 52 dp button is a lens.
+ * Primary sheet action: identical geometry everywhere, label never breaks.
+ *
+ * The button **is** the liquid glass: one turquoise-tinted pane (the theme's `primary` hue over
+ * the refracted sheet, the background as its ink) that compresses under the finger and blooms at
+ * the touch point — Apple's `.interactive()` through [rememberGlassTouch], not a solid capsule
+ * sitting on top of a glass frame. What it refracts is the sheet's own layer
+ * ([LocalSheetBackdrop]) and nothing else: in a sheet footer that layer is a sibling and the
+ * glass is real, and anywhere else — inside the scrolling body, or outside a sheet entirely —
+ * there is no layer to sample and the pane falls back to its solid surface. Reaching past the
+ * sheet to the window behind it is not an option: it is a different window, and a control that
+ * sampled the layer it is drawn into would take the render thread down with it.
  */
 @Composable
 fun SheetPrimaryButton(
@@ -574,29 +595,35 @@ fun SheetPrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val reduceMotion = LocalReduceMotion.current
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val press by animateFloatAsState(
-        if (pressed) 1f else 0f,
-        glassTouchSpec<Float>(reduceMotion),
-        label = "primary-press",
-    )
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        shape = RoutineShapes.Pill,
-        interactionSource = interaction,
-        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp)
-            .graphicsLayer {
-                val scale = 1f - press * (1f - AppleMotion.PressScale)
-                scaleX = scale
-                scaleY = scale
-            },
-    ) { RoutineLabel(label, style = MaterialTheme.typography.labelLarge) }
+    val backdrop = LocalSheetBackdrop.current
+    val touch = rememberGlassTouch(LocalReduceMotion.current)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
+            .routineGlassTouch(touch, RoutineShapes.Pill)
+            .routineGlass(
+                backdrop, RoutineShapes.Pill, GlassRole.Control,
+                tint = RoutineColors.Primary, hue = true,
+                specular = true, tilt = LocalGlassTilt.current,
+            )
+            .clip(RoutineShapes.Pill)
+            .clickable(
+                interactionSource = touch.source,
+                indication = null,
+                role = Role.Button,
+                enabled = enabled,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) { RoutineLabel(label, style = MaterialTheme.typography.labelLarge, color = RoutineColors.InkOnPrimary) }
 }
 
-/** Secondary sheet action: same geometry as [SheetPrimaryButton], outlined emphasis. */
+/**
+ * Secondary sheet action: same geometry as [SheetPrimaryButton], neutral glass instead of the
+ * turquoise wash — emphasis by what the pane does not do.
+ */
 @Composable
 fun SheetSecondaryButton(
     label: String,
@@ -605,12 +632,32 @@ fun SheetSecondaryButton(
     enabled: Boolean = true,
     contentColor: Color = Color.Unspecified,
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        shape = RoutineShapes.Pill,
-        colors = if (contentColor == Color.Unspecified) ButtonDefaults.outlinedButtonColors()
-        else ButtonDefaults.outlinedButtonColors(contentColor = contentColor),
-        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),
-    ) { RoutineLabel(label, style = MaterialTheme.typography.labelLarge) }
+    val backdrop = LocalSheetBackdrop.current
+    val touch = rememberGlassTouch(LocalReduceMotion.current)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
+            .routineGlassTouch(touch, RoutineShapes.Pill)
+            .routineGlass(
+                backdrop, RoutineShapes.Pill, GlassRole.Control,
+                specular = true, tilt = LocalGlassTilt.current,
+            )
+            .clip(RoutineShapes.Pill)
+            .clickable(
+                interactionSource = touch.source,
+                indication = null,
+                role = Role.Button,
+                enabled = enabled,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        RoutineLabel(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (contentColor == Color.Unspecified) RoutineColors.TextPrimary else contentColor,
+        )
+    }
 }

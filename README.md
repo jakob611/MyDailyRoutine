@@ -6,6 +6,44 @@ theme identifiers keep the original `MyDailyRoutine` naming on purpose.
 
 A Slovenian-language, OLED-dark-first Android time-blocking app for school, focused study, personal routines, recovery, and IB milestones. Kotlin 2.x, Jetpack Compose / Material 3, Room, Coroutines / Flow, AlarmManager, and Glance. No account, HTTP client, telemetry, or runtime network permission.
 
+## Visual colour picking and self-glass sheet buttons
+
+The subject editor's custom colour is now picked by feel instead of typed as a hex code: an HSV
+wheel (hue around the circle, saturation from the centre to the rim) with a brightness slider
+beneath it, a live preview swatch and the exact hex readout beside it. The wheel is a bitmap
+rendered once per composition host, so dragging the thumb moves a node over a static image rather
+than redrawing hundreds of hue arcs per frame — the old hex-only field is gone.
+
+Every sheet's action buttons are now panes of liquid glass **themselves** instead of solid buttons
+sitting on a glass island: the island under the footer is removed (one less full-width blur
+sampling the sheet on every frame of its slide), and the primary/secondary buttons in all the
+sheets that share the scaffold are each their own refracting pill — the primary tinted with the
+brand hue, the press bloom and squash coming from the shared `rememberGlassTouch`. Inside a sheet
+they sample the sheet's own layer (`LocalSheetBackdrop`), so a button in the sheet shows the
+sheet, not the window behind it.
+
+## Two complete languages, one choice
+
+Every user-visible string in the app — screens, sheets, dialogs, notifications, presets, the
+widget — is a resource in one of two complete translations: **Slovenian** (the default resource
+set) and **English** (`values/` and `values-en/`, both listed in `res/xml/locales_config.xml`).
+
+Until the reader chooses otherwise the app follows the device: an English device speaks English
+(including English date patterns), everything else speaks Slovenian, so a phone in an
+untranslated language reads a complete language instead of a half-translation. The choice —
+*follow the device / Slovenščina / English* — is offered on the first onboarding screen and at
+the top of Settings → Ritem, applies at once (activity restart, widget refresh) and persists on
+the device in DataStore; no network is involved.
+
+The choice is validated at the domain edge (`AppLanguage`): a stored tag outside the two shipped
+translations reads as "no choice" everywhere, so the app can never point its interface at a
+language that does not exist.
+
+`tools/check_translations.py` fails the build if the two translations drift: identical resource
+names, identical format specifiers per name, the plural forms each language actually needs
+(Slovenian four, English two), no empty translation, no undeclared locale folder — and no
+user-visible sentence typed straight into a composable call instead of a string resource.
+
 ## Faster routine input
 
 The current extension adds automatic end times, selected-weekday repeating routines, linked school
@@ -65,7 +103,7 @@ No example timetable is inserted at startup. Settings offers a confirmed, one-ti
 - Each saved subject automatically provides **Pouk / Učenje / Test** presets. Presets react to name, color and duration edits; deletion removes them without orphan rows. The milestone adder offers one-tap **Predpisan test** entries for the selected date/time.
 - **Napredne nastavitve** exposes every rule's threshold and on/off switch. DataStore changes re-evaluate health warnings without requiring a database edit.
 - A health badge requests transactional recovery insertion. It can split/move focus while preserving study minutes and the weekly template; it never displaces fixed commitments. When unsafe, it uses a real free slot or reports that nothing changed.
-- All app-owned display copy is Slovenian Android resources, including notices, errors, presets, notifications and widget text. User-entered titles are never silently translated.
+- All app-owned display copy is a string resource of the two complete translations (Slovenian default, English) — notices, errors, presets, notifications and widget text included. User-entered titles are never silently translated.
 
 See [source integration and behavior](docs/SOURCE_INTEGRATION.md) for the exact source commits and adaptations.
 

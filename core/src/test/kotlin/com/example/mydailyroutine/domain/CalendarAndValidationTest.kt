@@ -34,6 +34,25 @@ class CalendarAndValidationTest {
         assertEquals(1L, Calendar.daysRemaining(LocalDate.of(2027, 6, 23)))
     }
 
+    @Test fun `the vacation set is the multi day rest windows and nothing else`() {
+        // The year view's "space to rest" section asks this set. It used to ask the displayed title
+        // whether it contained the Slovenian word "počitnice", which found nothing at all once the
+        // interface spoke English — the section went empty in exactly one language.
+        val byTitle = Calendar.entries().groupBy { it.title }
+        Calendar.vacationTitles.forEach { title ->
+            val days = byTitle[title].orEmpty()
+            assertTrue("$title is not in the bundled calendar", days.isNotEmpty())
+            assertTrue("$title is not work free", days.all { it.isWorkFreeDay })
+            assertTrue("$title lasts a single day", days.size > 1)
+        }
+        assertEquals(setOf("Jesenske počitnice", "Novoletni oddih", "Zimske počitnice · Zahod",
+            "Prvomajski oddih", "Poletne počitnice"), Calendar.vacationTitles)
+        // A public holiday that happens to fall on two days is still not a rest window.
+        assertFalse("Novo leto" in Calendar.vacationTitles)
+        assertFalse("Praznik dela" in Calendar.vacationTitles)
+        assertFalse("Pouka prost dan" in Calendar.vacationTitles)
+    }
+
     @Test fun `working observances never claim a day off`() {
         val sport = Calendar.entries().single { it.title == "Dan slovenskega športa" }
         assertFalse(sport.isWorkFreeDay)

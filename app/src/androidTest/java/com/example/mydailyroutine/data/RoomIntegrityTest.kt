@@ -38,7 +38,7 @@ class RoomIntegrityTest {
 
     @Before fun setUp() {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), RoutineDatabase::class.java)
-            .addCallback(SeedAndIntegrityCallback(ApplicationProvider.getApplicationContext<android.content.Context>().resources)).build()
+            .addCallback(SeedAndIntegrityCallback()).build()
         repository = RoomTimelineRepository(db, {})
     }
     @After fun tearDown() { db.close() }

@@ -7,12 +7,12 @@ import com.example.mydailyroutine.core.database.daos.*
 import com.example.mydailyroutine.domain.learning.*
 import com.example.mydailyroutine.domain.model.*
 import com.example.mydailyroutine.domain.planning.*
+import com.example.mydailyroutine.core.platform.uiLocale
 import com.example.mydailyroutine.domain.repository.*
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 import kotlin.math.ceil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
@@ -225,7 +225,9 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
         }) }
         var placed = 0; var placedMinutes = 0; var deferred = 0
         plan.forEach { review ->
-            val title = String.format(Locale.forLanguageTag("sl"), reviewTitlePattern, topic.title.take(95), review.ordinal).take(120)
+            // The pattern is a localized resource; it is formatted in the interface language so
+            // the generated block titles agree with the labels around them in both translations.
+            val title = String.format(uiLocale(), reviewTitlePattern, topic.title.take(95), review.ordinal).take(120)
             val day = review.scheduledEpochDay?.let(days::get)
             val start = day?.candidate(review.durationMinutes, RoutineCategory.FOCUS_ANALYTICAL, topic.priorityWeight, review = true)
             val routineId = if (day != null && start != null) {
@@ -264,7 +266,8 @@ class RoomPlanningRepository(private val db: RoutineDatabase, private val timeli
         val plan = withContext(Dispatchers.Default) { MilestoneBackPlanner().plan(initialDate, milestone.dueDate,
             milestone.estimatedEffortHours, milestone.isTerminalExam, category,
             calibration.multiplier(subject), calibration.conservativeMultiplier(subject), days, config, stages) }
-        val title = String.format(Locale.forLanguageTag("sl"), preparationTitlePattern, milestone.title.take(98)).take(120)
+        // Same rule as the review titles above: a localized pattern, formatted in the interface language.
+        val title = String.format(uiLocale(), preparationTitlePattern, milestone.title.take(98)).take(120)
         plan.blocks.forEach { block -> createBlock(block.date, block.startMinutes, block.durationMinutes,
             if (block.reserve) reserveTitle else listOf(title,block.stageTitle).filter(String::isNotBlank).joinToString(" · ").take(120), if (block.reserve) RoutineCategory.EMERGENCY_RESERVE else category,
             milestone.subjectId, milestone.id, minDuration = if (block.reserve) 0 else minOf(25, block.durationMinutes),

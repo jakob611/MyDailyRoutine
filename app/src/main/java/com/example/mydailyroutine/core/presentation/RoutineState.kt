@@ -222,6 +222,12 @@ sealed interface TimelineAction {
     data class InsertRecovery(val type: WarningType, val anchorKey: String, val recoveryTitle: String, val continuationSuffix: String) : TimelineAction
     data class SetHaptics(val enabled: Boolean) : TimelineAction
     data class SetSoundEffects(val enabled: Boolean) : TimelineAction
+    /**
+     * The reader's explicit interface language: [com.example.mydailyroutine.domain.model.AppLanguage]
+     * tags, or `null` for "follow the device". Sent from the settings sheet and the first
+     * onboarding screen; applying it restarts the activity ([TimelineEffect.RestartForLocale]).
+     */
+    data class SetAppLanguage(val language: String?) : TimelineAction
     data class SetHealthConfig(val config: HealthConfig) : TimelineAction
     data class SetPeriodicBreak(val config: PeriodicBreakConfig) : TimelineAction
     data object RequestDemo : TimelineAction
@@ -267,6 +273,12 @@ sealed interface TimelineAction {
 sealed interface TimelineEffect {
     data class Message(@StringRes val resource: Int, val minutes: Int? = null, val count: Int? = null) : TimelineEffect
     data object Completed : TimelineEffect
+    /**
+     * The interface language changed: the reader must see the new language from the next frame,
+     * which means a recreated activity (resources are per-context, not per-composition) and a
+     * refreshed widget, because the widget renders outside this window.
+     */
+    data object RestartForLocale : TimelineEffect
 }
 
 @Immutable

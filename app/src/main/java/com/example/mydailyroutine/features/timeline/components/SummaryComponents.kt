@@ -47,6 +47,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
 import com.example.mydailyroutine.core.presentation.*
+import com.example.mydailyroutine.core.platform.calendarTitle
 import com.example.mydailyroutine.domain.health.HealthConfig
 import com.example.mydailyroutine.domain.health.categoryAllocation
 import com.example.mydailyroutine.domain.model.CalendarEntry
@@ -168,7 +169,8 @@ fun CalendarNoticeCard(entries: List<CalendarEntry>) {
                     style = MaterialTheme.typography.titleSmall, color = style.content,
                     maxLines = RoutineTextDefaults.Body)
                 entries.forEach {
-                    RoutineText(it.title, style = MaterialTheme.typography.bodySmall,
+                    // The row holds a dataset key; the language is chosen here, at the display.
+                    RoutineText(calendarTitle(it.title), style = MaterialTheme.typography.bodySmall,
                         color = style.content, maxLines = RoutineTextDefaults.Body)
                 }
                 if (off) {

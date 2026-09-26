@@ -12,6 +12,8 @@
     <string name="onboarding_welcome_body">I use it only in the greeting on an empty day. You can leave it empty — without a name it works the same.</string>
     <string name="onboarding_name_hint">e.g. Jakob</string>
     <string name="onboarding_name_label">Name (optional)</string>
+    <string name="onboarding_language_title">Which language?</string>
+    <string name="onboarding_language_hint">It applies at once; you can change it any time in settings.</string>
     <string name="onboarding_start_title">To start</string>
     <string name="onboarding_start_body">The IB example fills the timeline with real blocks you can tick off straight away — that is the fastest way to understand what this app is. You can delete all of it.</string>
     <string name="onboarding_rhythm_note">You can enter your school hours later in Settings under Rhythm; notifications stay quiet during that window.</string>
@@ -183,7 +185,8 @@
     <string name="subject_duration">Default duration in minutes</string>
     <string name="subject_duration_hint">From 1 to 1439 minutes</string>
     <string name="subject_color_custom">Any colour</string>
-    <string name="subject_color_custom_hint">Six digits, e.g. 4F8CFF. An empty field means a colour from the shelf.</string>
+    <string name="subject_color_wheel">Colour wheel</string>
+    <string name="subject_color_value">Brightness</string>
     <string name="subject_color">Subject colour</string>
     <string name="save_subject">Save the subject</string>
     <string name="color_cyan">Cyan</string>
@@ -249,6 +252,10 @@
     <string name="year_markers_count">Deadlines: %1$d</string>
     <string name="year_days_off">Days off: %1$d</string>
     <string name="year_recovery_heading">Room to recharge</string>
+    <plurals name="vacation_days">
+        <item quantity="one">%d day off</item>
+        <item quantity="other">%d days off</item>
+    </plurals>
     <string name="year_no_vacations">No holidays are included for this school year.</string>
     <string name="date_range_same_month">%1$s–%2$s %3$s</string>
     <string name="date_range">%1$s – %2$s</string>
@@ -258,6 +265,13 @@
     <string name="no_milestones">No deadlines yet. Add exam, IA, EE and TOK dates once your school confirms them.</string>
     <string name="completed_marker">%1$s · done</string>
     <string name="settings_title">Your rhythm</string>
+    <string name="settings_language">App language</string>
+    <string name="settings_language_hint">The app speaks Slovenian or English; without a choice it follows the device. A change applies at once and stays on this device.</string>
+    <string name="language_system">Follow the device</string>
+    <!-- Language names are written in the language they select, in every locale: the picker must
+         stay findable for a reader who reads only one of them. -->
+    <string name="language_slovenian">Slovenščina</string>
+    <string name="language_english">English</string>
     <string name="privacy_summary">No connection. No account, network, analytics or cloud backup.</string>
     <string name="privacy_delete_warning">Removing the app or clearing its storage permanently deletes the timetable.</string>
     <string name="settings_reminders">Reminders</string>
@@ -678,6 +692,7 @@
     <string name="tasks_added">Task added.</string>
     <string name="tasks_updated">Task saved.</string>
     <string name="tasks_deleted">Task deleted.</string>
+    <string name="shared_task_default_title">Task</string>
     <string name="goals_open">Goals</string>
     <string name="goals_title">CAS and EE</string>
     <string name="goals_gantt">Plan by month</string>

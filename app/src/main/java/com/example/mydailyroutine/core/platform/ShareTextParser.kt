@@ -45,7 +45,12 @@ object ShareTextParser {
         "oct" to Month.OCTOBER, "nov" to Month.NOVEMBER, "dec" to Month.DECEMBER,
     ).toMap()
 
-    fun parse(text: String): SharedTaskDraft {
+    /**
+     * [fallbackTitle] is the localized placeholder for a share that carries nothing but a link —
+     * the parser is pure JVM, so the caller hands in the already-resolved string instead of the
+     * parser owning a language.
+     */
+    fun parse(text: String, fallbackTitle: String): SharedTaskDraft {
         val trimmed = text.trim()
         var due: LocalDate? = null
         var matched = ""
@@ -63,7 +68,7 @@ object ShareTextParser {
         title = title.replace(NoiseWord, " ")
             .trim().trim('-', '–', '—', ':', ';', ',').trim()
             .replace(Regex("\\s{2,}"), " ")
-        if (title.isBlank()) title = trimmed.replace(UrlToken, " ").trim().ifBlank { "Naloga" }
+        if (title.isBlank()) title = trimmed.replace(UrlToken, " ").trim().ifBlank { fallbackTitle }
         return SharedTaskDraft(title.take(120), due?.toEpochDay())
     }
 

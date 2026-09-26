@@ -83,6 +83,10 @@ object RoutineColors {
     val GlassTintAlpha = 0.52f
     val GlassTintCompactAlpha = 0.58f
     val GlassTintStrongAlpha = 0.68f
+    // The shadow under a glass pane is the background deepened, not black: on an OLED canvas a
+    // black shadow is invisible exactly where the pane already sits on black, and muddy over a card.
+    val GlassShadowAlpha = 0.10f
+    val GlassShadow = Background.copy(alpha = GlassShadowAlpha)
     val GlassFallback = Color(0x94151C2E)
     val GlassFallbackStrong = Color(0xAD0F1422)
     val GlassRim = TextPrimary
@@ -103,6 +107,24 @@ object RoutineColors {
     fun cardSurface(accent: Color): Color = accent.copy(alpha = 0.06f).compositeOver(Surface1)
 
     val subjectSwatches = SubjectPalette.swatches
+
+    /**
+     * The hue circle of the subject colour picker, as the stops of a sweep gradient.
+     *
+     * These are the six RGB primaries, not palette colours: at full saturation and value the
+     * HSV → RGB conversion is linear interpolation between exactly these, so a sweep through them
+     * *is* the hue circle rather than an approximation of it. They live here because a colour
+     * literal belongs to the palette file even when its job is to let the reader leave the palette.
+     */
+    val HueWheel: List<Color> = listOf(
+        0xFFFF0000, 0xFFFFFF00, 0xFF00FF00, 0xFF00FFFF, 0xFF0000FF, 0xFFFF00FF, 0xFFFF0000,
+    ).map { Color(it) }
+
+    /** Centre of the picker's saturation ramp: pure white fading to *transparent white*. */
+    val HueWheelCentre: Color = Color.White
+
+    /** The veil that darkens the picker's wheel to the brightness the slider is showing. */
+    val HueWheelShade: Color = Color.Black
 }
 
 data class CategoryStyle(val accent: Color, val container: Color, val content: Color)
@@ -141,7 +163,6 @@ object RoutineShapes {
     /** The rotated square that marks a milestone on the Gantt; 2 of its 9 dp, so it still reads sharp. */
     val Diamond = RoundedCornerShape(2.dp)
     val GlassSheetHeader = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
-    val GlassSheetFooter = RoundedCornerShape(18.dp)
 }
 
 /**
