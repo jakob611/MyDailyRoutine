@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.mydailyroutine.domain.health.HealthConfig
 import com.example.mydailyroutine.domain.health.PeriodicBreakConfig
+import com.example.mydailyroutine.domain.model.AppLanguage
 import com.example.mydailyroutine.domain.model.SchedulePreferences
 import com.example.mydailyroutine.domain.routines.EntryDefaults
 import com.example.mydailyroutine.domain.model.ScheduleValidation
@@ -19,9 +20,25 @@ import java.time.LocalDate
 import java.time.LocalTime
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 
 private val Context.scheduleDataStore by preferencesDataStore(name = "schedule_preferences")
+
+private val appLanguageKey = stringPreferencesKey("app_language")
+
+/**
+ * The one synchronous read in the app, made for one moment: process start.
+ *
+ * `attachBaseContext` runs before the asynchronous preference flow produces its first value, and
+ * yet the base context — and every service built on it — must already speak the reader's chosen
+ * language from the first formatted string. Reading this one small key with `runBlocking` once per
+ * process start is the cheap, correct price; after this, everything goes back to the normal flow.
+ */
+fun readPersistedAppLanguage(context: Context): String? =
+    runBlocking { context.applicationContext.scheduleDataStore.data.first()[appLanguageKey] }
+        ?.let(AppLanguage::normalize)
 
 class DataStorePreferencesRepository(context: Context, private val onChanged: () -> Unit) : PreferencesRepository {
     private val store = context.applicationContext.scheduleDataStore
@@ -68,6 +85,9 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             ),
             teachingEndDate = values[teachingEndKey]?.let { runCatching { LocalDate.ofEpochDay(it) }.getOrNull() }
                 ?: defaults.teachingEndDate,
+            // A tag outside the two shipped translations reads as "no choice", never as a third
+            // language: the store is trusted for the key, not for its grammar.
+            appLanguage = AppLanguage.normalize(values[appLanguageKey]),
         )
     }.distinctUntilChanged()
 
@@ -140,6 +160,14 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             it[periodicKey] = config.enabled
             it[periodicEveryKey] = config.everyMinutes
             it[periodicLenKey] = config.breakMinutes
+        }
+        onChanged()
+    }
+
+    override suspend fun setAppLanguage(language: String?) {
+        val normalized = AppLanguage.normalize(language)
+        store.edit {
+            if (normalized == null) it.remove(appLanguageKey) else it[appLanguageKey] = normalized
         }
         onChanged()
     }

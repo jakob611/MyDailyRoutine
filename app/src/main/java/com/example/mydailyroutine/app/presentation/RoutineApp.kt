@@ -1,7 +1,9 @@
 package com.example.mydailyroutine.app.presentation
 
 import com.example.mydailyroutine.core.presentation.*
+import com.example.mydailyroutine.core.platform.Diagnostics
 import com.example.mydailyroutine.core.platform.StartupTrace
+import com.example.mydailyroutine.core.platform.applyLocaleToProcessDefaults
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
@@ -58,6 +60,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.widget.refreshAgendaWidgets
+import android.app.Activity
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.features.timeline.components.DateNavigator
 import com.example.mydailyroutine.features.entry.presentation.*
@@ -160,9 +164,10 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         when (action) {
             is TimelineAction.ToggleComplete, is TimelineAction.SyncExecution, is TimelineAction.ToggleTask,
             is TimelineAction.ToggleGoalMilestone, is TimelineAction.ToggleGoalActivity -> Unit
-            // A discrete step under the finger: a scale, a date, a nudge through time.
+            // A discrete step under the finger: a scale, a date, a nudge through time — or the
+            // language the whole interface is about to speak.
             is TimelineAction.SelectMode, is TimelineAction.SelectDate, is TimelineAction.Shift,
-            is TimelineAction.Today -> haptics.selection()
+            is TimelineAction.Today, is TimelineAction.SetAppLanguage -> haptics.selection()
             // A switch changing side. Android has had distinct on/off haptics since API 34, as iOS has.
             is TimelineAction.SetReminder -> haptics.toggle(action.enabled)
             is TimelineAction.SetAutomaticHealing -> haptics.toggle(action.enabled)
@@ -234,6 +239,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                 userName = state.preferences.userName,
                 schoolStart = state.preferences.schoolStart,
                 schoolEnd = state.preferences.schoolEnd,
+                appLanguage = state.preferences.appLanguage,
                 onAction = onAction,
             )
         }
@@ -251,6 +257,21 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             // confirm sound land together.
             TimelineEffect.Completed -> { haptics.complete(); sounds.confirm() }
             is TimelineEffect.Message -> snackbars.showSnackbar(if (effect.count != null) context.getString(effect.resource, effect.minutes, effect.count) else if (effect.minutes == null) context.getString(effect.resource) else context.getString(effect.resource, effect.minutes))
+            // A language change is not a re-composition: resources are bound to the context, so
+            // the window has to be recreated to read them. The widget renders outside this window,
+            // so it refreshes first — the moment the reader sees the new language, the home
+            // screen and the app speak it together.
+            TimelineEffect.RestartForLocale -> {
+                // The process-wide defaults were set at process start, before this choice existed;
+                // re-apply them so framework-facing formatting agrees with the labels after too.
+                applyLocaleToProcessDefaults()
+                // The refresh is best-effort on purpose: if it fails, the next scheduled widget
+                // boundary retries it, and the window below still restarts in the new language.
+                try { refreshAgendaWidgets(context.applicationContext) }
+                catch (error: CancellationException) { throw error }
+                catch (error: Exception) { Diagnostics.warn("widget refresh before locale restart", error) }
+                (context as? Activity)?.recreate()
+            }
         } }
     }
     // N19: the first day that is actually on screen is the end of the first-minute measurement.

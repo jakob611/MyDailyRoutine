@@ -257,6 +257,11 @@ data class SchedulePreferences(
     val health: HealthConfig = HealthConfig(),
     val planning: com.example.mydailyroutine.domain.planning.PlanningConfig = com.example.mydailyroutine.domain.planning.PlanningConfig(),
     val periodicBreak: PeriodicBreakConfig = PeriodicBreakConfig(),
+    /**
+     * The reader's explicit interface language ([AppLanguage.SLOVENIAN] / [AppLanguage.ENGLISH]),
+     * or `null` for "no choice — follow the device". Never a third value: see [AppLanguage].
+     */
+    val appLanguage: String? = null,
 ) {
     /** Half-open window. Overnight quiet windows are supported; equal endpoints are rejected. */
     fun isQuietAt(time: LocalTime): Boolean = muteDuringSchoolHours && when {

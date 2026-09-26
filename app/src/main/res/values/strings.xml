@@ -7,6 +7,8 @@
     <string name="onboarding_welcome_body">Uporabim ga samo v pozdravu na praznem dnevu. Lahko ga pustiš prazno — brez imena dela enako.</string>
     <string name="onboarding_name_hint">npr. Jakob</string>
     <string name="onboarding_name_label">Ime (neobvezno)</string>
+    <string name="onboarding_language_title">V katerem jeziku?</string>
+    <string name="onboarding_language_hint">Velja takoj, kadarkoli pa jo spremeniš v nastavitvah.</string>
     <string name="onboarding_start_title">Za začetek</string>
     <string name="onboarding_start_body">Primer IB napolni časovnico s pravimi bloki, ki jih lahko takoj odkljukaš — tako je aplikacija najhitreje razumljiva. Vse lahko izbrišeš.</string>
     <string name="onboarding_rhythm_note">Uro pouka vpišeš pozneje v nastavitvah pod Ritem; med tistim oknom so obvestila tiha.</string>
@@ -253,6 +255,13 @@
     <string name="no_milestones">Ni še rokov. Datume testov, IA, EE in TOK dodaj, ko jih potrdi tvoja šola.</string>
     <string name="completed_marker">%1$s · opravljeno</string>
     <string name="settings_title">Tvoj ritem</string>
+    <string name="settings_language">Jezik aplikacije</string>
+    <string name="settings_language_hint">Aplikacija govori slovensko ali angleško; brez izbire sledi napravi. Sprememba velja takoj in ostane na tej napravi.</string>
+    <string name="language_system">Kot naprava</string>
+    <!-- Language names are written in the language they select, in every locale: the picker must
+         stay findable for a reader who reads only one of them. -->
+    <string name="language_slovenian">Slovenščina</string>
+    <string name="language_english">English</string>
     <string name="privacy_summary">Brez povezave. Brez računa, omrežja, analitike ali varnostne kopije v oblaku.</string>
     <string name="privacy_delete_warning">Odstranitev aplikacije ali brisanje shrambe trajno izbriše urnik.</string>
     <string name="settings_reminders">Opomniki</string>
@@ -683,6 +692,7 @@
     <string name="tasks_added">Naloga dodana.</string>
     <string name="tasks_updated">Naloga shranjena.</string>
     <string name="tasks_deleted">Naloga izbrisana.</string>
+    <string name="shared_task_default_title">Naloga</string>
     <string name="goals_open">Cilji</string>
     <string name="goals_title">CAS in EE</string>
     <string name="goals_gantt">Načrt po mesecih</string>

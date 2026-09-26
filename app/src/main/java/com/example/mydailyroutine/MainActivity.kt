@@ -106,7 +106,8 @@ class MainActivity : ComponentActivity() {
             // A deadline shared from ManageBac or any other app lands as a pre-filled quick-add in the Tasks sheet.
             val shared = intent.getStringExtra(Intent.EXTRA_TEXT)
             if (!shared.isNullOrBlank()) {
-                val draft = com.example.mydailyroutine.core.platform.ShareTextParser.parse(shared)
+                // The parser is pure JVM, so the localized placeholder travels in from here.
+                val draft = com.example.mydailyroutine.core.platform.ShareTextParser.parse(shared, getString(R.string.shared_task_default_title))
                 viewModel.onAction(TimelineAction.OpenSharedTask(draft.title, draft.dueEpochDay))
             }
             return

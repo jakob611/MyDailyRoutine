@@ -11,7 +11,8 @@ import com.example.mydailyroutine.domain.health.WarningType
 import com.example.mydailyroutine.domain.model.RoutineCategory
 import com.example.mydailyroutine.domain.presets.PresetKind
 import com.example.mydailyroutine.domain.presets.QuickAddPreset
-import com.example.mydailyroutine.core.platform.uiLocaleFor
+import com.example.mydailyroutine.core.platform.Slovenian
+import com.example.mydailyroutine.core.platform.uiLocale
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -22,14 +23,15 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * The language the interface is currently in. Read once per process from the process default, which
- * `RoutineApplication` sets from the same decision the resources use: a language change recreates the
- * process, so nothing here can go stale while a screen is on.
+ * The language the interface is currently in.
+ *
+ * Read live on every access instead of being frozen per process: a language change is applied by
+ * recreating the activity while the process keeps running, so anything cached at class-load time
+ * would keep formatting the old language while the labels around it already speak the new one.
+ * The resolution is [uiLocale] — the reader's explicit choice first, the device language second —
+ * the same decision the resources use.
  */
-val interfaceLocale: Locale = uiLocaleFor(Locale.getDefault().language)
-
-/** True when the interface speaks Slovenian, which is also what decides the date patterns below. */
-private val slovenianInterface: Boolean = interfaceLocale.language == "sl"
+val interfaceLocale: Locale get() = uiLocale()
 
 /**
  * The patterns behind [RoutineDate], one set per language.
@@ -77,10 +79,45 @@ private val englishPatterns = DatePatterns(
     clock = "HH:mm",
 )
 
-private val patterns: DatePatterns = if (slovenianInterface) slovenianPatterns else englishPatterns
+private fun patternsFor(locale: Locale): DatePatterns =
+    if (locale.language == Slovenian.language) slovenianPatterns else englishPatterns
 
-val clockFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", interfaceLocale)
-fun LocalTime.clockLabel(): String = format(clockFormat)
+/**
+ * All formatters in one immutable set, because they are all bound to the one locale that built
+ * them. The language can change under a running process — the settings sheet recreates the
+ * activity, not the process — so the cache is keyed by its locale and rebuilt the moment the
+ * resolved locale differs. A lost race can only build the set twice, which is harmless.
+ */
+private class Formats(val locale: Locale) {
+    private val p = patternsFor(locale)
+    val tightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.tight, locale)
+    val normalFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.normal, locale)
+    val weekdayNormalFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.withWeekday, locale)
+    val weekdayTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.weekdayTight, locale)
+    val fullFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.full, locale)
+    val spokenFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.spoken, locale)
+    val monthAndYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.monthAndYear, locale)
+    val monthTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.monthTight, locale)
+    val monthYearTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.monthYearTight, locale)
+    val dayNumberFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.dayNumber, locale)
+    val normalYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.normalYear, locale)
+    val weekdayNormalYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.weekdayNormalYear, locale)
+    val weekdayNameFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.weekdayName, locale)
+    val weekdayFullFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.weekdayFull, locale)
+    val axisDayFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.axisDay, locale)
+    val clockFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(p.clock, locale)
+}
+
+private object FormatCache {
+    @Volatile var formats: Formats = Formats(uiLocale())
+    fun current(): Formats {
+        val locale = uiLocale()
+        if (formats.locale != locale) formats = Formats(locale)
+        return formats
+    }
+}
+
+fun LocalTime.clockLabel(): String = format(FormatCache.current().clockFormat)
 fun minuteLabel(minute: Int): String = String.format(interfaceLocale, "%02d:%02d", minute / 60, minute % 60)
 
 /**
@@ -96,59 +133,45 @@ fun minuteLabel(minute: Int): String = String.format(interfaceLocale, "%02d:%02d
  * exist as their own steps instead of being improvised per screen.
  */
 object RoutineDate {
-    private val tightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.tight, interfaceLocale)
-    private val normalFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.normal, interfaceLocale)
-    private val weekdayNormalFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.withWeekday, interfaceLocale)
-    private val weekdayTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.weekdayTight, interfaceLocale)
-    private val fullFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.full, interfaceLocale)
-    private val spokenFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.spoken, interfaceLocale)
-    private val monthAndYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.monthAndYear, interfaceLocale)
-    private val monthTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.monthTight, interfaceLocale)
-    private val monthYearTightFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.monthYearTight, interfaceLocale)
-    private val dayNumberFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.dayNumber, interfaceLocale)
-    private val normalYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.normalYear, interfaceLocale)
-    private val weekdayNormalYearFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.weekdayNormalYear, interfaceLocale)
-    private val weekdayNameFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.weekdayName, interfaceLocale)
-    private val weekdayFullFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.weekdayFull, interfaceLocale)
-    private val axisDayFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.axisDay, interfaceLocale)
-    private val clockFormat: DateTimeFormatter = DateTimeFormatter.ofPattern(patterns.clock, interfaceLocale)
+    /** The formatter set for the language the interface speaks right now — see [FormatCache]. */
+    private fun f(): Formats = FormatCache.current()
 
     /** `16. 9.` — grid cells, gutters, chips: the shortest form that is still unambiguous. */
-    fun tight(date: LocalDate): String = date.format(tightFormat)
+    fun tight(date: LocalDate): String = date.format(f().tightFormat)
     /** `16.` — month calendars, where the month is already written somewhere else. */
-    fun dayNumber(date: LocalDate): String = date.format(dayNumberFormat)
+    fun dayNumber(date: LocalDate): String = date.format(f().dayNumberFormat)
     /** `16. sep` — list rows, milestone rows, progress entries. */
-    fun normal(date: LocalDate): String = date.format(normalFormat)
+    fun normal(date: LocalDate): String = date.format(f().normalFormat)
     /** `sre, 16. sep` — screen and sheet headers. */
-    fun withWeekday(date: LocalDate): String = date.format(weekdayNormalFormat)
+    fun withWeekday(date: LocalDate): String = date.format(f().weekdayNormalFormat)
     /** `sre 16` — the week grid, where a column is only a few dp wide. */
-    fun weekdayTight(date: LocalDate): String = date.format(weekdayTightFormat)
+    fun weekdayTight(date: LocalDate): String = date.format(f().weekdayTightFormat)
     /** `16. september 2026` — anything that must read as a full sentence. */
-    fun full(date: LocalDate): String = date.format(fullFormat)
+    fun full(date: LocalDate): String = date.format(f().fullFormat)
     /** `sreda, 16. september 2026` — editors, where the reader is making a decision. */
-    fun spoken(date: LocalDate): String = date.format(spokenFormat)
+    fun spoken(date: LocalDate): String = date.format(f().spokenFormat)
     /** `september 2026` — month mode header. */
-    fun monthAndYear(date: LocalDate): String = date.format(monthAndYearFormat)
+    fun monthAndYear(date: LocalDate): String = date.format(f().monthAndYearFormat)
     /** `sep` — year mode cells and any axis with room for three letters. */
-    fun monthTight(date: LocalDate): String = date.format(monthTightFormat)
+    fun monthTight(date: LocalDate): String = date.format(f().monthTightFormat)
     /** `sep` — same label when only the month is known, as in the year grid. */
-    fun monthTight(month: YearMonth): String = month.format(monthTightFormat)
+    fun monthTight(month: YearMonth): String = month.format(f().monthTightFormat)
     /** `sep 26` — the Gantt axis. */
-    fun axisLabel(month: YearMonth): String = month.format(monthYearTightFormat)
+    fun axisLabel(month: YearMonth): String = month.format(f().monthYearTightFormat)
     /** `16. sep 2026` — anything crossing an academic-year boundary, where the year matters. */
-    fun normalYear(date: LocalDate): String = date.format(normalYearFormat)
+    fun normalYear(date: LocalDate): String = date.format(f().normalYearFormat)
     /** `sre, 16. sep 2026` — planning rows: weekday plus year in one compact line. */
-    fun withWeekdayYear(date: LocalDate): String = date.format(weekdayNormalYearFormat)
+    fun withWeekdayYear(date: LocalDate): String = date.format(f().weekdayNormalYearFormat)
     /** `sreda` — a weekday on its own, e.g. beside a time in a weekly row. */
-    fun weekdayName(date: LocalDate): String = date.format(weekdayNameFormat)
+    fun weekdayName(date: LocalDate): String = date.format(f().weekdayNameFormat)
     /** `sreda 16. september` — overview headings inside a known year. */
-    fun weekdayFull(date: LocalDate): String = date.format(weekdayFullFormat)
+    fun weekdayFull(date: LocalDate): String = date.format(f().weekdayFullFormat)
     /** `16/9` — the narrowest axis tick that still reads as a date. */
-    fun axisDay(date: LocalDate): String = date.format(axisDayFormat)
+    fun axisDay(date: LocalDate): String = date.format(f().axisDayFormat)
     /** `07:30` — a clock time, tabular and locale-independent. */
-    fun clock(dateTime: LocalDateTime): String = dateTime.format(clockFormat)
+    fun clock(dateTime: LocalDateTime): String = dateTime.format(f().clockFormat)
     /** `07:30` — same clock time from a zoned instant. */
-    fun clock(dateTime: ZonedDateTime): String = dateTime.format(clockFormat)
+    fun clock(dateTime: ZonedDateTime): String = dateTime.format(f().clockFormat)
 
     /** `07:30–09:00` — lesson and block rows; en dash, no spaces, tabular digits. */
     fun timeRange(startMinute: Int, endMinute: Int): String = "${minuteLabel(startMinute)}–${minuteLabel(endMinute)}"

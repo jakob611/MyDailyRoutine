@@ -11,6 +11,7 @@ import com.example.mydailyroutine.domain.presets.PresetFactory
 import com.example.mydailyroutine.domain.repository.PlanningRepository
 import com.example.mydailyroutine.domain.repository.GoalsRepository
 import com.example.mydailyroutine.core.platform.Diagnostics
+import com.example.mydailyroutine.core.platform.RoutineLocale
 import com.example.mydailyroutine.domain.model.nominalMinutes
 import com.example.mydailyroutine.domain.routines.*
 import com.example.mydailyroutine.domain.repository.ExampleDataRepository
@@ -331,6 +332,15 @@ class RoutineViewModel(
             }
             is TimelineAction.SetPeriodicBreak -> perform {
                 settings.setPeriodicBreak(action.config)
+            }
+            is TimelineAction.SetAppLanguage -> perform {
+                if (state.value.preferences.appLanguage != action.language) {
+                    // The synchronous mirror goes first, the store second: the restart that follows
+                    // must read the new language from attachBaseContext on its very first string.
+                    RoutineLocale.userChoice = action.language
+                    settings.setAppLanguage(action.language)
+                    messages.send(TimelineEffect.RestartForLocale)
+                }
             }
             is TimelineAction.ExportSchedule -> perform {
                 val json = backup.exportJson()

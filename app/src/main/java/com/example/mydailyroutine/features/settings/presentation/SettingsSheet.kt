@@ -51,6 +51,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.mydailyroutine.core.designsystem.components.LanguageSelector
 import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.components.RoutineTimeField
 import com.example.mydailyroutine.R
@@ -228,6 +229,23 @@ private fun LazyListScope.rhythmTab(
     busy: Boolean,
     onAction: (TimelineAction) -> Unit,
 ) {
+    // Language first: it is the one setting that changes how every other row on this sheet reads,
+    // so it leads the tab that is open by default. It applies at once and needs no save button.
+    item(key = "settings-language") {
+        Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
+            SettingRow(
+                title = stringResource(R.string.settings_language),
+                description = stringResource(R.string.settings_language_hint),
+                control = {},
+            )
+            LanguageSelector(
+                selected = preferences.appLanguage,
+                onSelect = { language -> onAction(TimelineAction.SetAppLanguage(language)) },
+                enabled = !busy,
+                tagPrefix = "settings-language",
+            )
+        }
+    }
     item(key = "settings-privacy") {
         RoutineText(stringResource(R.string.privacy_delete_warning), style = MaterialTheme.typography.bodySmall,
             color = RoutineColors.TextMuted, maxLines = RoutineTextDefaults.Paragraph)

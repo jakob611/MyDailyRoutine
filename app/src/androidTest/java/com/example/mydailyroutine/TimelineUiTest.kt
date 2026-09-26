@@ -5,14 +5,13 @@ import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Build
-import android.os.LocaleList
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import java.io.File
 import androidx.lifecycle.Lifecycle
-import com.example.mydailyroutine.core.platform.uiLocaleFor
+import com.example.mydailyroutine.core.platform.uiLocale
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.test.platform.app.InstrumentationRegistry
@@ -114,11 +113,12 @@ class TimelineUiTest {
         }
     }
     @Test fun languageAndMergedPrivacyPermissionsAreCorrect() {
-        // The app speaks the phone's language where it has a complete translation and Slovenian
-        // otherwise, because Slovenian is the resource set that ships as the default. What is
-        // asserted here is that the activity really runs under the language the app chose — the
-        // completeness of both translations is what the translation gate checks on every build.
-        val expected = uiLocaleFor(LocaleList.getDefault()[0].language).language
+        // The app speaks the reader's chosen language, or the device's language where no choice
+        // exists — English device means English, everything else Slovenian, because Slovenian is
+        // the resource set that ships as the default. What is asserted here is that the activity
+        // really runs under the language the app resolved — the completeness of both translations
+        // is what the translation gate checks on every build.
+        val expected = uiLocale().language
         assertTrue("unexpected interface language: $expected", expected in setOf("sl", "en"))
         assertEquals(expected, compose.activity.resources.configuration.locales[0].language)
         @Suppress("DEPRECATION") val permissions = compose.activity.packageManager.getPackageInfo(compose.activity.packageName, PackageManager.GET_PERMISSIONS).requestedPermissions.orEmpty()

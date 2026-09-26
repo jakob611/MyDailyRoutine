@@ -159,5 +159,6 @@ class ConnectedFeaturesTest {
         override suspend fun setPlanningConfig(config: com.example.mydailyroutine.domain.planning.PlanningConfig) { preferences.update { it.copy(planning = config) } }
         override suspend fun setHealthConfig(config: HealthConfig) { preferences.update { it.copy(health = config) } }
         override suspend fun setPeriodicBreak(config: com.example.mydailyroutine.domain.health.PeriodicBreakConfig) { preferences.update { it.copy(periodicBreak = config) } }
+        override suspend fun setAppLanguage(language: String?) { preferences.update { it.copy(appLanguage = com.example.mydailyroutine.domain.model.AppLanguage.normalize(language)) } }
     }
 }

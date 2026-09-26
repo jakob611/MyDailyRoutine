@@ -13,15 +13,41 @@ val English: Locale = Locale.forLanguageTag("en")
 /**
  * The language the interface speaks.
  *
- * The app ships two complete translations: Slovenian and English. Slovenian is the *default*
- * resource set (`values/`), so a phone in a language nobody translated falls back to Slovenian
- * rather than to half-translated English. A phone set to English gets English — including English
- * date patterns, which is why every screen asks [uiLocale] instead of hard-coding a language.
+ * Two complete translations ship, and the resolution is the first rule that matches:
+ *
+ * 1. **The reader's explicit choice** ([RoutineLocale.userChoice]) — Slovenian or English,
+ *    independent of what the device says. The settings sheet and the first onboarding screen
+ *    write it; the process start reads it back before the first string is formatted.
+ * 2. **The device's language.** A phone set to English gets English — including English date
+ *    patterns, which is why every screen asks [uiLocale] instead of hard-coding a language.
+ *    Everything else gets Slovenian, because Slovenian is the *default* resource set
+ *    (`values/`): a phone in a language nobody translated falls back to a complete language
+ *    rather than to a half-translation.
  */
-fun uiLocaleFor(deviceLanguage: String): Locale =
-    if (deviceLanguage == English.language) English else Slovenian
+fun uiLocaleFor(deviceLanguage: String, userChoice: String? = RoutineLocale.userChoice): Locale =
+    when (userChoice) {
+        Slovenian.language -> Slovenian
+        English.language -> English
+        else -> if (deviceLanguage == English.language) English else Slovenian
+    }
 
 fun uiLocale(device: LocaleList = LocaleList.getDefault()): Locale = uiLocaleFor(device[0].language)
+
+/**
+ * Re-applies the app's locale to the process-wide defaults (`Locale.setDefault` and
+ * `LocaleList.setDefault`).
+ *
+ * [com.example.mydailyroutine.RoutineApplication] calls this once, at process start, after reading
+ * the stored choice; it is called again when the reader changes the choice mid-process (the
+ * `RestartForLocale` effect), so
+ * the framework-facing defaults — anything that reads the process default instead of asking
+ * [uiLocale] — keep agreeing with the labels around them.
+ */
+fun applyLocaleToProcessDefaults() {
+    val locale = uiLocale()
+    Locale.setDefault(locale)
+    LocaleList.setDefault(LocaleList(locale))
+}
 
 /**
  * The context every activity and the application itself runs on: the app's own chosen locale,
@@ -31,4 +57,29 @@ fun Context.withRoutineLocale(): Context {
     val configuration = Configuration(resources.configuration)
     configuration.setLocales(LocaleList(uiLocale(configuration.locales)))
     return createConfigurationContext(configuration)
+}
+
+/**
+ * A synchronous mirror of the reader's explicit interface language.
+ *
+ * This object exists because [Context.withRoutineLocale] runs inside `attachBaseContext` — before
+ * the asynchronous preference flow can answer anything — and yet it must already know which
+ * language to apply. So the choice travels in two places with one owner:
+ *
+ * * **Storage** is `DataStore`, the single source of truth (`setAppLanguage` /
+ *   `readPersistedAppLanguage` in `core.preferences`).
+ * * **This mirror** is what every locale resolution in the process reads: the process start loads
+ *   it from storage before the first string is formatted, and the settings/onboarding action
+ *   updates it the moment the reader taps, so the very restart that follows already speaks the
+ *   new language.
+ *
+ * A value outside the two complete translations is normalized to `null` on the way in, so the
+ * mirror can never point the interface at a language that does not ship.
+ */
+object RoutineLocale {
+    @Volatile
+    var userChoice: String? = null
+        set(value) {
+            field = value?.takeIf { it in setOf(Slovenian.language, English.language) }
+        }
 }
