@@ -80,8 +80,10 @@ fun Context.withRoutineLocale(): Context {
  * the asynchronous preference flow can answer anything — and yet it must already know which
  * language to apply. So the choice travels in two places with one owner:
  *
- * * **Storage** is `DataStore`, the single source of truth (`setAppLanguage` /
- *   `readPersistedAppLanguage` in `core.preferences`).
+ * * **Storage** is `DataStore`, the single source of truth (`setAppLanguage` in
+ *   `core.preferences`). Because nothing can await a coroutine this early, the same value is also
+ *   shadowed in a one-key `SharedPreferences` file, which is what `readPersistedAppLanguage` reads
+ *   synchronously; `setAppLanguage` writes both, and the preference flow heals any drift.
  * * **This mirror** is what every locale resolution in the process reads: the process start loads
  *   it from storage before the first string is formatted, and the settings/onboarding action
  *   updates it the moment the reader taps, so the very restart that follows already speaks the

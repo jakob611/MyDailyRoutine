@@ -21,9 +21,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.onEach
 
 private val Context.scheduleDataStore by preferencesDataStore(name = "schedule_preferences")
 
@@ -42,36 +41,36 @@ private const val LocaleMirrorAdopted = "adopted"
  * meet, so the one value needed that early is also kept where a synchronous read is the supported
  * operation rather than a blocking workaround.
  *
- * [setAppLanguage] is the only writer of the key in the store, and it writes here right after, so
- * the two cannot drift.
+ * Deliberately **not** `applicationContext`: inside `Application.attachBaseContext` the application
+ * object is still being built and `getApplicationContext()` answers null. The context handed to
+ * that method can open its own preferences, and the instance returned here holds no reference back
+ * to it.
  */
 private fun Context.localeMirror(): SharedPreferences =
-    applicationContext.getSharedPreferences(LocaleMirrorFile, Context.MODE_PRIVATE)
+    getSharedPreferences(LocaleMirrorFile, Context.MODE_PRIVATE)
 
 private fun SharedPreferences.writeLanguage(language: String?) {
+    if (getBoolean(LocaleMirrorAdopted, false) && getString(LocaleMirrorLanguage, null) == language) return
     edit().putBoolean(LocaleMirrorAdopted, true).putString(LocaleMirrorLanguage, language).apply()
 }
 
 /**
  * The reader's language choice, read synchronously at process start.
  *
- * Costs one small file read on the cold-start critical path — a path an alarm or a widget can also
- * wake. It used to cost a `runBlocking` that made the main thread wait while DataStore read and
- * deserialised the entire preference file for this single string.
+ * One small file read on the cold-start critical path — a path an alarm or a widget can also wake.
+ * It used to be a `runBlocking` that held the main thread while DataStore read and deserialised the
+ * entire preference file for this single string.
  *
- * The blocking read survives for exactly one case: an install that stored the choice before this
- * mirror existed. It runs once, seeds the mirror, and is never taken again.
+ * The mirror can only be behind the store if the process died between the two writes, or if a
+ * restore brought back one file without the other; the preference flow rewrites it on its first
+ * emission, so the drift lasts one launch and then heals itself.
  */
-fun readPersistedAppLanguage(context: Context): String? {
-    val mirror = context.localeMirror()
-    if (mirror.getBoolean(LocaleMirrorAdopted, false)) {
-        return mirror.getString(LocaleMirrorLanguage, null)?.let(AppLanguage::normalize)
-    }
-    val stored = runBlocking { context.applicationContext.scheduleDataStore.data.first()[appLanguageKey] }
-        ?.let(AppLanguage::normalize)
-    mirror.writeLanguage(stored)
-    return stored
-}
+fun readPersistedAppLanguage(context: Context): String? =
+    // Guarded because this is the first line of the process: anything thrown here is a launch
+    // crash with no screen to report it on. Failing to read the mirror is not an error state, it
+    // is the absence of a choice — which already has a defined answer, the device's language.
+    runCatching { context.localeMirror().getString(LocaleMirrorLanguage, null) }
+        .getOrNull()?.let(AppLanguage::normalize)
 
 class DataStorePreferencesRepository(context: Context, private val onChanged: () -> Unit) : PreferencesRepository {
     private val store = context.applicationContext.scheduleDataStore
@@ -123,6 +122,11 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             // language: the store is trusted for the key, not for its grammar.
             appLanguage = AppLanguage.normalize(values[appLanguageKey]),
         )
+    }.onEach {
+        // The synchronous mirror is written by setAppLanguage, but this is the place that sees
+        // every value the store ever holds — including one that arrived without going through this
+        // process. Writing only on a real difference keeps it to a comparison per emission.
+        localeMirror.writeLanguage(it.appLanguage)
     }.distinctUntilChanged()
 
     private fun time(minutes: Int?, fallback: LocalTime): LocalTime =
