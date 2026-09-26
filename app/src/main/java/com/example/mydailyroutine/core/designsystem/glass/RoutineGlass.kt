@@ -228,7 +228,15 @@ private fun DrawScope.drawSpecular(role: GlassRole) {
     )
 }
 
-private fun rimBrush(strength: Float, start: Offset = Offset.Zero, end: Offset = Offset.Unspecified) =
+/**
+ * The hairline along a glass edge.
+ *
+ * [end] defaults to [Offset.Infinite], not to `Offset.Unspecified`: "unspecified" is `NaN`, and a
+ * gradient whose end is `NaN` is not resolved against the node's size by Compose — it is handed to
+ * `android.graphics.LinearGradient`, which rejects it. `Infinite` is the value the platform reads
+ * as "the far edge of whatever this is drawn on".
+ */
+private fun rimBrush(strength: Float, start: Offset = Offset.Zero, end: Offset = Offset.Infinite) =
     Brush.linearGradient(
         0f to RoutineColors.GlassRim.copy(alpha = strength),
         0.42f to RoutineColors.GlassRim.copy(alpha = strength * RoutineColors.GlassRimWaist),
