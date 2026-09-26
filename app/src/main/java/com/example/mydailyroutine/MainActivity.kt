@@ -25,6 +25,7 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.mydailyroutine.app.di.appGraph
+import com.example.mydailyroutine.core.platform.captureDeviceLanguage
 import com.example.mydailyroutine.core.platform.withRoutineLocale
 import com.example.mydailyroutine.features.settings.presentation.NotificationAccess
 import com.example.mydailyroutine.core.designsystem.theme.MyDailyRoutineTheme
@@ -44,6 +45,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun attachBaseContext(newBase: Context) {
+        // Re-read here, not only at process start: changing the per-app language in system settings
+        // recreates the activity without killing the process, and this is where the new
+        // configuration arrives.
+        captureDeviceLanguage(newBase)
         super.attachBaseContext(newBase.withRoutineLocale())
     }
 

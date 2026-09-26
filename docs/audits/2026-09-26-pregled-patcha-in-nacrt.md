@@ -332,9 +332,44 @@ DataStore pa ostane vir resnice; ali pa zmeri z `StartupTrace` in šele potem od
 
 ---
 
+## 5.4 Kaj se je pokazalo šele, ko je koda prvič tekla
+
+Statična analiza je ujela P1–P6 (prevajanje) in L1–L7 (vedenje). Dve napaki sta se pokazali šele na
+emulatorju in nobena od njiju ni bila v patchu vidna:
+
+| # | Kaj | Kje se je pokazalo | Vzrok |
+|---|-----|--------------------|-------|
+| **C1** | `SIGSEGV` v `RenderThread` (`SEGV_ACCERR`), 15 padlih testov | prvi tek device testov | Patch je `LocalSheetBackdrop` objavil čez **celoten** `SheetShell`, zato je gumb v telesu lista vzorčil prav tisti sloj, v katerega se riše. Kršitev pravila 2 iz `RoutineGlass.kt`. Popravek: sloj dobi **samo noga**; telo nosi `layerBackdrop` in tam steklo pade na polno ploskev. |
+| **C2** | `IllegalArgumentException` v `LinearGradient.nativeCreate` med izrisom | drugi tek device testov | `rimBrush` je imel privzeti `end = Offset.Unspecified`, kar je `Offset(NaN, NaN)`. Compose proti velikosti vozlišča razreši samo `Offset.Infinite`, `NaN` pa spusti v native gradient, ki ga zavrne. **Predobstoječa napaka**: fallback pot se vzame na vsem pod Androidom 12 (`minSdk = 24`), zato bi se aplikacija tam sesula ob prvem steklenem elementu — torej ob zagonu. CI je ni nikoli videl, ker emulator teče na API 36. |
+| **C3** | `NullPointerException` ob instanciaciji aplikacije | tek po fazi 1 | Moj popravek L6 je `SharedPreferences` odpiral prek `applicationContext`, tega pa v `Application.attachBaseContext` še ni. Popravek: datoteko odpre kontekst, ki ga metoda dobi. |
+
+C2 je edini razlog, da je ta obrat vreden več kot serija 3: napaka je bila v repozitoriju že prej in
+je zadevala vsako napravo, starejšo od Androida 12.
+
+## 5.5 Pregled lastnih popravkov
+
+Po fazi 1 sem šel skozi vsako svojo spremembo še enkrat. Šest stvari sem popravil:
+
+| # | Kaj sem našel pri sebi | Popravek |
+|---|------------------------|----------|
+| **R1** | Popravek L2 je uporabil `Resources.getSystem()` kot vir jezika naprave. To je res edina konfiguracija, ki je aplikacija ne more prepisati — ampak **ne pozna per-app jezika**. Aplikacija deklarira `android:localeConfig`, `locales_config.xml` pa v komentarju izrecno pravi, da sistemski izbirnik ponuja prav ta seznam. Kdor bi jezik nastavil v sistemskih nastavitvah, bi bil odslej prezrt. | Jezik naprave se **zajame** v obeh `attachBaseContext` (`captureDeviceLanguage`), torej iz konfiguracije, ki jo Android poda aplikaciji, preden ta karkoli prepiše. Ta konfiguracija pozna per-app jezik in je ne more onesnažiti `applyLocaleToProcessDefaults()`. Zajem v `withRoutineLocale()` bi bil past: to funkcijo kličeta tudi `AppGraph` in gradnik na že lokaliziranih kontekstih, kar bi aplikacijin odgovor vrnilo nazaj kot vprašanje. Zajem v `MainActivity` pokrije še spremembo per-app jezika med delovanjem procesa. |
+| **R2** | Zrcalo jezika je imelo ključ `adopted`, ki je ostal od enkratnega prevzema iz DataStore — tega popravka ni več. | Ključ odstranjen; `writeLanguage` primerja samo vrednost. |
+| **R3** | `onEach`, ki vzdržuje zrcalo, je tekel **pred** `distinctUntilChanged()`, torej ob vsakem zapisu katerekoli nastavitve. | Prestavljen za `distinctUntilChanged()`. |
+| **R4** | Počitniška okna so bila `Triple` treh enako tipiziranih nizov — ena zamenjava argumentov in koledar je tih. `Triple` v tem projektu ni domač vzorec. | Zasebni `data class VacationWindow(first, last, title)`. |
+| **R5** | Vrstica počitnic je bila 45 vrstic znotraj `YearlyOverview`, ki je že dolg. | Izločena v `VacationRow`; parametri so vrednosti (`String`, `LocalDate`, `Int`), ne seznam vnosov, da je komponenta preskočljiva — `java.time.**` je v `compose-stability.conf` že označen kot stabilen. |
+| **R6** | Nova koledarska streha je uporabljala tri prekrivajoče se regularne izraze. | Eno pravilo: vsak literal v podatkovnem nizu, ki ni datum, mora imeti prevod. Preverjena je samo ena smer — preslikava mora biti nadmnožica, ker naslovi iz prejšnjih šolskih let še živijo v obstoječih bazah. |
+
+Preverjeno in **namerno puščeno**:
+
+* `entries()` vrne **bitno enakih 116 vnosov** kot prej (preurejanje klicev je varno; izhod se tako ali tako sortira in deduplicira).
+* Barva števca dni je `Recovery.accent`, ne `.content`: kontrast je 7,82 : 1 (prag 4,5), zelena pa je ista, ki jo vrstica mesečnih stolpcev tik nad njo že uporablja za proste dneve.
+* `Offset.Infinite` v `rimBrush` je varen tudi pri vozlišču velikosti 0 — `Modifier.border` v tem primeru sploh ne riše.
+* **God Objects:** edina resnična kandidata sta `RoutineApp` (619 vrstic ena funkcija) in `GoalsScreen.kt` (1622 vrstic). Oba sta predobstoječa; v tem obratu nista zrasla, `YearlyOverview` pa se je skrajšal. Razbitje `RoutineApp` je svoje opravilo in svoje tveganje — ne sodi v isti commit kot jezikovni popravki.
+* Edini primer, ki ga popravek L4 ne pokrije: namestitev, ki je bila **prvič odprta v angleščini** z gradnjo s te veje (baza s posejanimi angleškimi naslovi). Slovenski nizi so enaki ključem, zato so vse ostale baze že pravilne; za to eno pred-izdajno možnost migracija ne bi bila vredna preslikave celotne tabele nazaj.
+
 ## 6. Načrt
 
-### Faza 0 — spravi delo v CI (danes, ~1 obrat)
+### Faza 0 — spravi delo v CI ✅ KONČANO
 
 1. Patch apliciraj na `arena/01a0dcdf-mydailyroutine`.
 2. Popravi **P1–P6** (to je ~20 vrstic; brez njih je vse ostalo neopazljivo).
@@ -345,7 +380,7 @@ DataStore pa ostane vir resnice; ali pa zmeri z `StartupTrace` in šele potem od
 
 > Definicija »končano«: CI zelen, APK naložen. Šele takrat vemo, da P1–P6 niso bili edini.
 
-### Faza 1 — popravki vedenja iz patcha (naslednji obrat)
+### Faza 1 — popravki vedenja iz patcha ✅ KONČANO (L1–L7 + L4/L5)
 
 * **L1** zbiralnik učinkov nad zgodnji `return` (jezik v onboardingu res velja takoj).
 * **L2** `Resources.getSystem()` kot vir jezika naprave.
@@ -355,7 +390,7 @@ DataStore pa ostane vir resnice; ali pa zmeri z `StartupTrace` in šele potem od
   `onboarding-language-en` → preveri, da se naslov koraka prevede **brez** zapuščanja onboardinga.
 * Potisni, CI, nov APK.
 
-### Faza 2 — serija 3a: počitnice v letnem pogledu
+### Faza 2 — serija 3a: počitnice v letnem pogledu ✅ KONČANO (skupaj s fazo 1)
 
 * **L4 + L5 skupaj** (eno brez drugega naredi škodo): koledarska vrstica dobi tipizirano lastnost,
   filtriranje po njej, prevod ob izrisu.
@@ -364,7 +399,7 @@ DataStore pa ostane vir resnice; ali pa zmeri z `StartupTrace` in šele potem od
   dotika, isti razmiki, števec kot obstoječi žeton), da je sekcija videti kot del »Velike slike«, ne kot tujek.
 * Posnetki pred/po v `tools/compare_shots.py`.
 
-### Faza 3 — serija 3b: stekleni spodnji listi z rahlim blurom
+### Faza 3 — serija 3b: stekleni spodnji listi z rahlim blurom ⬅ NASLEDNJE
 
 Tu je **pomemben tehnični popravek prejšnje ugotovitve.** Prejšnji agent je sklenil, da je za blur ozadja
 potreben prepis vseh listov v »in-window overlay«, ker je `ModalBottomSheet` svoje okno in ne more vzorčiti

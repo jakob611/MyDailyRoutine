@@ -559,57 +559,61 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                 }
                 vacations.forEach { (title, dates) ->
                     val from = dates.minOf { it.date }
-                    val days = dates.size
-                    // Read before the chip: a semantics block is not a composable scope.
-                    val daysLabel = pluralStringResource(R.plurals.vacation_days, days, days)
-                    // The same card the milestone rows use — one shape, one padding, one press
-                    // target for every row in this screen. It was a bare Material list item, which
-                    // is the one row in the year view that did not look like it belonged here.
-                    OutlinedCard(
-                        onClick = { onDate(from) },
-                        shape = RoutineShapes.Card,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(RoutineSpacing.md),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
-                        ) {
-                            // How much rest, in the colour the whole app already uses for recovery.
-                            // The number carries the plural as its description, so a screen reader
-                            // hears "5 prostih dni" and not the digit alone.
-                            Surface(
-                                color = RoutineColors.Recovery.container,
-                                contentColor = RoutineColors.Recovery.accent,
-                                shape = RoutineShapes.Chip,
-                            ) {
-                                RoutineLabel(
-                                    days.toString(),
-                                    modifier = Modifier
-                                        .semantics { contentDescription = daysLabel }
-                                        .padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                            }
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
-                                RoutineText(calendarTitle(title), style = MaterialTheme.typography.titleMedium,
-                                    maxLines = RoutineTextDefaults.Body)
-                                RoutineLabel(
-                                    stringResource(
-                                        R.string.date_range,
-                                        RoutineDate.normal(from),
-                                        RoutineDate.normalYear(dates.maxOf { it.date }),
-                                    ),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = RoutineColors.TextSecondary,
-                                )
-                            }
-                        }
-                    }
+                    VacationRow(title, from, dates.maxOf { it.date }, dates.size) { onDate(from) }
                 }
             }
         }
         milestoneSection(R.string.upcoming_milestones, upcomingMilestones, upcomingTasks, upcomingGoals, onGoals, onDate)
+    }
+}
+
+/**
+ * One school vacation: how many days off, what it is called, and when it runs.
+ *
+ * The same card the milestone rows below use — one shape, one padding, one press target for every
+ * row in this screen. It was a bare Material list item, the one row in the year view that did not
+ * look like it belonged here.
+ *
+ * Takes the window as values rather than as the entries it was derived from, so the row is
+ * skippable while the year scrolls.
+ */
+@Composable
+private fun VacationRow(title: String, from: LocalDate, through: LocalDate, days: Int, onOpen: () -> Unit) {
+    // Read before the chip: a semantics block is not a composable scope.
+    val daysLabel = pluralStringResource(R.plurals.vacation_days, days, days)
+    OutlinedCard(onClick = onOpen, shape = RoutineShapes.Card, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().padding(RoutineSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
+        ) {
+            // How much rest, in the green the month bars right above already use for days off. The
+            // number carries the plural as its description, so a screen reader hears "5 prostih
+            // dni" and not the digit alone.
+            Surface(
+                color = RoutineColors.Recovery.container,
+                contentColor = RoutineColors.Recovery.accent,
+                shape = RoutineShapes.Chip,
+            ) {
+                RoutineLabel(
+                    days.toString(),
+                    modifier = Modifier
+                        .semantics { contentDescription = daysLabel }
+                        .padding(horizontal = RoutineSpacing.md, vertical = RoutineSpacing.sm),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoutineSpacing.xs)) {
+                // The row holds a dataset key; the language is chosen here, at the display.
+                RoutineText(calendarTitle(title), style = MaterialTheme.typography.titleMedium,
+                    maxLines = RoutineTextDefaults.Body)
+                RoutineLabel(
+                    stringResource(R.string.date_range, RoutineDate.normal(from), RoutineDate.normalYear(through)),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = RoutineColors.TextSecondary,
+                )
+            }
+        }
     }
 }
 

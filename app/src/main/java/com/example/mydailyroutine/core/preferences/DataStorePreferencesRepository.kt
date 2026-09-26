@@ -30,7 +30,6 @@ private val appLanguageKey = stringPreferencesKey("app_language")
 
 private const val LocaleMirrorFile = "locale_mirror"
 private const val LocaleMirrorLanguage = "app_language"
-private const val LocaleMirrorAdopted = "adopted"
 
 /**
  * A one-key `SharedPreferences` file that shadows the language choice.
@@ -50,8 +49,8 @@ private fun Context.localeMirror(): SharedPreferences =
     getSharedPreferences(LocaleMirrorFile, Context.MODE_PRIVATE)
 
 private fun SharedPreferences.writeLanguage(language: String?) {
-    if (getBoolean(LocaleMirrorAdopted, false) && getString(LocaleMirrorLanguage, null) == language) return
-    edit().putBoolean(LocaleMirrorAdopted, true).putString(LocaleMirrorLanguage, language).apply()
+    if (getString(LocaleMirrorLanguage, null) == language) return
+    edit().putString(LocaleMirrorLanguage, language).apply()
 }
 
 /**
@@ -122,12 +121,12 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             // language: the store is trusted for the key, not for its grammar.
             appLanguage = AppLanguage.normalize(values[appLanguageKey]),
         )
-    }.onEach {
-        // The synchronous mirror is written by setAppLanguage, but this is the place that sees
-        // every value the store ever holds — including one that arrived without going through this
-        // process. Writing only on a real difference keeps it to a comparison per emission.
+    }.distinctUntilChanged().onEach {
+        // setAppLanguage writes the mirror, but this is the place that sees every value the store
+        // ever holds — including one that arrived without going through this process, such as a
+        // restored backup. After distinctUntilChanged, so it costs one comparison per real change.
         localeMirror.writeLanguage(it.appLanguage)
-    }.distinctUntilChanged()
+    }
 
     private fun time(minutes: Int?, fallback: LocalTime): LocalTime =
         minutes?.takeIf { it in 0..1439 }?.let { LocalTime.ofSecondOfDay(it * 60L) } ?: fallback

@@ -33,19 +33,42 @@ fun uiLocaleFor(deviceLanguage: String, userChoice: String? = RoutineLocale.user
     }
 
 /**
- * The language the *device* is set to, read from the system resources.
+ * Captures the language Android resolved for this app, as rule 2 of [uiLocaleFor] means it.
+ *
+ * That is the per-app language from system settings when the reader set one there — the app ships
+ * `res/xml/locales_config.xml`, so that picker offers both translations — and the device's own
+ * language otherwise. Both arrive in the configuration the framework hands the app.
+ *
+ * Call from `attachBaseContext` and nowhere else: that is the one moment the app holds a
+ * configuration it has not yet rewritten. [withRoutineLocale] is also used by the object graph and
+ * by the widget, on contexts that already carry the app's own choice; capturing there would feed
+ * the app's answer back in as the question.
+ */
+fun captureDeviceLanguage(base: Context) {
+    RoutineLocale.deviceLanguage = base.resources.configuration.locales.firstLanguage()
+}
+
+private fun LocaleList.firstLanguage(): String? = takeIf { !it.isEmpty }?.get(0)?.language
+
+/**
+ * The device's language as far as this app is concerned.
  *
  * Deliberately not `LocaleList.getDefault()`: [applyLocaleToProcessDefaults] writes that list, so
  * reading it back would mean asking the app what the phone says. An English phone whose reader
  * picked Slovenian and then went back to "as on the device" would stay Slovenian until the process
- * died, because rule 2 below would read the Slovenian this app had just written. The system
- * resources are the one configuration an app cannot overwrite for itself.
+ * died, because rule 2 would read the Slovenian this app had just written.
+ *
+ * The system resources are the fallback rather than the source: they are the device and nothing
+ * else, so they cannot answer for a per-app language. They only run in a process that never saw
+ * [captureDeviceLanguage] — no such process ships, but a missing language must degrade to the
+ * device's, not to a crash.
  */
-private val deviceLocales: LocaleList
-    get() = Resources.getSystem().configuration.locales
+private val resolvedDeviceLanguage: String
+    get() = RoutineLocale.deviceLanguage
+        ?: Resources.getSystem().configuration.locales.firstLanguage()
+        ?: Slovenian.language
 
-fun uiLocale(device: LocaleList = deviceLocales): Locale =
-    uiLocaleFor(device.takeIf { !it.isEmpty }?.get(0)?.language ?: Slovenian.language)
+fun uiLocale(): Locale = uiLocaleFor(resolvedDeviceLanguage)
 
 /**
  * Re-applies the app's locale to the process-wide defaults (`Locale.setDefault` and
@@ -74,7 +97,7 @@ fun Context.withRoutineLocale(): Context {
 }
 
 /**
- * A synchronous mirror of the reader's explicit interface language.
+ * The two inputs to [uiLocaleFor], held where any thread can read them without a context.
  *
  * This object exists because [Context.withRoutineLocale] runs inside `attachBaseContext` — before
  * the asynchronous preference flow can answer anything — and yet it must already know which
@@ -98,4 +121,9 @@ object RoutineLocale {
         set(value) {
             field = value?.takeIf { it in setOf(Slovenian.language, English.language) }
         }
+
+    /** Rule 2's input, written once per process by [captureDeviceLanguage]. Not normalized: a
+     *  language the app does not translate is a valid answer here and falls back inside the rule. */
+    @Volatile
+    var deviceLanguage: String? = null
 }

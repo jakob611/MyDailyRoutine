@@ -56,8 +56,8 @@ abstract class RoutineDatabase : RoomDatabase() {
  * a reader who started in Slovenian and switched to English kept reading "Jesenske počitnice" under
  * an English interface. The key is stable, the screen translates it on the way out
  * (`Resources.calendarTitle`), and the rows stay correct in both languages for the life of the
- * install. The Slovenian titles are the keys, so a database seeded before this change already holds
- * exactly the same rows.
+ * install. The Slovenian titles are the keys, so a database seeded in Slovenian — every database
+ * that predates the English translation — already holds exactly these rows and needs no migration.
  */
 class SeedAndIntegrityCallback : RoomDatabase.Callback() {
     override fun onCreate(db: SupportSQLiteDatabase) {

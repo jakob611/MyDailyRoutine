@@ -262,10 +262,13 @@ for file in (root / 'app/src/main/java/com/example/mydailyroutine/features').rgl
 # and shows up untranslated in the English interface — silently, and only for that one row.
 calendar_dataset = (root / 'core/src/main/kotlin/com/example/mydailyroutine/domain/calendar/SlovenianAcademicCalendar.kt').read_text()
 calendar_text = (root / 'app/src/main/java/com/example/mydailyroutine/core/platform/CalendarText.kt').read_text()
+# Every literal in the dataset that is not a date is a calendar title, whatever call shape it was
+# written in. Only one direction is asserted: the mapping must be a superset, because a title
+# seeded by a previous school year still lives in databases out there and must keep translating.
 mapped = set(re.findall(r'^\s*"([^"]+)" -> getString\(', calendar_text, re.M))
-seeded = set(re.findall(r'(?:day|Triple)\("[\d-]+",\s*"[\d-]*"?,?\s*"([^"]+)"', calendar_dataset))
-seeded |= set(re.findall(r'day\("[\d-]+",\s*"([^"]+)"', calendar_dataset))
-seeded |= set(re.findall(r'title = "([^"]+)"', calendar_dataset))
+titles_only = re.sub(r'/\*.*?\*/|//[^\n]*', '', calendar_dataset, flags=re.S)
+titles_only = re.sub(r'const val CYCLE_LABEL[^\n]*\n', '', titles_only)
+seeded = {t for t in re.findall(r'"([^"]+)"', titles_only) if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', t)}
 missing = sorted(seeded - mapped)
 assert not missing, 'Calendar keys with no translation mapping: ' + ', '.join(missing)
 print(f'Calendar gate passed: {len(seeded)} bundled calendar keys all map to a translated title.')

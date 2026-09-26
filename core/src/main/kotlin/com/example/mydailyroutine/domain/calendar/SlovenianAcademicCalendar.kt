@@ -23,17 +23,19 @@ object SlovenianAcademicCalendar {
      * vacation?" — so the two can never disagree. The year overview asks this set instead of
      * looking for Slovenian words in a title that the screen has already translated.
      */
+    private data class VacationWindow(val first: String, val last: String, val title: String)
+
     private val vacationWindows = listOf(
-        Triple("2026-10-26", "2026-10-30", "Jesenske počitnice"),
+        VacationWindow("2026-10-26", "2026-10-30", "Jesenske počitnice"),
         // Public holidays + vacation days together form these continuous no-school windows.
-        Triple("2026-12-25", "2027-01-02", "Novoletni oddih"),
-        Triple("2027-02-22", "2027-02-26", "Zimske počitnice · Zahod"),
-        Triple("2027-04-27", "2027-05-02", "Prvomajski oddih"),
-        Triple("2027-06-28", "2027-08-31", "Poletne počitnice"),
+        VacationWindow("2026-12-25", "2027-01-02", "Novoletni oddih"),
+        VacationWindow("2027-02-22", "2027-02-26", "Zimske počitnice · Zahod"),
+        VacationWindow("2027-04-27", "2027-05-02", "Prvomajski oddih"),
+        VacationWindow("2027-06-28", "2027-08-31", "Poletne počitnice"),
     )
 
     /** The keys of [vacationWindows]; the set the year overview filters its rest windows by. */
-    val vacationTitles: Set<String> = vacationWindows.mapTo(LinkedHashSet()) { it.third }
+    val vacationTitles: Set<String> = vacationWindows.mapTo(LinkedHashSet()) { it.title }
 
     fun covers(date: LocalDate): Boolean = date in start..end
     fun daysRemaining(today: LocalDate, target: LocalDate = teachingEnd): Long =
@@ -52,7 +54,7 @@ object SlovenianAcademicCalendar {
             }
         }
         day("2026-09-01", "Začetek pouka", false)
-        vacationWindows.forEach { (first, last, title) -> range(first, last, title) }
+        vacationWindows.forEach { range(it.first, it.last, it.title) }
         day("2027-04-26", "Pouka prost dan")
         day("2027-05-21", "Konec pouka · zaključni letniki", false)
         day("2027-06-24", "Konec pouka · ostali letniki", false)

@@ -3,6 +3,7 @@ package com.example.mydailyroutine
 import android.app.Application
 import android.content.Context
 import com.example.mydailyroutine.core.platform.RoutineLocale
+import com.example.mydailyroutine.core.platform.captureDeviceLanguage
 import com.example.mydailyroutine.core.platform.StartupTrace
 import com.example.mydailyroutine.core.platform.applyLocaleToProcessDefaults
 import com.example.mydailyroutine.core.platform.withRoutineLocale
@@ -14,12 +15,13 @@ class RoutineApplication : Application() {
         private set
 
     override fun attachBaseContext(base: Context) {
-        // Before `super`, because `withRoutineLocale` on the next line resolves the reader's choice
-        // through this mirror, and `attachBaseContext` runs before `onCreate`. Filling the mirror in
-        // `onCreate` — where it used to be filled — left the application's own base context resolved
-        // by the device rather than by the choice: every service the graph builds got a correctly
-        // localised context, but the first `applicationContext.getString(...)` anyone wrote would
-        // have spoken the wrong language for no visible reason.
+        // Both inputs to the language rule, read before `super`, because `withRoutineLocale` on the
+        // last line already needs the answer and `attachBaseContext` runs before `onCreate`.
+        // The choice used to be read in `onCreate`, which left the application's own base context
+        // resolved by the device rather than by the reader: every service the graph builds got a
+        // correctly localised context, but the first `applicationContext.getString(...)` anyone
+        // wrote would have spoken the wrong language for no visible reason.
+        captureDeviceLanguage(base)
         RoutineLocale.userChoice = readPersistedAppLanguage(base)
         super.attachBaseContext(base.withRoutineLocale())
     }
