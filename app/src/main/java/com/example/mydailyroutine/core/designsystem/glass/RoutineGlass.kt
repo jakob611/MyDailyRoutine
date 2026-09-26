@@ -59,9 +59,9 @@ import com.kyant.backdrop.effects.vibrancy
  *
  * Three rules, taken from the library's own documentation and from where glass is supposed to live:
  *
- * 1. **Glass is only for the navigation layer** — the top bar, sticky list headers, sheet headers and
- *    footers, floating buttons. Content (lists, cards, grids) never gets glass; it is what the glass
- *    refracts.
+ * 1. **Glass is only for the navigation layer** — the top bar, sticky list headers, the sheet
+ *    header, the sheet's action buttons (each one its own pane), floating buttons. Content
+ *    (lists, cards, grids) never gets glass; it is what the glass refracts.
  * 2. **A glass element must be a sibling of the layer it samples.** A node carrying both
  *    `layerBackdrop(b)` and `drawBackdrop(b)` draws itself into itself and kills the render thread
  *    with SIGSEGV, so [routineBackdropLayer] goes on the content and [routineGlass] only on chrome
@@ -89,6 +89,17 @@ import com.kyant.backdrop.effects.vibrancy
 /** Backdrop of the window the glass samples. `null` means "no glass here" and callers fall back. */
 val LocalRoutineBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
+/**
+ * The sheet's own backdrop, for the glass that lives *inside* a sheet.
+ *
+ * A bottom sheet is its own window with its own sampling layer (see `SheetShell`): the app
+ * window's backdrop behind the sheet is not what a glass control in the sheet should refract —
+ * it would read as a hole through the sheet to the screen behind it. `SheetShell` publishes the
+ * sheet layer here for the whole sheet subtree, and the sheet's buttons read it before falling
+ * back to the window's backdrop.
+ */
+val LocalSheetBackdrop = staticCompositionLocalOf<Backdrop?> { null }
+
 /** Blur is `RenderEffect` (Android 12+), the lens is AGSL (Android 13+). The library skips whatever
  *  the platform cannot do, so these flags only decide whether to paint the solid fallback. */
 val glassSupported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -115,7 +126,7 @@ enum class GlassRole(
     /** Top bar and other standard chrome floating over scrolling content. */
     Bar(6.dp, 18.dp, 32.dp, depth = true, dispersion = false, rim = 0.16f,
         tintAlpha = RoutineColors.GlassTintAlpha, fallback = RoutineColors.GlassFallback),
-    /** Sheet header/footer: broad enough to stay readable over a busy scrolling backdrop. */
+    /** Sheet header: broad enough to stay readable over a busy scrolling backdrop. */
     Sheet(6.dp, 24.dp, 44.dp, depth = true, dispersion = true, rim = 0.18f,
         tintAlpha = RoutineColors.GlassTintStrongAlpha, fallback = RoutineColors.GlassFallbackStrong),
     /** Small pills and controls. Chromatic dispersion is intentionally disabled at this size. */

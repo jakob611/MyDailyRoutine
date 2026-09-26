@@ -6,6 +6,22 @@ theme identifiers keep the original `MyDailyRoutine` naming on purpose.
 
 A Slovenian-language, OLED-dark-first Android time-blocking app for school, focused study, personal routines, recovery, and IB milestones. Kotlin 2.x, Jetpack Compose / Material 3, Room, Coroutines / Flow, AlarmManager, and Glance. No account, HTTP client, telemetry, or runtime network permission.
 
+## Visual colour picking and self-glass sheet buttons
+
+The subject editor's custom colour is now picked by feel instead of typed as a hex code: an HSV
+wheel (hue around the circle, saturation from the centre to the rim) with a brightness slider
+beneath it, a live preview swatch and the exact hex readout beside it. The wheel is a bitmap
+rendered once per composition host, so dragging the thumb moves a node over a static image rather
+than redrawing hundreds of hue arcs per frame — the old hex-only field is gone.
+
+Every sheet's action buttons are now panes of liquid glass **themselves** instead of solid buttons
+sitting on a glass island: the island under the footer is removed (one less full-width blur
+sampling the sheet on every frame of its slide), and the primary/secondary buttons in all the
+sheets that share the scaffold are each their own refracting pill — the primary tinted with the
+brand hue, the press bloom and squash coming from the shared `rememberGlassTouch`. Inside a sheet
+they sample the sheet's own layer (`LocalSheetBackdrop`), so a button in the sheet shows the
+sheet, not the window behind it.
+
 ## Two complete languages, one choice
 
 Every user-visible string in the app — screens, sheets, dialogs, notifications, presets, the

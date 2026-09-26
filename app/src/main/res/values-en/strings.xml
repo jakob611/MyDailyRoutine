@@ -185,7 +185,8 @@
     <string name="subject_duration">Default duration in minutes</string>
     <string name="subject_duration_hint">From 1 to 1439 minutes</string>
     <string name="subject_color_custom">Any colour</string>
-    <string name="subject_color_custom_hint">Six digits, e.g. 4F8CFF. An empty field means a colour from the shelf.</string>
+    <string name="subject_color_wheel">Colour wheel</string>
+    <string name="subject_color_value">Brightness</string>
     <string name="subject_color">Subject colour</string>
     <string name="save_subject">Save the subject</string>
     <string name="color_cyan">Cyan</string>

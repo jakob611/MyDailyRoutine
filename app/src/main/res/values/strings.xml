@@ -180,7 +180,8 @@
     <string name="subject_duration">Privzeto trajanje v minutah</string>
     <string name="subject_duration_hint">Od 1 do 1439 minut</string>
     <string name="subject_color_custom">Poljubna barva</string>
-    <string name="subject_color_custom_hint">Šest mest, npr. 4F8CFF. Prazno polje pomeni barvo s police.</string>
+    <string name="subject_color_wheel">Barvni krog</string>
+    <string name="subject_color_value">Jasnota</string>
     <string name="subject_color">Barva predmeta</string>
     <string name="save_subject">Shrani predmet</string>
     <string name="color_cyan">Cijan</string>
