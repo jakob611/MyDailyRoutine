@@ -2,6 +2,7 @@ package com.example.mydailyroutine.core.platform
 
 import android.content.Context
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.os.LocaleList
 import java.util.Locale
 
@@ -31,7 +32,20 @@ fun uiLocaleFor(deviceLanguage: String, userChoice: String? = RoutineLocale.user
         else -> if (deviceLanguage == English.language) English else Slovenian
     }
 
-fun uiLocale(device: LocaleList = LocaleList.getDefault()): Locale = uiLocaleFor(device[0].language)
+/**
+ * The language the *device* is set to, read from the system resources.
+ *
+ * Deliberately not `LocaleList.getDefault()`: [applyLocaleToProcessDefaults] writes that list, so
+ * reading it back would mean asking the app what the phone says. An English phone whose reader
+ * picked Slovenian and then went back to "as on the device" would stay Slovenian until the process
+ * died, because rule 2 below would read the Slovenian this app had just written. The system
+ * resources are the one configuration an app cannot overwrite for itself.
+ */
+private val deviceLocales: LocaleList
+    get() = Resources.getSystem().configuration.locales
+
+fun uiLocale(device: LocaleList = deviceLocales): Locale =
+    uiLocaleFor(device.takeIf { !it.isEmpty }?.get(0)?.language ?: Slovenian.language)
 
 /**
  * Re-applies the app's locale to the process-wide defaults (`Locale.setDefault` and
@@ -55,7 +69,7 @@ fun applyLocaleToProcessDefaults() {
  */
 fun Context.withRoutineLocale(): Context {
     val configuration = Configuration(resources.configuration)
-    configuration.setLocales(LocaleList(uiLocale(configuration.locales)))
+    configuration.setLocales(LocaleList(uiLocale()))
     return createConfigurationContext(configuration)
 }
 

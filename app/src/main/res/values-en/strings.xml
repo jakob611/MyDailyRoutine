@@ -252,6 +252,10 @@
     <string name="year_markers_count">Deadlines: %1$d</string>
     <string name="year_days_off">Days off: %1$d</string>
     <string name="year_recovery_heading">Room to recharge</string>
+    <plurals name="vacation_days">
+        <item quantity="one">%d day off</item>
+        <item quantity="other">%d days off</item>
+    </plurals>
     <string name="year_no_vacations">No holidays are included for this school year.</string>
     <string name="date_range_same_month">%1$s–%2$s %3$s</string>
     <string name="date_range">%1$s – %2$s</string>

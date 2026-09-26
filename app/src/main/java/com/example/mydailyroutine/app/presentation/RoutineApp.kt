@@ -136,6 +136,7 @@ import com.kyant.backdrop.Backdrop
 import java.time.ZonedDateTime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -229,34 +230,22 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
         }
         viewModel.onAction(action)
     } }
-    // First run owns the whole window: two questions asked inside a sheet the reader can swipe away
-    // would be asked twice, and there is nothing behind it worth guarding — the app holds no data yet
-    // and every default the flow sets is already what the app ships with. It answers with the same
-    // haptics and sounds as the rest of the app, so the first tap already feels like this app.
-    if (!state.preferences.onboardingDone) {
-        CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalRoutineSounds provides sounds) {
-            OnboardingScreen(
-                userName = state.preferences.userName,
-                schoolStart = state.preferences.schoolStart,
-                schoolEnd = state.preferences.schoolEnd,
-                appLanguage = state.preferences.appLanguage,
-                onAction = onAction,
-            )
-        }
-        return
-    }
     val snackbars = remember { SnackbarHostState() }
-    val now by minuteClock()
-    LaunchedEffect(now, state.execution?.startedAt) {
-        if (state.execution != null) viewModel.onAction(TimelineAction.SyncExecution)
-    }
-    var choosingDate by rememberSaveable { mutableStateOf(false) }
+    // Above the first-run branch on purpose. The language chip in onboarding sends
+    // RestartForLocale, and an effect nobody collects is an effect that sits in the channel:
+    // the onboarding screen would stay in the old language — while its own label promises the
+    // choice applies at once — and the activity would then recreate itself the moment the
+    // reader finished, in the middle of the first impression.
     LaunchedEffect(viewModel, haptics, sounds, context) {
+        val scope = this
         viewModel.effects.collect { effect -> when (effect) {
             // The hero moment: the block's completion animation, the success haptic and the
             // confirm sound land together.
             TimelineEffect.Completed -> { haptics.complete(); sounds.confirm() }
-            is TimelineEffect.Message -> snackbars.showSnackbar(if (effect.count != null) context.getString(effect.resource, effect.minutes, effect.count) else if (effect.minutes == null) context.getString(effect.resource) else context.getString(effect.resource, effect.minutes))
+            // Shown in its own coroutine: during onboarding no host is composed yet, and a
+            // suspended showSnackbar would hold the collector — and with it the restart the
+            // language chip asks for — until something dismissed a snackbar nobody can see.
+            is TimelineEffect.Message -> scope.launch { snackbars.showSnackbar(if (effect.count != null) context.getString(effect.resource, effect.minutes, effect.count) else if (effect.minutes == null) context.getString(effect.resource) else context.getString(effect.resource, effect.minutes)) }
             // A language change is not a re-composition: resources are bound to the context, so
             // the window has to be recreated to read them. The widget renders outside this window,
             // so it refreshes first — the moment the reader sees the new language, the home
@@ -274,6 +263,27 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
             }
         } }
     }
+    // First run owns the whole window: two questions asked inside a sheet the reader can swipe away
+    // would be asked twice, and there is nothing behind it worth guarding — the app holds no data yet
+    // and every default the flow sets is already what the app ships with. It answers with the same
+    // haptics and sounds as the rest of the app, so the first tap already feels like this app.
+    if (!state.preferences.onboardingDone) {
+        CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalRoutineSounds provides sounds) {
+            OnboardingScreen(
+                userName = state.preferences.userName,
+                schoolStart = state.preferences.schoolStart,
+                schoolEnd = state.preferences.schoolEnd,
+                appLanguage = state.preferences.appLanguage,
+                onAction = onAction,
+            )
+        }
+        return
+    }
+    val now by minuteClock()
+    LaunchedEffect(now, state.execution?.startedAt) {
+        if (state.execution != null) viewModel.onAction(TimelineAction.SyncExecution)
+    }
+    var choosingDate by rememberSaveable { mutableStateOf(false) }
     // N19: the first day that is actually on screen is the end of the first-minute measurement.
     LaunchedEffect(data.isLoading, data.error, data.mode, data.date) {
         if (!data.isLoading && data.error == null) StartupTrace.firstDayDrawn()

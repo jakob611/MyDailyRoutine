@@ -1,6 +1,7 @@
 package com.example.mydailyroutine.core.preferences
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -28,20 +29,53 @@ private val Context.scheduleDataStore by preferencesDataStore(name = "schedule_p
 
 private val appLanguageKey = stringPreferencesKey("app_language")
 
+private const val LocaleMirrorFile = "locale_mirror"
+private const val LocaleMirrorLanguage = "app_language"
+private const val LocaleMirrorAdopted = "adopted"
+
 /**
- * The one synchronous read in the app, made for one moment: process start.
+ * A one-key `SharedPreferences` file that shadows the language choice.
  *
- * `attachBaseContext` runs before the asynchronous preference flow produces its first value, and
- * yet the base context — and every service built on it — must already speak the reader's chosen
- * language from the first formatted string. Reading this one small key with `runBlocking` once per
- * process start is the cheap, correct price; after this, everything goes back to the normal flow.
+ * `DataStore` is the source of truth for every preference, including this one, and it is
+ * deliberately asynchronous. `attachBaseContext` is deliberately synchronous: it must decide which
+ * language the whole process speaks before anything can await a coroutine. Those two facts do not
+ * meet, so the one value needed that early is also kept where a synchronous read is the supported
+ * operation rather than a blocking workaround.
+ *
+ * [setAppLanguage] is the only writer of the key in the store, and it writes here right after, so
+ * the two cannot drift.
  */
-fun readPersistedAppLanguage(context: Context): String? =
-    runBlocking { context.applicationContext.scheduleDataStore.data.first()[appLanguageKey] }
+private fun Context.localeMirror(): SharedPreferences =
+    applicationContext.getSharedPreferences(LocaleMirrorFile, Context.MODE_PRIVATE)
+
+private fun SharedPreferences.writeLanguage(language: String?) {
+    edit().putBoolean(LocaleMirrorAdopted, true).putString(LocaleMirrorLanguage, language).apply()
+}
+
+/**
+ * The reader's language choice, read synchronously at process start.
+ *
+ * Costs one small file read on the cold-start critical path — a path an alarm or a widget can also
+ * wake. It used to cost a `runBlocking` that made the main thread wait while DataStore read and
+ * deserialised the entire preference file for this single string.
+ *
+ * The blocking read survives for exactly one case: an install that stored the choice before this
+ * mirror existed. It runs once, seeds the mirror, and is never taken again.
+ */
+fun readPersistedAppLanguage(context: Context): String? {
+    val mirror = context.localeMirror()
+    if (mirror.getBoolean(LocaleMirrorAdopted, false)) {
+        return mirror.getString(LocaleMirrorLanguage, null)?.let(AppLanguage::normalize)
+    }
+    val stored = runBlocking { context.applicationContext.scheduleDataStore.data.first()[appLanguageKey] }
         ?.let(AppLanguage::normalize)
+    mirror.writeLanguage(stored)
+    return stored
+}
 
 class DataStorePreferencesRepository(context: Context, private val onChanged: () -> Unit) : PreferencesRepository {
     private val store = context.applicationContext.scheduleDataStore
+    private val localeMirror = context.localeMirror()
     private val muteKey = booleanPreferencesKey("mute_during_school")
     private val nameKey = stringPreferencesKey("user_name")
     private val onboardingKey = booleanPreferencesKey("onboarding_done")
@@ -169,6 +203,11 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
         store.edit {
             if (normalized == null) it.remove(appLanguageKey) else it[appLanguageKey] = normalized
         }
+        // After the store, never before it: should the process die between the two writes, the next
+        // start reads a mirror that is behind the truth rather than ahead of it — the interface
+        // speaks the previous language and the settings sheet shows the previous choice, which is
+        // one consistent state instead of two contradicting ones.
+        localeMirror.writeLanguage(normalized)
         onChanged()
     }
 }

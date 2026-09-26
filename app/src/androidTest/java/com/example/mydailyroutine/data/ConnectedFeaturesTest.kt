@@ -38,7 +38,7 @@ class ConnectedFeaturesTest {
     private val date = LocalDate.of(2026, 9, 7)
     private val prefs = MemoryPreferences()
     @Before fun before() {
-        db = Room.inMemoryDatabaseBuilder(context, RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback(context.resources)).build()
+        db = Room.inMemoryDatabaseBuilder(context, RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback()).build()
         repo = RoomTimelineRepository(db, {})
     }
     @After fun after() { db.close() }
@@ -135,7 +135,7 @@ class ConnectedFeaturesTest {
                 legacy.execSQL("INSERT INTO subjects VALUES (1, 'Matematika', 4282090230, 45)")
             }
             val migrated = Room.databaseBuilder(context, RoutineDatabase::class.java, name).addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6, DatabaseMigrations.MIGRATION_6_7, DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9)
-                .addCallback(SeedAndIntegrityCallback(context.resources)).build()
+                .addCallback(SeedAndIntegrityCallback()).build()
             try {
                 assertEquals("Matematika", migrated.subjects().getAll().single().name)
                 assertFalse(migrated.demoImports().isImported(DemoDataSeeder.IMPORT_KEY))

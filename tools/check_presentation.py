@@ -256,3 +256,16 @@ for file in (root / 'app/src/main/java/com/example/mydailyroutine/features').rgl
     if '/data/' in str(file):
         code=file.read_text()
         assert not re.search(r'^import com\.example\.mydailyroutine\.(?:features\.[^.]+\.presentation|app\.presentation)',code,re.M), file
+
+# The calendar is stored in dataset keys and translated at the display, so every key the bundled
+# dataset can seed must have a mapping. A key with no mapping falls through to its Slovenian self
+# and shows up untranslated in the English interface — silently, and only for that one row.
+calendar_dataset = (root / 'core/src/main/kotlin/com/example/mydailyroutine/domain/calendar/SlovenianAcademicCalendar.kt').read_text()
+calendar_text = (root / 'app/src/main/java/com/example/mydailyroutine/core/platform/CalendarText.kt').read_text()
+mapped = set(re.findall(r'^\s*"([^"]+)" -> getString\(', calendar_text, re.M))
+seeded = set(re.findall(r'(?:day|Triple)\("[\d-]+",\s*"[\d-]*"?,?\s*"([^"]+)"', calendar_dataset))
+seeded |= set(re.findall(r'day\("[\d-]+",\s*"([^"]+)"', calendar_dataset))
+seeded |= set(re.findall(r'title = "([^"]+)"', calendar_dataset))
+missing = sorted(seeded - mapped)
+assert not missing, 'Calendar keys with no translation mapping: ' + ', '.join(missing)
+print(f'Calendar gate passed: {len(seeded)} bundled calendar keys all map to a translated title.')
