@@ -80,6 +80,7 @@ import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
 import com.example.mydailyroutine.core.designsystem.glass.LocalSheetBackdrop
 import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
+import com.example.mydailyroutine.core.designsystem.glass.rememberReduceTransparency
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
@@ -87,6 +88,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -420,7 +422,7 @@ private fun SheetHeader(
     subtitle: String?,
     closeLabel: String?,
     onClose: (() -> Unit)?,
-    backdrop: LayerBackdrop,
+    backdrop: Backdrop?,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet,
@@ -492,6 +494,9 @@ private fun SheetShell(
         drawRect(RoutineColors.SheetSurface)
         drawContent()
     }
+    // The body keeps recording into the layer — that is what the body is drawn into, not an effect
+    // it pays for — but under maximum contrast the chrome stops sampling it and goes solid.
+    val chromeBackdrop = if (rememberReduceTransparency()) null else sheetBackdrop
     val density = LocalDensity.current
     var headerHeight by remember { mutableStateOf(0.dp) }
     Column(modifier.fillMaxWidth().imePadding()) {
@@ -502,12 +507,12 @@ private fun SheetShell(
             // the body therefore finds no backdrop and falls back to its solid surface — which is
             // also the rule the glass is supposed to follow: chrome refracts, content is refracted.
             body(sheetBackdrop, headerHeight)
-            SheetHeader(title, subtitle, closeLabel, onClose, sheetBackdrop,
+            SheetHeader(title, subtitle, closeLabel, onClose, chromeBackdrop,
                 Modifier.align(Alignment.TopCenter).fillMaxWidth()
                     .onSizeChanged { headerHeight = with(density) { it.height.toDp() } })
         }
         // The footer is a sibling of that layer, not a child of it, so its buttons may sample it.
-        CompositionLocalProvider(LocalSheetBackdrop provides sheetBackdrop) {
+        CompositionLocalProvider(LocalSheetBackdrop provides chromeBackdrop) {
             SheetFooter(footer)
         }
     }

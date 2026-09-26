@@ -1,5 +1,6 @@
 package com.example.mydailyroutine.core.designsystem.glass
 
+import android.app.UiModeManager
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -10,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import kotlin.math.round
 import android.os.Build
+import android.provider.Settings
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -108,6 +110,38 @@ val LocalSheetBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 /** Blur is `RenderEffect` (Android 12+), the lens is AGSL (Android 13+). The library skips whatever
  *  the platform cannot do, so these flags only decide whether to paint the solid fallback. */
 val glassSupported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+/** The legacy accessibility flag; from Android 14 the same intent arrives as a contrast level. */
+private const val HighTextContrastSetting = "high_text_contrast_enabled"
+
+/**
+ * Whether the reader has asked the system for maximum contrast.
+ *
+ * Android has no "reduce transparency" switch of its own. High-contrast text is the setting that
+ * carries the same intent — stop decorating, start reading — and from Android 14 the platform
+ * exposes it as a contrast level instead of a boolean.
+ *
+ * When it is on, [RoutineBackdropProvider] publishes no backdrop, so every glass element in the
+ * window takes the solid path it already takes on Android 11 and below. That is the point of
+ * routing it through the backdrop rather than adding a flag to each control: one fallback exists,
+ * one set of colours is measured by the contrast gate, and nothing can be left behind.
+ *
+ * Read once per composition host, exactly like `rememberReduceMotion`, so it takes effect the next
+ * time the screen is built rather than mid-frame.
+ */
+@Composable
+fun rememberReduceTransparency(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                (context.getSystemService(UiModeManager::class.java)?.contrast ?: 0f) > 0f
+            } else {
+                Settings.Secure.getInt(context.contentResolver, HighTextContrastSetting, 0) == 1
+            }
+        }.getOrDefault(false)
+    }
+}
 val lensSupported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
 /**
@@ -192,7 +226,10 @@ fun RoutineBackdropProvider(content: @Composable () -> Unit) {
         drawRect(RoutineColors.Background)
         drawContent()
     }
-    CompositionLocalProvider(LocalRoutineBackdrop provides backdrop) { content() }
+    // Withheld under maximum contrast: no backdrop means no element samples anything, the content
+    // layer is never even attached, and the whole window renders on the solid fallback surfaces.
+    val published = if (rememberReduceTransparency()) null else backdrop
+    CompositionLocalProvider(LocalRoutineBackdrop provides published) { content() }
 }
 
 /** Marks the *content* node whose pixels the chrome refracts. Sibling of every glass element. */
