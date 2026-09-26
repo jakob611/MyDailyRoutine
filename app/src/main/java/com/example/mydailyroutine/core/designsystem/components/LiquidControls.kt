@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
+import com.example.mydailyroutine.core.designsystem.glass.LocalInsideGlass
 import com.example.mydailyroutine.core.designsystem.glass.LocalRoutineBackdrop
 import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
@@ -290,19 +291,24 @@ fun LiquidSlider(
 }
 
 /**
- * The liquid glass buttons, in the literal sense: the control is **itself** a pane of glass —
- * the same blur, lens, rim and touch behaviour as the floating chrome — instead of a transparent
- * clickable painted on top of a glass frame.
+ * The liquid glass buttons, in the literal sense: standing on its own, the control is **itself** a
+ * pane of glass — the same blur, lens, rim and touch behaviour as the floating chrome — instead of
+ * a transparent clickable painted on top of a glass frame.
  *
- * Two rules from the glass layer carry over:
+ * Three rules from the glass layer carry over:
  *
- * * Every pane samples the *window's* backdrop through [LocalRoutineBackdrop], never a backdrop of
- *   its own. The pane is a sibling of the content layer it refracts, so what it shows is what is
- *   actually scrolling under the chrome it lives in, not the frame it sits on.
- * * [rememberGlassTouch] gives the pane the interactive-glass behaviour of Apple's `.interactive()`:
- *   a few percent of scale under the finger, a light bloom at the touch point, a sprung release.
- *   The Material ripple is switched off — the scale *is* the state layer, and a second answer on
- *   top of it would contradict the first.
+ * * A standalone pane samples the *window's* backdrop through [LocalRoutineBackdrop], never a
+ *   backdrop of its own. The pane is a sibling of the content layer it refracts, so what it shows
+ *   is what is actually scrolling under the chrome it lives in, not the frame it sits on.
+ * * **Inside a glass surface there is no pane at all** ([LocalInsideGlass]). Glass does not nest:
+ *   a second pane would sample the same backdrop as the bar around it, show the content without
+ *   the bar's tint, and read as a hole punched through the chrome. The icon sits on the bar and
+ *   the bar stays one piece of glass.
+ * * [rememberGlassTouch] gives the control the interactive-glass behaviour of Apple's
+ *   `.interactive()`: a few percent of scale under the finger, a light bloom at the touch point, a
+ *   sprung release. That behaviour is `routineGlassTouch`, not the pane, so it is identical in both
+ *   cases. The Material ripple is switched off — the scale *is* the state layer, and a second
+ *   answer on top of it would contradict the first.
  */
 @Composable
 fun GlassIconButton(
@@ -313,6 +319,9 @@ fun GlassIconButton(
     icon: @Composable () -> Unit,
 ) {
     val backdrop = LocalRoutineBackdrop.current
+    // Inside a glass bar the icon is just an icon. Its own pane would sample the same backdrop the
+    // bar samples and so would show the content without the bar's tint — a hole through the chrome.
+    val insideGlass = LocalInsideGlass.current
     val touch = rememberGlassTouch(LocalReduceMotion.current)
     // The gesture lives on the larger box, the glass keeps its own size: Compose derives the pointer
     // area from the node that owns the gesture, so a 40 dp pane can still be a 48 dp button. Both
@@ -326,8 +335,14 @@ fun GlassIconButton(
     ) {
         Box(
             Modifier.size(RoutineMetrics.GlassControlSize)
+                // Kept in both cases: the squash and the bloom at the touch point are this
+                // modifier's, not the pane's, so the plain button answers the finger exactly as
+                // the glass one does.
                 .routineGlassTouch(touch, shape)
-                .routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current)
+                .then(
+                    if (insideGlass) Modifier
+                    else Modifier.routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current),
+                )
                 .clip(shape),
             contentAlignment = Alignment.Center,
         ) { icon() }

@@ -489,8 +489,9 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                         }
                                     }
                                 }
-                                // One pane of glass per action: each button is a piece of glass itself,
-                                // not a transparent click target painted on the bar's frame.
+                                // The bar is the pane; these are icons on it. Glass does not nest —
+                                // a pane per action would sample the same backdrop as the bar and
+                                // read as four holes punched through it. The press answer stays.
                                 GlassIconButton(onClick = { onAction(TimelineAction.OpenPlanning) }) { Icon(Icons.Outlined.AutoAwesome, stringResource(R.string.planning_open), Modifier.size(RoutineMetrics.IconSize)) }
                                 Box {
                                     GlassIconButton(onClick = { onAction(TimelineAction.OpenTasks) }) { Icon(Icons.Outlined.Checklist, stringResource(R.string.tasks_open), Modifier.size(RoutineMetrics.IconSize)) }

@@ -107,6 +107,22 @@ val LocalRoutineBackdrop = staticCompositionLocalOf<Backdrop?> { null }
  */
 val LocalSheetBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
+/**
+ * True anywhere inside a glass surface.
+ *
+ * Glass does not nest, and this is the rule that enforces it. A control that puts its own pane
+ * inside a glass bar samples the same window backdrop the bar samples, so it shows the content
+ * *without* the bar's tint: it reads as a hole punched through the chrome, and the strip stops
+ * being one piece of glass and becomes five. Apple says the same in one line — do not give an
+ * inner control its own glass layer when its container already has one.
+ *
+ * [RoutineGlassSurface] sets this for its whole subtree and [GlassIconButton] answers to it, so
+ * the rule holds where chrome is built rather than where someone remembers it. Nothing is lost
+ * from the control: the press answer — the squash and the bloom at the touch point — lives in
+ * `routineGlassTouch`, which is a separate modifier from the pane.
+ */
+val LocalInsideGlass = staticCompositionLocalOf { false }
+
 /** Blur is `RenderEffect` (Android 12+), the lens is AGSL (Android 13+). The library skips whatever
  *  the platform cannot do, so these flags only decide whether to paint the solid fallback. */
 val glassSupported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -375,7 +391,9 @@ fun RoutineGlassSurface(
 ) {
     val backdrop = LocalRoutineBackdrop.current
     Box(modifier.routineGlass(backdrop, shape, role, tint, hue, specular, tilt = LocalGlassTilt.current)
-        .clip(shape)) { content() }
+        .clip(shape)) {
+        CompositionLocalProvider(LocalInsideGlass provides true) { content() }
+    }
 }
 
 /**
