@@ -32,6 +32,8 @@ import com.example.mydailyroutine.features.timeline.presentation.overview.*
  * underneath. Keeping them here is what stops the screen's own composable from being read as a
  * seventy-line list of things that are usually not on screen at all.
  */
+// Same opt-in the screen itself carries: every sheet below is a Material 3 ModalBottomSheet.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoutineOverlays(
     state: TimelineUiState,
