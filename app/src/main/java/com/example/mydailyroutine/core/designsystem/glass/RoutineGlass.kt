@@ -122,6 +122,14 @@ val LocalSheetBackdrop = staticCompositionLocalOf<Backdrop?> { null }
  * the rule holds where chrome is built rather than where someone remembers it. Nothing is lost
  * from the control: the press answer — the squash and the bloom at the touch point — lives in
  * `routineGlassTouch`, which is a separate modifier from the pane.
+ *
+ * Its reach is exactly that pair, and deliberately so. `Modifier.routineGlass` is also applied
+ * directly — the sheet header, the fast-add pill, the two sheet buttons — and a modifier cannot
+ * provide a composition local to content it does not wrap. None of those hold a glass control
+ * today (the sheet header's close button is a plain Material one), so the invariant holds. Put a
+ * glass control inside one of them and it will not: provide this local there too, and decide what
+ * the control should fall back to, because an icon wants no container at all while a text chip
+ * still needs one.
  */
 val LocalInsideGlass = staticCompositionLocalOf { false }
 

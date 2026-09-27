@@ -43,6 +43,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
@@ -54,6 +55,7 @@ import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
@@ -97,12 +99,22 @@ private val SwitchPad = 4.dp
  * jobs, so their optics are declared once. Lens height stays under each disc's own radius, which
  * is what the library asks of it.
  */
-private val DiscRim = 0.8.dp
+private val DiscRim = 0.5.dp
 private val DiscInnerShadow = 4.dp
 
-/** How far a disc clears while the finger is on it. Not all the way: a switch has to keep reading
- *  as on or off, and a disc that disappears into its own track answers neither. */
-private const val DiscClearance = 0.55f
+/**
+ * How far each disc clears at full grab, and the two differ because their geometry does.
+ *
+ * The switch track is 32 dp under a 24 dp knob, so there is something to refract behind every
+ * pixel of it and it can clear a long way. The slider's track is 6 dp under a 20 dp thumb — under
+ * two thirds of that disc there is nothing recorded at all, and a thumb that cleared as far would
+ * mostly be showing the screen behind it rather than bent turquoise.
+ *
+ * Neither goes to zero: a control that disappears into its own track stops answering whether it
+ * is on or off.
+ */
+private const val SwitchKnobClearance = 0.55f
+private const val SliderThumbClearance = 0.30f
 
 private val SwitchKnobShadow = 6.dp
 private val SwitchKnobBlur = 6.dp
@@ -129,6 +141,61 @@ private const val SwitchKnobStretch = 0.18f
  * and the device tests keep working unchanged, and without a backdrop to sample (Android 11 and
  * below, or maximum contrast requested) it is the flat disc it has always been.
  */
+/**
+ * The body of a draggable disc: a glass lens over whatever its own track recorded, or the flat
+ * disc when there is no backdrop to sample.
+ *
+ * The switch knob and the slider thumb are the same object with different jobs, so the optics are
+ * written once. [grab] is 0 at rest and 1 with the finger on it, and the blur gives way to the
+ * lens across it — that crossover is the moment the track bends through the disc.
+ *
+ * [layerBlock] is handed to the library rather than wrapped around it. The sampled backdrop is
+ * inverse-transformed by that block, so the track holds still while the disc stretches or swells
+ * over it; applied outside, the refraction would stretch with it.
+ *
+ * A null [backdrop] is the honest absence of one — Android 11 and below, or the reader asking for
+ * maximum contrast — and gives back the disc this app has always drawn.
+ */
+private fun Modifier.liquidDisc(
+    backdrop: Backdrop?,
+    grab: Float,
+    blurRadius: Dp,
+    lensRadius: Dp,
+    lensDepth: Dp,
+    shadowRadius: Dp,
+    clearance: Float,
+    layerBlock: GraphicsLayerScope.() -> Unit,
+): Modifier =
+    if (backdrop == null) {
+        this.graphicsLayer(layerBlock)
+            .clip(CircleShape)
+            .background(RoutineColors.TextPrimary)
+            .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.25f), CircleShape)
+    } else {
+        this.drawBackdrop(
+            backdrop = backdrop,
+            shape = { CircleShape },
+            effects = {
+                blur(blurRadius.toPx() * (1f - grab))
+                lens(lensRadius.toPx() * grab, lensDepth.toPx() * grab)
+            },
+            // Null at rest, not a transparent highlight: the library records a layer and strokes
+            // the outline for any non-null value, and on a settings screen that is fourteen of
+            // them doing it every frame for something nobody can see.
+            highlight = {
+                if (grab > 0f) Highlight(DiscRim, alpha = grab, style = HighlightStyle.Ambient) else null
+            },
+            // Always on: the lift is what separates the disc from its track, and it is the one
+            // thing the old flat disc never had.
+            shadow = { Shadow(shadowRadius, color = RoutineColors.GlassShadow) },
+            innerShadow = { InnerShadow(DiscInnerShadow * grab, alpha = grab) },
+            layerBlock = layerBlock,
+            onDrawSurface = {
+                drawRect(RoutineColors.TextPrimary.copy(alpha = 1f - grab * clearance))
+            },
+        )
+    }
+
 @Composable
 fun RoutineSwitch(
     checked: Boolean,
@@ -248,40 +315,15 @@ fun RoutineSwitch(
                 .graphicsLayer {
                     translationX = with(density) { SwitchPad.toPx() } + position.value * travelPx
                 }
-                .then(
-                    if (glassKnob) {
-                        Modifier.drawBackdrop(
-                            backdrop = trackBackdrop,
-                            shape = { CircleShape },
-                            effects = {
-                                // At rest a plain disc; under the finger the blur gives way to the
-                                // lens, and that is the moment the turquoise bends through it.
-                                blur(SwitchKnobBlur.toPx() * (1f - squash))
-                                lens(SwitchKnobLens.toPx() * squash, SwitchKnobLensDepth.toPx() * squash)
-                            },
-                            highlight = {
-                                Highlight(DiscRim, alpha = squash, style = HighlightStyle.Ambient)
-                            },
-                            // Always on: the lift is what separates the knob from its track, and it
-                            // is the one thing the old flat disc never had.
-                            shadow = { Shadow(SwitchKnobShadow, color = RoutineColors.GlassShadow) },
-                            innerShadow = {
-                                InnerShadow(DiscInnerShadow * squash, alpha = squash)
-                            },
-                            layerBlock = squashBlock,
-                            onDrawSurface = {
-                                drawRect(RoutineColors.TextPrimary.copy(alpha = 1f - squash * DiscClearance))
-                            },
-                        )
-                    } else {
-                        // No backdrop to sample: Android 11 and below, or the reader asked for
-                        // maximum contrast. The disc the switch has always been.
-                        Modifier
-                            .graphicsLayer(squashBlock)
-                            .clip(CircleShape)
-                            .background(RoutineColors.TextPrimary)
-                            .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.25f), CircleShape)
-                    },
+                .liquidDisc(
+                    backdrop = trackBackdrop.takeIf { glassKnob },
+                    grab = squash,
+                    blurRadius = SwitchKnobBlur,
+                    lensRadius = SwitchKnobLens,
+                    lensDepth = SwitchKnobLensDepth,
+                    shadowRadius = SwitchKnobShadow,
+                    clearance = SwitchKnobClearance,
+                    layerBlock = squashBlock,
                 ),
         )
     }
@@ -392,32 +434,15 @@ fun LiquidSlider(
                 .graphicsLayer {
                     translationX = thumbPx / 2f + shown * (widthPx - thumbPx).coerceAtLeast(0f)
                 }
-                .then(
-                    if (glassThumb) {
-                        Modifier.drawBackdrop(
-                            backdrop = trackBackdrop,
-                            shape = { CircleShape },
-                            effects = {
-                                blur(SliderThumbBlur.toPx() * (1f - grab))
-                                lens(SliderThumbLens.toPx() * grab, SliderThumbLensDepth.toPx() * grab)
-                            },
-                            highlight = { Highlight(DiscRim, alpha = grab, style = HighlightStyle.Ambient) },
-                            shadow = { Shadow(SliderThumbShadow, color = RoutineColors.GlassShadow) },
-                            innerShadow = { InnerShadow(DiscInnerShadow * grab, alpha = grab) },
-                            // Growth as the layer block, so the library inverse-transforms what the
-                            // thumb samples: the track keeps its own scale while the disc swells.
-                            layerBlock = growBlock,
-                            onDrawSurface = {
-                                drawRect(RoutineColors.TextPrimary.copy(alpha = 1f - grab * DiscClearance))
-                            },
-                        )
-                    } else {
-                        Modifier
-                            .graphicsLayer(growBlock)
-                            .clip(CircleShape)
-                            .background(RoutineColors.TextPrimary)
-                            .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.25f), CircleShape)
-                    },
+                .liquidDisc(
+                    backdrop = trackBackdrop.takeIf { glassThumb },
+                    grab = grab,
+                    blurRadius = SliderThumbBlur,
+                    lensRadius = SliderThumbLens,
+                    lensDepth = SliderThumbLensDepth,
+                    shadowRadius = SliderThumbShadow,
+                    clearance = SliderThumbClearance,
+                    layerBlock = growBlock,
                 ),
         )
     }
