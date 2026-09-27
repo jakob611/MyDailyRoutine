@@ -14,12 +14,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.core.designsystem.theme.CategoryStyle
+import com.example.mydailyroutine.core.designsystem.motion.pulsing
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -126,7 +127,7 @@ fun NowBand(
     time: String,
     progress: Float,
     modifier: Modifier = Modifier,
-    pulse: Float = 1f,
+    pulse: State<Float>,
 ) {
     Layout(
         // The one place where the screen changes without the reader touching anything: a polite
@@ -139,7 +140,7 @@ fun NowBand(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
-                        Modifier.size(RoutineMetrics.NowDotSize).alpha(pulse)
+                        Modifier.size(RoutineMetrics.NowDotSize).pulsing(pulse)
                             .background(RoutineColors.Error, CircleShape),
                     )
                     Box(
@@ -147,7 +148,7 @@ fun NowBand(
                     )
                     RoutineLabel(
                         text = time,
-                        modifier = Modifier.alpha(pulse).padding(horizontal = RoutineSpacing.xs),
+                        modifier = Modifier.pulsing(pulse).padding(horizontal = RoutineSpacing.xs),
                         style = MaterialTheme.typography.labelSmall,
                         color = RoutineColors.Error,
                     )

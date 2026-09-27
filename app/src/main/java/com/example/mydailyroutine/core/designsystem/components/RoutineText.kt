@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
@@ -77,7 +76,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
-import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
 import com.example.mydailyroutine.core.designsystem.glass.LocalSheetBackdrop
 import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
 import com.example.mydailyroutine.core.designsystem.glass.rememberReduceTransparency
@@ -425,8 +423,7 @@ private fun SheetHeader(
     backdrop: Backdrop?,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet,
-        tilt = LocalGlassTilt.current)) {
+    Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet)) {
         Row(
             Modifier.fillMaxWidth().padding(start = RoutineMetrics.ScreenPadding, end = RoutineSpacing.md,
                 top = RoutineSpacing.md, bottom = RoutineSpacing.md),
@@ -606,7 +603,7 @@ fun SheetPrimaryButton(
             .routineGlass(
                 backdrop, RoutineShapes.Pill, GlassRole.Control,
                 tint = RoutineColors.Primary, hue = true,
-                specular = true, tilt = LocalGlassTilt.current,
+                specular = true,
             )
             .clip(RoutineShapes.Pill)
             .clickable(
@@ -642,7 +639,7 @@ fun SheetSecondaryButton(
             .routineGlassTouch(touch, RoutineShapes.Pill)
             .routineGlass(
                 backdrop, RoutineShapes.Pill, GlassRole.Control,
-                specular = true, tilt = LocalGlassTilt.current,
+                specular = true,
             )
             .clip(RoutineShapes.Pill)
             .clickable(

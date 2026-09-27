@@ -13,7 +13,11 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import kotlin.math.PI
@@ -149,15 +153,32 @@ fun <T> glassMorphSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
  * breathe in phase, which is what a live "now" should do anyway — and under the system's
  * remove-animations setting the loop never starts and the value holds its brightest state.
  */
-val LocalPulse = staticCompositionLocalOf { 1f }
+private val SteadyPulse: State<Float> = mutableStateOf(1f)
 
+val LocalPulse = staticCompositionLocalOf { SteadyPulse }
+
+/**
+ * The pulse as a [State], deliberately, and never as a `Float`.
+ *
+ * An infinite transition changes every frame. Read as a value it is read *during composition*, and
+ * because [LocalPulse] is a static local — the kind that does not track its readers — providing
+ * that value at the root recomposed the entire application on every frame of the loop, forever, on
+ * a screen that refreshes 120 times a second. The animation is three dots breathing.
+ *
+ * Handing out the state object instead means the local's value never changes: the reference is
+ * stable and the frames land in `.value`, which [pulsing] reads in the draw phase where a changing
+ * number costs a repaint of one node and nothing else.
+ */
 @Composable
-fun rememberAppPulse(reduceMotion: Boolean = LocalReduceMotion.current): Float {
-    if (reduceMotion) return 1f
+fun rememberAppPulse(reduceMotion: Boolean = LocalReduceMotion.current): State<Float> {
+    if (reduceMotion) return SteadyPulse
     val transition = rememberInfiniteTransition(label = "app-pulse")
     return transition.animateFloat(
         0.78f, 1f,
         infiniteRepeatable(tween(2800, easing = CubicBezierEasing(0.37f, 0f, 0.63f, 1f)), RepeatMode.Reverse),
         label = "app-pulse-value",
-    ).value
+    )
 }
+
+/** Breathes a node's opacity. `alpha(pulse.value)` would read the frame during composition. */
+fun Modifier.pulsing(pulse: State<Float>): Modifier = graphicsLayer { alpha = pulse.value }

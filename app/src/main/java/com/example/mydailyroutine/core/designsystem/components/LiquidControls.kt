@@ -46,7 +46,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
-import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
 import com.example.mydailyroutine.core.designsystem.glass.LocalInsideGlass
 import com.example.mydailyroutine.core.designsystem.glass.LocalRoutineBackdrop
 import com.example.mydailyroutine.core.designsystem.glass.glassSupported
@@ -499,7 +498,7 @@ fun GlassIconButton(
                 .routineGlassTouch(touch, shape)
                 .then(
                     if (insideGlass) Modifier
-                    else Modifier.routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current),
+                    else Modifier.routineGlass(backdrop, shape, role, specular = true),
                 )
                 .clip(shape),
             contentAlignment = Alignment.Center,
@@ -522,7 +521,7 @@ fun GlassChipButton(
     Box(
         modifier
             .routineGlassTouch(touch, shape)
-            .routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current)
+            .routineGlass(backdrop, shape, role, specular = true)
             .clip(shape)
             .defaultMinSize(minHeight = RoutineMetrics.TouchTarget)
             .clickable(interactionSource = touch.source, indication = null, role = Role.Button, onClick = onClick)
@@ -551,7 +550,7 @@ fun GlassContentChip(
     Box(
         modifier
             .routineGlassTouch(touch, shape)
-            .routineGlass(backdrop, shape, role, specular = true, tilt = LocalGlassTilt.current)
+            .routineGlass(backdrop, shape, role, specular = true)
             .clip(shape)
             .defaultMinSize(minHeight = RoutineMetrics.TouchTarget)
             .clickable(

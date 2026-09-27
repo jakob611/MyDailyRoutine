@@ -95,7 +95,6 @@ object RoutineColors {
     val GlassSpecular = 1f
     val GlassSpecularFall = 0.35f
     val GlassTouchGlow = 0.16f
-    val GlassTiltGlow = 0.06f
 
     val WarningContainer = Color(0xFF4B3B1B)
     val School = CategoryStyle(Timer, Surface2, TextPrimary)

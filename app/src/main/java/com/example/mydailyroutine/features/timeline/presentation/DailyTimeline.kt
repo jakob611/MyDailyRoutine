@@ -70,7 +70,7 @@ import com.example.mydailyroutine.features.timeline.components.MetricTile
 import com.example.mydailyroutine.features.timeline.components.MilestoneCard
 import com.example.mydailyroutine.features.timeline.components.NowMarker
 import com.example.mydailyroutine.features.timeline.components.TimelineBlockCard
-import com.example.mydailyroutine.features.timeline.components.pulseAlpha
+import com.example.mydailyroutine.features.timeline.components.appPulse
 import java.time.LocalDate
 import java.time.ZonedDateTime
 
@@ -539,7 +539,7 @@ private fun TimelineGap(minutes: Int, nowFraction: Float?, clock: String) {
                 time = clock,
                 progress = nowFraction.coerceIn(0f, 1f),
                 modifier = Modifier.matchParentSize(),
-                pulse = pulseAlpha(),
+                pulse = appPulse(),
             )
         }
     }

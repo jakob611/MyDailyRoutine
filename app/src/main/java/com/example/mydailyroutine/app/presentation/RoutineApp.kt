@@ -117,7 +117,6 @@ import com.example.mydailyroutine.core.designsystem.glass.RoutineGlassSurface
 import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
 import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.glass.routineBackdropLayer
-import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.features.goals.presentation.GoalsScreen
 import com.example.mydailyroutine.features.settings.presentation.NotificationAccess
@@ -513,8 +512,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                             } + RoutineSpacing.md
                         }
                         .routineGlassTouch(fastAddTouch, RoutineShapes.Pill)
-                        .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control,
-                            tilt = LocalGlassTilt.current)
+                        .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control)
                         .background(RoutineColors.Primary.copy(alpha = 0.16f), RoutineShapes.Pill)
                         .clip(RoutineShapes.Pill)
                         .clickable(interactionSource = fastAddTouch.source, indication = null, role = Role.Button) {
@@ -647,7 +645,7 @@ private fun AddBlockMorph(
                     pane.place(paneLeft, paneTop)
                 }
             }
-            .routineGlass(backdrop, shape, GlassRole.Bar, specular = true, tilt = LocalGlassTilt.current)
+            .routineGlass(backdrop, shape, GlassRole.Bar, specular = true)
             .background(RoutineColors.Primary.copy(alpha = 0.16f), shape)
             .clip(shape),
     )

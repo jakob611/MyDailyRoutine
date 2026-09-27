@@ -1,15 +1,7 @@
 package com.example.mydailyroutine.core.designsystem.glass
 
 import android.app.UiModeManager
-import android.content.Context
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
-import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
-import kotlin.math.round
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.animation.core.animateFloatAsState
@@ -203,46 +195,6 @@ enum class GlassRole(
         tintAlpha = RoutineColors.GlassTintCompactAlpha, fallback = RoutineColors.GlassFallback),
 }
 
-/** Device tilt in -1..1 on both axes, quantised: the raw rotation vector jitters every sample, and
- *  repaint-triggering noise is exactly how a specular highlight becomes a shimmer defect. */
-@Immutable
-data class GlassTilt(val x: Float = 0f, val y: Float = 0f)
-
-val LocalGlassTilt = staticCompositionLocalOf { GlassTilt() }
-
-/**
- * Reads the rotation vector while the host is alive and nothing else: one listener at UI rate,
- * unregistered on dispose, and under remove-animations the chrome simply keeps its static rim.
- * Phones without a rotation-vector sensor (or without the feature) keep GlassTilt() and the
- * highlight never appears — glass degrades to optics-only, never to a crash.
- */
-@Composable
-fun rememberGlassTilt(): GlassTilt {
-    val context = LocalContext.current
-    var tilt by remember { mutableStateOf(GlassTilt()) }
-    if (LocalReduceMotion.current) return GlassTilt()
-    DisposableEffect(Unit) {
-        val manager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
-        val sensor = manager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-        if (manager == null || sensor == null) return@DisposableEffect onDispose {}
-        val listener = object : SensorEventListener {
-            private val matrix = FloatArray(9)
-            private val orientation = FloatArray(3)
-            override fun onSensorChanged(event: SensorEvent) {
-                SensorManager.getRotationMatrixFromVector(matrix, event.values)
-                SensorManager.getOrientation(matrix, orientation)
-                val x = (orientation[2] / 0.5f).coerceIn(-1f, 1f).let { round(it * 20) / 20f }
-                val y = (orientation[1] / 0.5f).coerceIn(-1f, 1f).let { round(it * 20) / 20f }
-                if (x != tilt.x || y != tilt.y) tilt = GlassTilt(x, y)
-            }
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
-        }
-        manager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
-        onDispose { manager.unregisterListener(listener) }
-    }
-    return tilt
-}
-
 /** Rim hairline. Drawn centred on the shape outline, so the clip leaves half of it: ~0.8 dp of light. */
 private val RimWidth = 1.6.dp
 
@@ -333,7 +285,6 @@ fun Modifier.routineGlass(
     tint: Color = RoutineColors.GlassTint,
     hue: Boolean = false,
     specular: Boolean = true,
-    tilt: GlassTilt = GlassTilt(),
 ): Modifier {
     if (backdrop == null || !glassSupported) {
         val fallback = if (hue) tint else role.fallback
@@ -360,18 +311,6 @@ fun Modifier.routineGlass(
     }
     val surface: DrawScope.() -> Unit = {
         wash?.invoke(this)
-        if (specular && (tilt.x != 0f || tilt.y != 0f)) {
-            // The one highlight that cannot be faked with a static gradient: it follows the phone.
-            val center = Offset(size.width * (0.5f + tilt.x * 0.45f), size.height * (0.5f + tilt.y * 0.45f))
-            drawRect(
-                Brush.radialGradient(
-                    0f to RoutineColors.GlassRim.copy(alpha = RoutineColors.GlassTiltGlow * role.rim * 3f),
-                    1f to Color.Transparent,
-                    center = center,
-                    radius = size.width * 0.7f,
-                ),
-            )
-        }
     }
     return this.drawBackdrop(
         backdrop = backdrop,
@@ -419,7 +358,7 @@ fun RoutineGlassSurface(
     content: @Composable () -> Unit,
 ) {
     val backdrop = LocalRoutineBackdrop.current
-    Box(modifier.routineGlass(backdrop, shape, role, tint, hue, specular, tilt = LocalGlassTilt.current)
+    Box(modifier.routineGlass(backdrop, shape, role, tint, hue, specular)
         .clip(shape)) {
         CompositionLocalProvider(LocalInsideGlass provides true) { content() }
     }
