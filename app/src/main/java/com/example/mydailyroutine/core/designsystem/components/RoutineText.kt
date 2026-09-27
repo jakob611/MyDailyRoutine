@@ -46,8 +46,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,8 +60,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -477,6 +475,9 @@ private fun ColumnScope.SheetFooter(footer: (@Composable ColumnScope.() -> Unit)
  * [body] receives the backdrop and the measured header height, so the scrolling content can pad
  * itself clear of the header on the first line and still slide underneath it while scrolling.
  */
+/** Subcomposition slots for [SheetShell]: the header has to be measured before the body exists. */
+private enum class SheetSlot { Header, Body }
+
 @Composable
 private fun SheetShell(
     title: String,
@@ -494,19 +495,35 @@ private fun SheetShell(
     // The body keeps recording into the layer — that is what the body is drawn into, not an effect
     // it pays for — but under maximum contrast the chrome stops sampling it and goes solid.
     val chromeBackdrop = if (rememberReduceTransparency()) null else sheetBackdrop
-    val density = LocalDensity.current
-    var headerHeight by remember { mutableStateOf(0.dp) }
     Column(modifier.fillMaxWidth().imePadding()) {
-        Box(Modifier.weight(1f, fill = false).fillMaxWidth()) {
-            // The body carries `layerBackdrop`, so it is the one place in the sheet that must not
-            // be told about that layer: a node that samples the layer it is drawn into draws
-            // itself into itself and takes the render thread down with it (SIGSEGV). A control in
-            // the body therefore finds no backdrop and falls back to its solid surface — which is
-            // also the rule the glass is supposed to follow: chrome refracts, content is refracted.
-            body(sheetBackdrop, headerHeight)
-            SheetHeader(title, subtitle, closeLabel, onClose, chromeBackdrop,
-                Modifier.align(Alignment.TopCenter).fillMaxWidth()
-                    .onSizeChanged { headerHeight = with(density) { it.height.toDp() } })
+        // The header is measured first and the body is composed knowing how tall it is, in one
+        // pass. It used to be the other way round: the body was padded by a `headerHeight` state
+        // that started at zero and was written from the header's `onSizeChanged`, so the first
+        // frame of every sheet put the content under the header and the second frame dropped it
+        // into place — a visible jump on every open, and a full recomposition of the body to go
+        // with it. A measure pass cannot read a value that has not been written yet; subcomposing
+        // in order can.
+        SubcomposeLayout(Modifier.weight(1f, fill = false).fillMaxWidth()) { constraints ->
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val header = subcompose(SheetSlot.Header) {
+                // The body carries `layerBackdrop`, so it is the one place in the sheet that must
+                // not be told about that layer: a node that samples the layer it is drawn into
+                // draws itself into itself and takes the render thread down with it (SIGSEGV). A
+                // control in the body therefore finds no backdrop and falls back to its solid
+                // surface — which is also the rule the glass follows: chrome refracts, content is
+                // refracted.
+                SheetHeader(title, subtitle, closeLabel, onClose, chromeBackdrop, Modifier.fillMaxWidth())
+            }.map { it.measure(loose) }
+            val headerHeight = header.maxOfOrNull { it.height } ?: 0
+            val content = subcompose(SheetSlot.Body) { body(sheetBackdrop, headerHeight.toDp()) }
+                .map { it.measure(constraints) }
+            layout(
+                content.maxOfOrNull { it.width } ?: constraints.minWidth,
+                content.maxOfOrNull { it.height } ?: headerHeight,
+            ) {
+                content.forEach { it.place(0, 0) }
+                header.forEach { it.place(0, 0) }
+            }
         }
         // The footer is a sibling of that layer, not a child of it, so its buttons may sample it.
         CompositionLocalProvider(LocalSheetBackdrop provides chromeBackdrop) {
