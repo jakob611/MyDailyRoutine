@@ -103,7 +103,7 @@ sta stikalo in drsnik narisana kot polni ploskvi, medtem ko je vse ostalo steklo
 
 ## 5. Načrt
 
-### F1 — začni uporabljati, kar že imamo *(največji učinek, najmanjše tveganje)*
+### F1 — začni uporabljati, kar že imamo ✅ **NAREJENO** (`1b173db`)
 
 Rob in odsev iz ročnega risanja preseli v knjižnična parametra, in dodaj senco:
 
@@ -126,7 +126,7 @@ drawBackdrop(
 
 *Obseg: 1 datoteka. Tveganje: nizko — vizualno se spremeni rob in pribudi senca.*
 
-### F2 — pravo stekleno stikalo *(to, kar si videl na posnetkih)*
+### F2 — pravo stekleno stikalo ✅ **NAREJENO** (`925ae61`)
 
 Prenesi `LiquidToggle` v `RoutineSwitch`, na naš 1.0.0 API:
 
@@ -142,11 +142,11 @@ Prenesi `LiquidToggle` v `RoutineSwitch`, na naš 1.0.0 API:
 *Učinek: **14 stikal** v nastavitvah, urejevalniku in spanju naenkrat.*
 *Obseg: 1 nova util datoteka + prepis ~70 vrstic. Tveganje: srednje — nova risalna pot.*
 
-### F3 — drsnik po istem vzorcu
+### F3 — drsnik po istem vzorcu ✅ **NAREJENO** (`64167b9`)
 
 Isti prijem za `LiquidSlider` (2 mesti). Poceni, ko F2 obstaja, ker deli `DampedDragAnimation`.
 
-### F4 — `io.github.kyant0:shapes` *(neobvezno)*
+### F4 — `io.github.kyant0:shapes` ⛔ **BLOKIRANO**
 
 Zvezne zaobljenosti (Applov „squircle“) namesto `RoundedCornerShape`. Vizualno opazno na vsem.
 **Najprej preveri**, katero različico Kotlina/Compose zahteva — velja ista past kot pri `backdrop`.
@@ -158,6 +158,40 @@ Zvezne zaobljenosti (Applov „squircle“) namesto `RoundedCornerShape`. Vizual
 * **`InteractiveHighlight`** — naš `routineGlassTouch` to že dela in deluje pod Androidom 13.
 
 ---
+
+## 5.1 Izid
+
+### F1 — kar se je pokazalo med izvedbo
+
+Med implementacijo se je razkrilo, da je bila **moja ugotovitev iz revizije smernic napačna**.
+Trdil sem, da steklo nima sence. `drawBackdrop` privzeto poda `highlight = { Highlight.Default }`
+in `shadow = { Shadow.Default }`; ker nismo podali nobenega, smo oba ves čas dobivali.
+
+Prava napaka je bila drugje in je bila večja: ker sta privzetka tiho delovala, je `RoutineGlass.kt`
+čez knjižnično lučko risal **še svoj rob** in svojo odsevno črto — vsak stekleni element je imel
+dva robova drug na drugem, senco pa enotnih 24 dp ne glede na velikost.
+
+### F4 — zakaj je blokirano
+
+POM knjižnice je odgovoril namesto ugibanja:
+
+```xml
+<!-- io/github/kyant0/shapes/1.0.0/shapes-1.0.0.pom -->
+<groupId>org.jetbrains.kotlin</groupId>
+<artifactId>kotlin-stdlib</artifactId>
+<version>2.3.0</version>
+```
+
+Že **najstarejša** objavljena različica (1.0.0, januar 2026) je zgrajena s Kotlinom 2.3.0. Projekt
+je na **2.2.10**. Knjižnica, prevedena z novejšim Kotlinom, nosi novejšo različico metapodatkov,
+ki je starejši prevajalnik ne zna prebrati — to ni opozorilo, ampak napaka prevajanja. Ista past
+kot pri `backdrop` 1.0.3+, le da tu ni nobene starejše različice, ki bi ji ušla.
+
+**Zvezne zaobljenosti torej niso dosegljive brez migracije orodjarne.** Lastna izvedba je
+tehnično mogoča — `CornerBasedShape` se da razširiti in `getCornerRadii` v knjižnici bi jo še
+vedno prebral, torej bi leča delovala — a gre za matematiko krivulje G2 in za spremembo, ki zadene
+**vsako obliko v aplikaciji**. Brez možnosti, da rezultat vidim, je to sprememba, ki jo je treba
+najprej videti in šele nato sprejeti. Puščam odprto kot zavestno odločitev, ne kot spregled.
 
 ## 6. Kar je treba upoštevati pri vsaki fazi
 
@@ -177,3 +211,6 @@ Zvezne zaobljenosti (Applov „squircle“) namesto `RoundedCornerShape`. Vizual
 **F1, nato F2.** F1 je ena datoteka in zapre vrzel iz prejšnje revizije. F2 je tisto, kar si
 pravzaprav prosil — in zadene 14 stikal hkrati, kar je največ vidnega učinka na uro dela v celotnem
 projektu. F3 sledi skoraj zastonj. F4 posebej, po preverbi različic.
+
+**Izvedeno:** F1, F2 in F3 so narejene in zelene na CI, vključno z napravnimi testi. F4 je
+blokirano na ravni orodjarne (glej 5.1) in ostaja odprto.
