@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -91,17 +92,22 @@ private val SwitchHeight = 32.dp
 private val SwitchKnob = 24.dp
 private val SwitchPad = 4.dp
 
-/** The knob's own optics. Lens height stays under the knob's radius, as the library requires. */
-private val SwitchKnobRim = 0.8.dp
+/**
+ * The two draggable discs — a switch knob and a slider thumb — are the same object with different
+ * jobs, so their optics are declared once. Lens height stays under each disc's own radius, which
+ * is what the library asks of it.
+ */
+private val DiscRim = 0.8.dp
+private val DiscInnerShadow = 4.dp
+
+/** How far a disc clears while the finger is on it. Not all the way: a switch has to keep reading
+ *  as on or off, and a disc that disappears into its own track answers neither. */
+private const val DiscClearance = 0.55f
+
 private val SwitchKnobShadow = 6.dp
 private val SwitchKnobBlur = 6.dp
 private val SwitchKnobLens = 6.dp
 private val SwitchKnobLensDepth = 12.dp
-private val SwitchKnobInnerShadow = 4.dp
-
-/** How far the disc clears while the finger is on it. Not all the way: a switch has to keep
- *  reading as on or off, and a knob that disappears into its own track answers neither. */
-private const val SwitchKnobClearance = 0.55f
 
 /** Kyant0's squash: the knob stretches along the direction of travel, anchored at its leading edge. */
 private const val SwitchKnobStretch = 0.18f
@@ -254,17 +260,17 @@ fun RoutineSwitch(
                                 lens(SwitchKnobLens.toPx() * squash, SwitchKnobLensDepth.toPx() * squash)
                             },
                             highlight = {
-                                Highlight(SwitchKnobRim, alpha = squash, style = HighlightStyle.Ambient)
+                                Highlight(DiscRim, alpha = squash, style = HighlightStyle.Ambient)
                             },
                             // Always on: the lift is what separates the knob from its track, and it
                             // is the one thing the old flat disc never had.
                             shadow = { Shadow(SwitchKnobShadow, color = RoutineColors.GlassShadow) },
                             innerShadow = {
-                                InnerShadow(SwitchKnobInnerShadow * squash, alpha = squash)
+                                InnerShadow(DiscInnerShadow * squash, alpha = squash)
                             },
                             layerBlock = squashBlock,
                             onDrawSurface = {
-                                drawRect(RoutineColors.TextPrimary.copy(alpha = 1f - squash * SwitchKnobClearance))
+                                drawRect(RoutineColors.TextPrimary.copy(alpha = 1f - squash * DiscClearance))
                             },
                         )
                     } else {
@@ -284,6 +290,13 @@ fun RoutineSwitch(
 
 private val SliderThumb = 20.dp
 private val SliderTrack = 6.dp
+private val SliderThumbShadow = 5.dp
+private val SliderThumbBlur = 5.dp
+private val SliderThumbLens = 5.dp
+private val SliderThumbLensDepth = 10.dp
+
+/** How much the thumb grows once the finger has it. */
+private const val SliderThumbGrowth = 0.25f
 
 /**
  * The catalog's LiquidSlider reduced to what the entry editor needs: a capsule track, a turquoise
@@ -303,14 +316,19 @@ fun LiquidSlider(
     val span = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.0001f)
     val fraction = ((value - valueRange.start) / span).coerceIn(0f, 1f)
     val shown by animateFloatAsState(fraction, glassMorphSpec<Float>(reduceMotion), label = "slider-fill")
-    val thumbScale by animateFloatAsState(
-        if (dragging) 1.25f else 1f,
+    // One progress for "the finger has it": the growth, the lens and the clearing all read from it,
+    // so they can never drift out of step with each other.
+    val grab by animateFloatAsState(
+        if (dragging) 1f else 0f,
         glassTouchSpec<Float>(reduceMotion),
-        label = "slider-thumb",
+        label = "slider-grab",
     )
     var widthPx by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
     val thumbPx = with(density) { SliderThumb.toPx() }
+    val trackBackdrop = rememberLayerBackdrop()
+    val reduceTransparency = rememberReduceTransparency()
+    val glassThumb = glassSupported && !reduceTransparency
 
     fun valueAt(x: Float): Float {
         val usable = (widthPx - thumbPx).coerceAtLeast(1f)
@@ -348,28 +366,59 @@ fun LiquidSlider(
         contentAlignment = Alignment.CenterStart,
     ) {
         val capsule = RoundedCornerShape(percent = 50)
-        Box(
-            Modifier.fillMaxWidth().height(SliderTrack)
-                .clip(capsule)
-                .background(RoutineColors.Surface4)
-                .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.2f), capsule),
-        )
-        Box(
-            Modifier.fillMaxWidth(shown).height(SliderTrack)
-                .clip(capsule)
-                .background(RoutineColors.Primary),
-        )
+        // Both halves of the track recorded into one layer, so the thumb refracts the turquoise it
+        // has already passed on one side and the empty track it has not reached on the other.
+        Box(Modifier.fillMaxWidth().height(SliderTrack).layerBackdrop(trackBackdrop)) {
+            Box(
+                Modifier.fillMaxSize()
+                    .clip(capsule)
+                    .background(RoutineColors.Surface4)
+                    .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.2f), capsule),
+            )
+            Box(
+                Modifier.fillMaxWidth(shown).fillMaxHeight()
+                    .clip(capsule)
+                    .background(RoutineColors.Primary),
+            )
+        }
+        val growBlock: GraphicsLayerScope.() -> Unit = {
+            val scale = 1f + grab * SliderThumbGrowth
+            scaleX = scale
+            scaleY = scale
+        }
         Box(
             Modifier
                 .size(SliderThumb)
                 .graphicsLayer {
                     translationX = thumbPx / 2f + shown * (widthPx - thumbPx).coerceAtLeast(0f)
-                    scaleX = thumbScale
-                    scaleY = thumbScale
                 }
-                .clip(CircleShape)
-                .background(RoutineColors.TextPrimary)
-                .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.25f), CircleShape),
+                .then(
+                    if (glassThumb) {
+                        Modifier.drawBackdrop(
+                            backdrop = trackBackdrop,
+                            shape = { CircleShape },
+                            effects = {
+                                blur(SliderThumbBlur.toPx() * (1f - grab))
+                                lens(SliderThumbLens.toPx() * grab, SliderThumbLensDepth.toPx() * grab)
+                            },
+                            highlight = { Highlight(DiscRim, alpha = grab, style = HighlightStyle.Ambient) },
+                            shadow = { Shadow(SliderThumbShadow, color = RoutineColors.GlassShadow) },
+                            innerShadow = { InnerShadow(DiscInnerShadow * grab, alpha = grab) },
+                            // Growth as the layer block, so the library inverse-transforms what the
+                            // thumb samples: the track keeps its own scale while the disc swells.
+                            layerBlock = growBlock,
+                            onDrawSurface = {
+                                drawRect(RoutineColors.TextPrimary.copy(alpha = 1f - grab * DiscClearance))
+                            },
+                        )
+                    } else {
+                        Modifier
+                            .graphicsLayer(growBlock)
+                            .clip(CircleShape)
+                            .background(RoutineColors.TextPrimary)
+                            .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.25f), CircleShape)
+                    },
+                ),
         )
     }
 }
