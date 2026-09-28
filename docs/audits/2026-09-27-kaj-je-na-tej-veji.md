@@ -197,6 +197,56 @@ pravokotnik), in romb na Ganttu, ker sta 2 dp od 9 in je njegova naloga, da je k
 Nedotaknjen kot celota ostaja `GoalsScreen.kt` (1137 vrstic) — razbil sem najbolj samostojno
 tretjino; naslednji naravni kos je Ganttov diagram, a tega nisem hotel rezati na slepo.
 
+# 11.1 Izdajna pripravljenost
+
+Zadnji krog ni bil o funkcijah, ampak o tem, ali je to, kar uporabnik namesti, sploh kdaj tekel.
+
+### Release APK ni bil nikoli zagnan
+
+Napravni testi tečejo na **debug** različici. Release različica je drug program: R8 je preimenoval,
+vložil, združil in izbrisal stvari, krčenje virov pa je zavrglo vse, kar je imelo za nedosegljivo.
+APK, ki ga uporabnik prenese, do zdaj ni bil niti enkrat zagnan.
+
+**In to ni bila teoretična skrb.** Aplikacija enume shranjuje po imenu, sprožilci v bazi pa imajo
+ista imena izpisana v SQL:
+
+```sql
+NEW.category NOT IN ('SCHOOL','FOCUS_ANALYTICAL','FOCUS_SYNTHESIZING','ADMIN', …)
+NEW.cancellationReason NOT IN ('MANUAL','AUTO_HEAL','BACKLOG','BUFFER_CONSUMED')
+```
+
+Ime konstante je torej **pogodba z vrsticami, ki so že na telefonu**. Če bi R8 konstanto
+preimenoval — ali enum razpakiral v `int`, kar sme za tistega, za katerega misli, da se samo
+primerja — bi pretvornik zapisal niz, ki ga sprožilec ne pozna, in vsak vnos bi bil zavrnjen.
+Aplikacija bi se namestila, zagnala in nato tiho odklonila vsako shranjevanje. Privzeta Androidova
+pravila ohranijo `values()` in `valueOf()`; **konstant, ki ju ti dve metodi iščeta, ne ohranijo.**
+
+| Popravek | Kaj dela |
+|---|---|
+| `app/proguard-rules.pro` | Ohrani konstante vseh enumov v `com.example.mydailyroutine.**`, z zapisanim razlogom. |
+| `tools/ci-release-smoke.sh` | Minificiran APK se zgradi, namesti, **zažene** in prehodi 140 vhodnih dogodkov s fiksnim semenom; nato se preveri, da proces še teče in da v dnevniku ni usodne napake za naš paket. Teče po testih, da napaka dimnega testa nikoli ne skrije rezultata testov. |
+
+### Kar sem preveril in je bilo že v redu
+
+* **Manifest** — `INTERNET` in `ACCESS_NETWORK_STATE` sta **aktivno odstranjena** s
+  `tools:node="remove"`, torej ne moreta priti niti prek tranzitivne knjižnice. Varnostne kopije
+  izklopljene (`allowBackup=false`, `fullBackupContent=false`, `dataExtractionRules`). Izvožena sta
+  samo zagonska aktivnost in gradnik; oba sprejemnika alarmov nista.
+* **Lint** — `abortOnError = true`, `checkReleaseBuilds = true`, **brez** baseline datoteke, ki bi
+  kaj skrivala. V celotni kodi sta dva `@Suppress`, oba utemeljena, in noben `tools:ignore`.
+* **Refleksija** — je ni: nobenega `Class.forName`, nobene knjižnice za serializacijo. Vsi
+  `::class.java` so za `Intent` in sistemske storitve, kar R8 ohrani sam.
+
+### Nestabilen test, ki je to enkrat pokazal
+
+Tek, ki je uvedel dimni test, je padel na enem testu. Diff tistega commita so bili pravila za R8 in
+dve CI skripti, ki tečeta **po** testih — na debug instrumentacijo torej fizično ne morejo vplivati
+— posnetek `03-month.png` iz istega teka pa kaže normalen mesečni zaslon.
+
+Dvajset klicev je nosilo zapisano `10000`. To niso bile dvajsetkrat iste sekunde, ampak dvajset
+ločenih odločitev, ki jih ni nihče nikoli pregledal skupaj. Zdaj je `UiWaitMillis` z zapisanim
+razlogom: potrpežljivost do deljenega CI emulatorja, ne trditev o hitrosti aplikacije.
+
 # 12. Stanje ob zaključku
 
 * CI zelen na `89975a1`: `build` ✅ + `device-tests` ✅.
