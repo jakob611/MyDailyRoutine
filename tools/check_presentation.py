@@ -79,7 +79,8 @@ for file in ui_files:
     code = file.read_text()
     if '/designsystem/' in str(file):
         continue
-    assert not re.search(r'RoundedCornerShape\(\s*\d', code), f'Corner radius invented outside the design system: {file}'
+    assert not re.search(r'(?:Rounded|ContinuousCorner)CornerShape\(\s*\d|ContinuousCornerShape\(\s*\d', code), \
+        f'Corner radius invented outside the design system: {file}'
     assert 'BorderStroke(1.dp, RoutineColors.Border)' not in code, f'Card outline is not the shared CardBorder: {file}'
     assert not re.search(r'\.size\(\s*\d+(?:\.\d+)?\.dp\)', code), \
         f'Size invented per screen (use a RoutineMetrics token): {file}'

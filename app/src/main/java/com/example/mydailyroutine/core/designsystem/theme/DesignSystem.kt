@@ -138,8 +138,19 @@ fun categoryStyle(category: RoutineCategory, subjectColor: Long? = null): Catego
 }
 
 object RoutineShapes {
-    val Card = RoundedCornerShape(16.dp)
-    val Chip = RoundedCornerShape(8.dp)
+    /**
+     * Corner smoothing, on the 0..1 slider Figma uses. 0.6 is the value Apple uses for app icons
+     * and the one Figma labels "iOS".
+     *
+     * A plain rounded corner jumps from no curvature to all of it at the join with the straight
+     * edge, and the eye reads that jump as a seam. Smoothing spends more of the edge ramping into
+     * the arc — at 0.6 the corner starts 60 % further from the apex — so the curvature is
+     * continuous the whole way round. See [ContinuousCornerShape] for the construction.
+     */
+    const val CornerSmoothing = 0.6f
+
+    val Card = ContinuousCornerShape(16.dp, CornerSmoothing)
+    val Chip = ContinuousCornerShape(8.dp, CornerSmoothing)
     /**
      * A calendar cell, in either overview: the month grid's day square and the week grid's block.
      * They are the same kind of object — a small filled area that stands for a period of time — so
@@ -147,21 +158,34 @@ object RoutineShapes {
      * this one, which is deliberately smaller than a card's: at 100 dp wide, a 16 dp corner would
      * make a week cell look like a button.
      */
-    val Cell = RoundedCornerShape(12.dp)
+    val Cell = ContinuousCornerShape(12.dp, CornerSmoothing)
+    /**
+     * Not smoothed, and it cannot be: a capsule's radius is already half its height, so there is
+     * no straight edge left to ramp the curvature into. The budget in [ContinuousCornerShape]
+     * works this out and lands on zero smoothing by itself — this is the same shape, drawn by the
+     * cheaper path that the platform can clip as a rounded rectangle.
+     */
     val Pill = RoundedCornerShape(50)
-    val Sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    val Sheet = ContinuousCornerShape(topStart = 24.dp, topEnd = 24.dp, smoothing = CornerSmoothing)
     /**
      * Glass shapes. The lens effect refracts by the corner radius, so every glass shape keeps a
      * minimum radius of at least 12 dp on the corners the reader can actually see. The top bar
      * is a floating pane with real space above and beside it, so all of its corners are rounded
      * and the pane can never read as a panel stuck to the screen edge.
      */
-    val GlassBar = RoundedCornerShape(22.dp)
-    val GlassPanel = RoundedCornerShape(28.dp)
-    val GlassChip = RoundedCornerShape(14.dp)
-    /** The rotated square that marks a milestone on the Gantt; 2 of its 9 dp, so it still reads sharp. */
+    val GlassBar = ContinuousCornerShape(22.dp, CornerSmoothing)
+    val GlassPanel = ContinuousCornerShape(28.dp, CornerSmoothing)
+    val GlassChip = ContinuousCornerShape(14.dp, CornerSmoothing)
+    /**
+     * The rotated square that marks a milestone on the Gantt; 2 of its 9 dp, so it still reads
+     * sharp. Nothing to smooth at that size, and smoothing it would only blunt the one shape whose
+     * job is to be pointed.
+     */
     val Diamond = RoundedCornerShape(2.dp)
-    val GlassSheetHeader = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
+    val GlassSheetHeader = ContinuousCornerShape(
+        topStart = 24.dp, topEnd = 24.dp, bottomStart = 18.dp, bottomEnd = 18.dp,
+        smoothing = CornerSmoothing,
+    )
 }
 
 /**
