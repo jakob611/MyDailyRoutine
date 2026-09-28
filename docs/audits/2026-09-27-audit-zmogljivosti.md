@@ -105,14 +105,19 @@ bil vtis »ni animacij« in »zatika se« en in isti problem.
 
 ---
 
-## 5. Kar ostaja odprto
+## 5. Odprte točke — zaprte
 
-| | Kaj | Zakaj ni v tem obratu |
+| | Kaj | Izid |
 |---|---|---|
-| **A** | Vsak `RoutineSwitch` in `LiquidSlider` ustvari svoj `rememberLayerBackdrop`. Na zaslonu z nastavitvami je to 14 dodatnih slojev. | Površine so majhne (52×32 dp) in napravni testi ne kažejo padcev. Meriti je treba na napravi, preden se karkoli spremeni. |
-| **B** | Steklo v mirovanju izračuna blur pod neprosojnim diskom, ki ga skrije. Isto dela katalog. | Površine so drobne; pravi test je `dumpsys gfxinfo`, ne ugibanje. |
-| **C** | Mikroanimacije, ki jih res ni: vrstice seznama se ne pojavljajo z zamikom, kartice nimajo odziva na pritisk izven stekla. | Šele ko je frame budget zdrav, je smiselno dodajati. Zdaj je. |
-| **D** | Zvezne zaobljenosti (squircle) — blokirano na Kotlinu 2.3. | Glej `2026-09-26-kyant0-komponente-raziskava.md`, §5.1. |
+| **A** | Vsak `RoutineSwitch` in `LiquidSlider` ustvari svoj sloj | **Zaprto skupaj z B.** Sloj ostane (rabi se ob pritisku), odpadejo pa učinki. |
+| **B** | Steklo v mirovanju računa blur pod neprosojnim diskom | **Zaprto.** A in B sta bila ista stvar: disk je v mirovanju narisan pri polni neprosojnosti, knjižnica pa je pod njim vsak frame računala blur in lečo za piksle, ki jih bela popolnoma pokrije. Učinki so zdaj vezani na dotik — prvi frame pritiska ima `grab` že nad nič, zato se na poti noter ne izgubi nič. Štirinajst diskov × dva render učinka × vsak frame → nič. |
+| **C** | Mikroanimacije, ki jih res ni | **Zaprto.** Sedem seznamov, ki se spreminjajo, ni imelo animacije vrstic: ko odkljukaš nalogo, izbrišeš predmet ali uvrstiš vnos iz čakalne vrste, je vse pod njim skočilo na novo mesto brez pojasnila. Zdaj imajo `animateItem` s skupno `listPlacementSpec`. Seznami, ki se ne spreminjajo (kolesce za čas, fiksni nabori), je namenoma nimajo. |
+| **D** | Zvezne zaobljenosti (squircle) | **Ostaja odprto.** Blokirano na Kotlinu 2.3 — ni stvar volje, ampak orodjarne. |
+| **E** | `GoalsScreen.kt` 1622 vrstic | **Zaprto.** Trije urejevalniški listi so listi v drevesu: vsakega odpre njegov `*EditorHost`, vsak ima samo osnutek, ki ga bralec tipka, in noben ne more vplivati na zaslon pod sabo. Šli so v `GoalEditorSheets.kt`; datoteka je 1137 vrstic. |
+
+**Najdba ob C:** `DailyTimeline` je imel svojo ročno specifikacijo premika, ki ni nikoli vprašala
+`LocalReduceMotion`. Dnevni pogled je torej drsel svoje vrstice tudi pod sistemsko nastavitvijo,
+ki je vse ostale animacije v aplikaciji ugasnila. Zdaj uporablja isto deljeno specifikacijo.
 
 **Naslednji korak, ki ga priporočam:** aplikacijo preizkusi s to gradnjo. Če je zatikanje odpravljeno,
 sta A in B najbrž nepotrebna in je vredno delati na C. Če ne, je naslednji korak `dumpsys gfxinfo

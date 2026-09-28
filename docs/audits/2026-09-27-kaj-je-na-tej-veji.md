@@ -172,17 +172,18 @@ problem**.
 
 ---
 
-# 11. Kar ostaja odprto
+# 11. Odprte točke
 
-| | Kaj | Zakaj |
-|---|---|---|
-| **A** | 14 stikal v nastavitvah ustvari 14 slojev | Površine so drobne (52×32 dp) in napravni testi ne kažejo padcev. Izmeriti je treba, ne ugibati. |
-| **B** | Steklo v mirovanju računa blur pod neprosojnim diskom | Isto dela katalog. Pravi test je `dumpsys gfxinfo`, ne sklepanje. |
-| **C** | Mikroanimacije, ki jih res ni: zamik vrstic seznama, odziv kartic na pritisk izven stekla | Smiselno šele, ko je frame budget zdrav. Po popravku iz §8 je. |
-| **D** | Zvezne zaobljenosti (squircle) | Blokirano na Kotlinu 2.3 — glej §7, F4. |
-| **E** | `RoutineApp` (446 vrstic) in `GoalsScreen.kt` (1622) | Predobstoječa God Objecta. `GoalsScreen` se ga nisem dotaknil. |
+A (sloji), B (blur pod neprosojnim diskom), C (mikroanimacije) in E (`GoalsScreen`) so **zaprte** —
+glej `2026-09-27-audit-zmogljivosti.md`, §5.
 
----
+Ostaja **D**: zvezne zaobljenosti (squircle). Blokirano na ravni orodjarne — `io.github.kyant0:shapes`
+že v najstarejši objavljeni različici zahteva `kotlin-stdlib 2.3.0`, projekt je na 2.2.10. Edina pot
+je migracija Kotlin 2.3 + Compose 1.10, kar potegne za sabo KSP, Room in Glance. To je svoje
+opravilo s svojim tveganjem, ne popravek.
+
+Nedotaknjen ostaja tudi `GoalsScreen.kt` (1137 vrstic) kot celota — razbil sem najbolj samostojno
+tretjino; nadaljnje rezanje (Ganttov diagram je naslednji naravni kos) je smiselno, a ne na slepo.
 
 # 12. Stanje ob zaključku
 
