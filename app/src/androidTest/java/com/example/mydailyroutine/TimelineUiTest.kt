@@ -183,7 +183,7 @@ class TimelineUiTest {
     /** One project selector plus four short tabs, instead of a single thousand-dp scroll. */
     @Test fun goalsAreSplitIntoTabsInsteadOfOneLongScroll() {
         compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()
-        compose.waitUntil(10000) {
+        compose.waitUntil(UiWaitMillis) {
             nodeCount(hasTestTagPrefix("goal-seed-")) > 0 || nodeCount(hasTestTag("goal-project-all")) > 0 ||
                 nodeCount(hasText(text(R.string.goals_empty_body))) > 0
         }
@@ -264,7 +264,7 @@ class TimelineUiTest {
         click(R.string.nav_week); awaitText(R.string.week_heading)
         // The heading lands before the grid does: the day columns are a lazily composed item, so
         // waiting for them is what keeps this from indexing an empty collection mid-transition.
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("week-day-column").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UiWaitMillis) { compose.onAllNodesWithTag("week-day-column").fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodesWithTag("week-day-column")[0].performClick()
         awaitText(R.string.day_heading)
         compose.onNodeWithContentDescription(text(R.string.goals_open)).performClick()
@@ -330,24 +330,24 @@ class TimelineUiTest {
             nodeCount(hasTestTagPrefix("goal-seed-")) > 0 || nodeCount(hasTestTag("goal-project-all")) > 0 ||
                 nodeCount(hasText(text(R.string.goals_empty_body))) > 0
         }
-        compose.waitUntil(10000) { idle() }
+        compose.waitUntil(UiWaitMillis) { idle() }
         if (nodeCount(hasTestTagPrefix("goal-seed-")) == 0 && nodeCount(hasTestTag("goal-project-all")) == 0) {
             compose.onNodeWithText(text(R.string.goals_seed_cas)).performClick()
         }
         // The chip for the missing kind appears once the write lands: waiting here is what makes the
         // coexistence a checked fact rather than a race the test happened to win.
-        compose.waitUntil(10000) {
+        compose.waitUntil(UiWaitMillis) {
             nodeCount(hasTestTag("goal-project-all")) > 0 || nodeCount(hasTestTagPrefix("goal-seed-")) > 0
         }
         if (nodeCount(hasTestTag("goal-project-all")) == 0) {
             val missing = if (nodeCount(hasTestTag("goal-seed-CAS")) > 0) "goal-seed-CAS" else "goal-seed-EE"
             compose.onNodeWithTag(missing).performScrollTo().performClick()
         }
-        compose.waitUntil(10000) { nodeCount(hasTestTag("goal-project-all")) > 0 }
+        compose.waitUntil(UiWaitMillis) { nodeCount(hasTestTag("goal-project-all")) > 0 }
     }
 
     private fun clickGoalTab(tag: String) {
-        compose.waitUntil(10000) {
+        compose.waitUntil(UiWaitMillis) {
             runCatching { compose.onNodeWithTag(tag).assertIsEnabled() }.isSuccess
         }
         compose.onNodeWithTag(tag).performClick()
@@ -373,7 +373,7 @@ class TimelineUiTest {
      * tree — for anything that legitimately repeats, use [awaitAnyText].
      */
     private fun awaitText(@StringRes id: Int) {
-        compose.waitUntil(10000) {
+        compose.waitUntil(UiWaitMillis) {
             compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty() &&
                 runCatching { compose.onNodeWithText(text(id)).assertIsDisplayed() }.isSuccess
         }
@@ -381,6 +381,6 @@ class TimelineUiTest {
 
     /** Waits for a string that may appear more than once, such as a top bar title echoed in a heading. */
     private fun awaitAnyText(@StringRes id: Int) {
-        compose.waitUntil(10000) { compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UiWaitMillis) { compose.onAllNodesWithText(text(id)).fetchSemanticsNodes().isNotEmpty() }
     }
 }

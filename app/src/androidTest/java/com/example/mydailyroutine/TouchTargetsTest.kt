@@ -38,7 +38,7 @@ class TouchTargetsTest {
     }
 
     @Test fun theChromeControlsAndTheModeTabsAreHittable() {
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UiWaitMillis) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
         listOf(R.string.planning_open, R.string.tasks_open, R.string.goals_open, R.string.settings).forEach { id ->
             assertTouchTarget("top bar button \"${text(id)}\"", compose.onNodeWithContentDescription(text(id)).fetchSemanticsNode())
         }
@@ -53,7 +53,7 @@ class TouchTargetsTest {
         // add pill and the actions inside a card all live there. Every clickable node whose centre is
         // below the middle of the window is measured — and printed, so the CI log carries the numbers
         // that were measured rather than only the one that failed (N18).
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UiWaitMillis) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
         val window = compose.onRoot().fetchSemanticsNode().boundsInRoot
         val density = compose.activity.resources.displayMetrics.density
         val lowerHalf = window.top + window.height / 2f
@@ -73,7 +73,7 @@ class TouchTargetsTest {
 
     @Test fun everySettingsSwitchIsAFullTouchTarget() {
         compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
-        compose.waitUntil(10000) { compose.onAllNodes(isToggleable()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UiWaitMillis) { compose.onAllNodes(isToggleable()).fetchSemanticsNodes().isNotEmpty() }
         val switches = compose.onAllNodes(isToggleable()).fetchSemanticsNodes()
         assertTrue("the rhythm tab should offer switches", switches.size >= 2)
         switches.forEachIndexed { index, node -> assertTouchTarget("switch #${index + 1}", node) }
