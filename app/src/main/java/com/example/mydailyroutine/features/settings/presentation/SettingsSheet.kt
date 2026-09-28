@@ -27,7 +27,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
@@ -65,6 +64,7 @@ import com.example.mydailyroutine.core.designsystem.components.SheetSecondaryBut
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.sound.LocalRoutineSounds
+import com.example.mydailyroutine.core.designsystem.motion.listPlacementSpec
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -502,7 +502,8 @@ private fun LazyListScope.dataTab(
             OutlinedCard(
                 shape = RoutineShapes.Card,
                 border = BorderStroke(1.dp, RoutineColors.CardBorder),
-                modifier = Modifier.fillMaxWidth().clickable(enabled = !busy) { onAction(TimelineAction.EditSubject(subject)) },
+                modifier = Modifier.animateItem(placementSpec = listPlacementSpec()).fillMaxWidth()
+                    .clickable(enabled = !busy) { onAction(TimelineAction.EditSubject(subject)) },
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(RoutineSpacing.md),

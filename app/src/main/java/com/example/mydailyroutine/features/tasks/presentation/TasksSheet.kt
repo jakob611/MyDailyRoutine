@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -74,6 +73,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.listPlacementSpec
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import com.example.mydailyroutine.core.presentation.TimelineAction
@@ -196,7 +196,7 @@ fun TasksSheet(
                 item(key = "tasks-done-header") {
                     val doneChevron by animateFloatAsState(if (showDone) 180f else 0f, spatialSpec<Float>(LocalReduceMotion.current), label = "done-chevron")
                     Row(
-                    Modifier.fillMaxWidth().animateItem(placementSpec = taskListSpec())
+                    Modifier.fillMaxWidth().animateItem(placementSpec = listPlacementSpec())
                         .clickable(enabled = !busy) { haptics.toggle(!showDone); showDone = !showDone },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
@@ -218,7 +218,7 @@ fun TasksSheet(
             if (showDone) {
                 items(done, key = { "done:${it.id}" }) { task ->
                     OutlinedCard(
-                        modifier = Modifier.animateItem(placementSpec = taskListSpec()).fillMaxWidth(),
+                        modifier = Modifier.animateItem(placementSpec = listPlacementSpec()).fillMaxWidth(),
                         shape = RoutineShapes.Card,
                         border = BorderStroke(1.dp, RoutineColors.CardBorder),
                     ) {
@@ -351,12 +351,12 @@ private fun LazyListScope.taskSection(
 ) {
     if (tasks.isEmpty()) return
     item(key = "tasks-h-$key") {
-        Box(Modifier.animateItem(placementSpec = taskListSpec()).padding(top = RoutineSpacing.sm)) {
+        Box(Modifier.animateItem(placementSpec = listPlacementSpec()).padding(top = RoutineSpacing.sm)) {
             TaskSectionHeader(titleRes, color)
         }
     }
     items(tasks, key = { "task:${it.id}" }) { task ->
-        Box(Modifier.animateItem(placementSpec = taskListSpec())) {
+        Box(Modifier.animateItem(placementSpec = listPlacementSpec())) {
             TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
                 onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
                 onExpand = { onExpand(task.id) },
@@ -506,9 +506,6 @@ private fun TaskRow(
  * can be retargeted mid-flight — and it disappears entirely under remove-animations, where the row
  * simply lands in its new place.
  */
-@Composable
-private fun taskListSpec() = spatialSpec<androidx.compose.ui.unit.IntOffset>(LocalReduceMotion.current)
-
 @Composable
 private fun taskDueButtonLabel(date: LocalDate?, today: LocalDate): String = when {
     date == null -> stringResource(R.string.tasks_no_due)

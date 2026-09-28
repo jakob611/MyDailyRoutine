@@ -175,8 +175,15 @@ private fun Modifier.liquidDisc(
             backdrop = backdrop,
             shape = { CircleShape },
             effects = {
-                blur(blurRadius.toPx() * (1f - grab))
-                lens(lensRadius.toPx() * grab, lensDepth.toPx() * grab)
+                // Only while the finger is on it. At rest `onDrawSurface` below paints the disc at
+                // full opacity, so a blur and a lens computed here would be two render effects per
+                // disc per frame for pixels the white covers completely — and a settings screen
+                // carries fourteen discs. The first frame of a press already has `grab` above zero,
+                // so nothing is lost on the way in.
+                if (grab > 0f) {
+                    blur(blurRadius.toPx() * (1f - grab))
+                    lens(lensRadius.toPx() * grab, lensDepth.toPx() * grab)
+                }
             },
             // Null at rest, not a transparent highlight: the library records a layer and strokes
             // the outline for any non-null value, and on a settings screen that is fourteen of
