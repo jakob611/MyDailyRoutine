@@ -41,7 +41,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.SheetPrimaryButton
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
-import com.example.mydailyroutine.core.designsystem.motion.listPlacementSpec
+import com.example.mydailyroutine.core.designsystem.motion.routineItemAnimation
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -199,7 +199,7 @@ private fun LazyListScope.backlogTab(
     }
     items(backlog, key = { "backlog:${it.id}" }) { entry ->
         OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder),
-            modifier = Modifier.animateItem(placementSpec = listPlacementSpec()).fillMaxWidth()) {
+            modifier = routineItemAnimation().fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                 RoutineText(entry.title, style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
@@ -235,7 +235,7 @@ private fun LazyListScope.topicsTab(
     }
     items(topics, key = { "topic:${it.id}" }) { topic ->
         OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder),
-            modifier = Modifier.animateItem(placementSpec = listPlacementSpec()).fillMaxWidth()) {
+            modifier = routineItemAnimation().fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                 RoutineText(topic.title, style = MaterialTheme.typography.titleMedium, maxLines = RoutineTextDefaults.Body)
@@ -266,7 +266,7 @@ private fun LazyListScope.markersTab(
     }
     items(milestones, key = { "goal:${it.id}" }) { milestone ->
         OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder),
-            modifier = Modifier.animateItem(placementSpec = listPlacementSpec()).fillMaxWidth()) {
+            modifier = routineItemAnimation().fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(RoutineSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                 var synthesis by rememberSaveable(milestone.id) { mutableStateOf(false) }

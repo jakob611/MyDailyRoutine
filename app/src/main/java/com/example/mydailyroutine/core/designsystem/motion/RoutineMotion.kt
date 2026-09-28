@@ -16,8 +16,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
@@ -63,18 +63,29 @@ fun rememberReduceMotion(): Boolean {
 }
 
 /**
- * How a row travels when a list it belongs to is added to, removed from or reordered.
+ * The animation a row gets in a list that is added to, removed from or reordered.
  *
  * Lists whose contents change are the one place where a missing animation reads as a bug: a task
  * ticked off, a subject deleted or a backlog entry scheduled makes everything below it jump to a
- * new place with no explanation of where it came from. The spring is calm and retargetable
- * mid-flight, and under remove-animations the row simply lands.
+ * new place with no explanation of where it came from.
+ *
+ * All three specs are given, not just placement. `animateItem` defaults the two fade specs to
+ * springs of its own, and those springs never ask [LocalReduceMotion] — so a list left on the
+ * default would keep fading rows in and out under the system setting that turned every other
+ * animation in the app off.
  *
  * Only for lists that actually mutate. A picker wheel or a fixed set of options has nothing to
  * animate and would only wobble.
  */
 @Composable
-fun listPlacementSpec(): FiniteAnimationSpec<IntOffset> = spatialSpec(LocalReduceMotion.current)
+fun LazyItemScope.routineItemAnimation(): Modifier {
+    val reduceMotion = LocalReduceMotion.current
+    return Modifier.animateItem(
+        fadeInSpec = effectSpec(reduceMotion),
+        placementSpec = spatialSpec(reduceMotion),
+        fadeOutSpec = effectSpec(reduceMotion),
+    )
+}
 
 /** Movement: a calm spring, or nothing at all when the system asks for no animation. */
 fun <T> spatialSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =

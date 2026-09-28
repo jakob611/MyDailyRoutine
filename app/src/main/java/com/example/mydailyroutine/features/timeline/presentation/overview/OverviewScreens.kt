@@ -62,7 +62,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.timeLabelStyle
-import com.example.mydailyroutine.core.designsystem.motion.listPlacementSpec
+import com.example.mydailyroutine.core.designsystem.motion.routineItemAnimation
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -684,7 +684,7 @@ private fun LazyListScope.milestoneSection(
         OutlinedCard(
             onClick = { if (source == "g") onGoals() else onDate(marker.dueDate) },
             shape = RoutineShapes.Card,
-            modifier = Modifier.animateItem(placementSpec = listPlacementSpec()).fillMaxWidth(),
+            modifier = routineItemAnimation().fillMaxWidth(),
         ) {
             Row(
                 Modifier.fillMaxWidth().padding(RoutineSpacing.md),

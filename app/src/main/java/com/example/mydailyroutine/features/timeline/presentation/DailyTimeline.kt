@@ -44,7 +44,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.SectionHeader
-import com.example.mydailyroutine.core.designsystem.motion.listPlacementSpec
+import com.example.mydailyroutine.core.designsystem.motion.routineItemAnimation
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -437,7 +437,7 @@ fun DailyTimeline(
                 // The shared list spring, not a hand-rolled one: this copy never asked
                 // LocalReduceMotion, so the day view kept sliding its rows under a system setting
                 // that had turned every other animation in the app off.
-                val placement = Modifier.animateItem(placementSpec = listPlacementSpec())
+                val placement = routineItemAnimation()
                 when (entry) {
                     is ResolvedTimelineItem.Block ->
                         if (entry.origin != RoutineOrigin.USER) {

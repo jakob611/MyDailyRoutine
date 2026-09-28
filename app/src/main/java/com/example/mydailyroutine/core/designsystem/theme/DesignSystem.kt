@@ -3,6 +3,7 @@ package com.example.mydailyroutine.core.designsystem.theme
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
@@ -185,6 +186,25 @@ object RoutineShapes {
     val GlassSheetHeader = ContinuousCornerShape(
         topStart = 24.dp, topEnd = 24.dp, bottomStart = 18.dp, bottomEnd = 18.dp,
         smoothing = CornerSmoothing,
+    )
+    /** A centred modal. Material's own default is 28 dp, and a dialog is big enough to want it. */
+    val Dialog = ContinuousCornerShape(28.dp, CornerSmoothing)
+
+    /**
+     * What Material hands to anything that does not name a shape.
+     *
+     * Without this, eleven `AlertDialog`s were quietly drawing Material's stock 28 dp rounded
+     * rectangle — the one element in the app still wearing the old corner, and the largest, most
+     * centred thing on the screen when it appears. Filling the set here means a Material component
+     * cannot drift away from the design system by simply not being told, which is the same reason
+     * the presentation gate forbids inventing a radius in a feature file.
+     */
+    val Material = Shapes(
+        extraSmall = Chip,
+        small = Chip,
+        medium = Card,
+        large = Card,
+        extraLarge = Dialog,
     )
 }
 

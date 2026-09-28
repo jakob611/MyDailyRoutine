@@ -64,7 +64,7 @@ import com.example.mydailyroutine.core.designsystem.components.SheetSecondaryBut
 import com.example.mydailyroutine.core.designsystem.components.SettingRow
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.sound.LocalRoutineSounds
-import com.example.mydailyroutine.core.designsystem.motion.listPlacementSpec
+import com.example.mydailyroutine.core.designsystem.motion.routineItemAnimation
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -502,7 +502,7 @@ private fun LazyListScope.dataTab(
             OutlinedCard(
                 shape = RoutineShapes.Card,
                 border = BorderStroke(1.dp, RoutineColors.CardBorder),
-                modifier = Modifier.animateItem(placementSpec = listPlacementSpec()).fillMaxWidth()
+                modifier = routineItemAnimation().fillMaxWidth()
                     .clickable(enabled = !busy) { onAction(TimelineAction.EditSubject(subject)) },
             ) {
                 Row(

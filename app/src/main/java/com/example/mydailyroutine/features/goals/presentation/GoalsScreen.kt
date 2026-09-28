@@ -85,7 +85,7 @@ import com.example.mydailyroutine.core.designsystem.components.SheetPrimaryButto
 import com.example.mydailyroutine.core.designsystem.components.SheetSecondaryButton
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.CategoryStyle
-import com.example.mydailyroutine.core.designsystem.motion.listPlacementSpec
+import com.example.mydailyroutine.core.designsystem.motion.routineItemAnimation
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -213,7 +213,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                             onClick = { haptics.selection(); selectedId = candidate.id; tab = GoalTab.OVERVIEW },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
-                            modifier = Modifier.animateItem(placementSpec = listPlacementSpec()).testTag("goal-project-${candidate.id}"),
+                            modifier = routineItemAnimation().testTag("goal-project-${candidate.id}"),
                             label = { RoutineLabel(candidate.name, style = MaterialTheme.typography.labelLarge) },
                         )
                     }
@@ -226,7 +226,7 @@ fun GoalsScreen(goals: GoalsUiState, busy: Boolean, onAction: (TimelineAction) -
                             onClick = { haptics.press(); onAction(starterAction(context, kind)) },
                             enabled = !busy,
                             shape = RoutineShapes.Chip,
-                            modifier = Modifier.animateItem(placementSpec = listPlacementSpec()).testTag("goal-seed-$kind"),
+                            modifier = routineItemAnimation().testTag("goal-seed-$kind"),
                             label = {
                                 RoutineLabel(
                                     stringResource(R.string.goals_add_starter, kind),

@@ -73,7 +73,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
-import com.example.mydailyroutine.core.designsystem.motion.listPlacementSpec
+import com.example.mydailyroutine.core.designsystem.motion.routineItemAnimation
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import com.example.mydailyroutine.core.presentation.TimelineAction
@@ -196,7 +196,7 @@ fun TasksSheet(
                 item(key = "tasks-done-header") {
                     val doneChevron by animateFloatAsState(if (showDone) 180f else 0f, spatialSpec<Float>(LocalReduceMotion.current), label = "done-chevron")
                     Row(
-                    Modifier.fillMaxWidth().animateItem(placementSpec = listPlacementSpec())
+                    routineItemAnimation().fillMaxWidth()
                         .clickable(enabled = !busy) { haptics.toggle(!showDone); showDone = !showDone },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
@@ -218,7 +218,7 @@ fun TasksSheet(
             if (showDone) {
                 items(done, key = { "done:${it.id}" }) { task ->
                     OutlinedCard(
-                        modifier = Modifier.animateItem(placementSpec = listPlacementSpec()).fillMaxWidth(),
+                        modifier = routineItemAnimation().fillMaxWidth(),
                         shape = RoutineShapes.Card,
                         border = BorderStroke(1.dp, RoutineColors.CardBorder),
                     ) {
@@ -351,12 +351,12 @@ private fun LazyListScope.taskSection(
 ) {
     if (tasks.isEmpty()) return
     item(key = "tasks-h-$key") {
-        Box(Modifier.animateItem(placementSpec = listPlacementSpec()).padding(top = RoutineSpacing.sm)) {
+        Box(routineItemAnimation().padding(top = RoutineSpacing.sm)) {
             TaskSectionHeader(titleRes, color)
         }
     }
     items(tasks, key = { "task:${it.id}" }) { task ->
-        Box(Modifier.animateItem(placementSpec = listPlacementSpec())) {
+        Box(routineItemAnimation()) {
             TaskRow(task, subjects, subjectsById, today, busy, expandedId == task.id,
                 onToggle = { onAction(TimelineAction.ToggleTask(task.id)) },
                 onExpand = { onExpand(task.id) },
