@@ -146,7 +146,7 @@ Prenesi `LiquidToggle` v `RoutineSwitch`, na naš 1.0.0 API:
 
 Isti prijem za `LiquidSlider` (2 mesti). Poceni, ko F2 obstaja, ker deli `DampedDragAnimation`.
 
-### F4 — `io.github.kyant0:shapes` ⛔ **BLOKIRANO**
+### F4 — zvezne zaobljenosti ✅ **NAREJENO BREZ KNJIŽNICE** (`0fc334a`)
 
 Zvezne zaobljenosti (Applov „squircle“) namesto `RoundedCornerShape`. Vizualno opazno na vsem.
 **Najprej preveri**, katero različico Kotlina/Compose zahteva — velja ista past kot pri `backdrop`.

@@ -174,16 +174,28 @@ problem**.
 
 # 11. Odprte točke
 
-A (sloji), B (blur pod neprosojnim diskom), C (mikroanimacije) in E (`GoalsScreen`) so **zaprte** —
-glej `2026-09-27-audit-zmogljivosti.md`, §5.
+**Nobene.** A (sloji), B (blur pod neprosojnim diskom), C (mikroanimacije), E (`GoalsScreen`) in
+D (zvezne zaobljenosti) so zaprte.
 
-Ostaja **D**: zvezne zaobljenosti (squircle). Blokirano na ravni orodjarne — `io.github.kyant0:shapes`
-že v najstarejši objavljeni različici zahteva `kotlin-stdlib 2.3.0`, projekt je na 2.2.10. Edina pot
-je migracija Kotlin 2.3 + Compose 1.10, kar potegne za sabo KSP, Room in Glance. To je svoje
-opravilo s svojim tveganjem, ne popravek.
+D je bila zadnja in najbolj zahtevna. Knjižnica `io.github.kyant0:shapes` ostaja nedosegljiva —
+že njena najstarejša izdaja zahteva `kotlin-stdlib 2.3.0`, projekt je na 2.2.10 — zato je oblika
+napisana sama, v `theme/ContinuousCornerShape.kt`. To se je izkazalo za **boljšo** pot: knjižničin
+`Capsule()` ni `CornerBasedShape`, naša oblika pa je, in prav to je pogoj, da stekleni leči še
+naprej preberejo radije kota in vesta, kako globoko lomiti.
 
-Nedotaknjen ostaja tudi `GoalsScreen.kt` (1137 vrstic) kot celota — razbil sem najbolj samostojno
-tretjino; nadaljnje rezanje (Ganttov diagram je naslednji naravni kos) je smiselno, a ne na slepo.
+| Funkcija | Namen |
+|---|---|
+| `ContinuousCornerShape` | Zaobljen pravokotnik z zvezno ukrivljenostjo — Applov squircle. Navaden zaobljen kot skoči iz ničelne ukrivljenosti v 1/R na stiku z ravnim robom in nazaj; oko ta skok bere kot šav. Zglajen kot del roba porabi za rampo gor in dol. |
+| `SmoothCorner` | En kot, rešen: Figmina konstrukcija iz *Desperately seeking squircles* — dva kubična Bézierja s krožnim lokom med njima. Opisan enkrat, uporabljen štirikrat, ker se vsi štirje koti razlikujejo samo po ogljišču in dveh smernih vektorjih. |
+| `SmoothCorner.budget` | Kar obliki prepreči, da bi razpadla: vsak rob si delita dva kota v razmerju svojih radijev, in ko rampa ne gre več noter, **prva popusti gladkost**, radij pa ostane. Pilula, katere radij že poje celo polvišino, pristane na natanko nič gladkosti sama od sebe. |
+| `RoutineShapes.CornerSmoothing` | 0,6 — vrednost, ki jo Apple uporablja za ikone in jo Figma označi z „iOS“. |
+
+Gladkosti **namenoma** ne dobita dve obliki: pilula, ker nima ravnega roba, v katerega bi se
+rampala (oblika bi bila identična, platforma pa je ne bi več mogla odrezati kot zaobljen
+pravokotnik), in romb na Ganttu, ker sta 2 dp od 9 in je njegova naloga, da je koničast.
+
+Nedotaknjen kot celota ostaja `GoalsScreen.kt` (1137 vrstic) — razbil sem najbolj samostojno
+tretjino; naslednji naravni kos je Ganttov diagram, a tega nisem hotel rezati na slepo.
 
 # 12. Stanje ob zaključku
 
