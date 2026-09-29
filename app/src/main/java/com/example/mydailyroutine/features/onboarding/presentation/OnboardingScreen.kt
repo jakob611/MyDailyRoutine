@@ -1,5 +1,14 @@
 package com.example.mydailyroutine.features.onboarding.presentation
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,12 +43,18 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.DpVector
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.LanguageSelector
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
+import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
@@ -80,6 +95,7 @@ fun OnboardingScreen(
 ) {
     var step by rememberSaveable { mutableIntStateOf(0) }
     var name by rememberSaveable { mutableStateOf(userName) }
+    val reduceMotion = LocalReduceMotion.current
 
     // School hours are carried through unchanged: the flow no longer asks for them, but the
     // preferences the app ships with still have to be written with the values it started from.
@@ -115,35 +131,59 @@ fun OnboardingScreen(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md),
             ) {
-                when (Step.entries[step]) {
-                    Step.WELCOME -> {
-                        Heading(stringResource(R.string.onboarding_welcome_title))
-                        Body(stringResource(R.string.onboarding_welcome_body))
-                        OutlinedTextField(
-                            value = name,
-                            onValueChange = { value -> name = value.take(40) },
-                            label = { RoutineText(stringResource(R.string.onboarding_name_label)) },
-                            placeholder = { RoutineText(stringResource(R.string.onboarding_name_hint)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth().testTag("onboarding-name"),
-                        )
-                        Spacer(Modifier.size(RoutineSpacing.md))
-                        RoutineText(stringResource(R.string.onboarding_language_title),
-                            style = MaterialTheme.typography.titleSmall, maxLines = RoutineTextDefaults.Body,
-                            modifier = Modifier.semantics { heading() })
-                        LanguageSelector(
-                            selected = appLanguage,
-                            onSelect = { language -> onAction(TimelineAction.SetAppLanguage(language)) },
-                            tagPrefix = "onboarding-language",
-                        )
-                        RoutineText(stringResource(R.string.onboarding_language_hint),
-                            style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary,
-                            maxLines = RoutineTextDefaults.Paragraph)
-                    }
-                    Step.START -> {
-                        Heading(stringResource(R.string.onboarding_start_title))
-                        Body(stringResource(R.string.onboarding_start_body))
-                        Body(stringResource(R.string.onboarding_rhythm_note))
+                // Leaving a step is a move, not a blink: the step the reader is going to comes in
+                // from the direction they are travelling and the one they left goes out the other
+                // side, on the same horizontal axis the timeline's own period switch uses. The size
+                // follows on the spatial spring, so a tall first step folding into a short second one
+                // shrinks instead of snapping — and both answer the system's remove-animations
+                // setting, which a bare swap never had to.
+                AnimatedContent(
+                    targetState = step,
+                    label = "onboarding-step",
+                    transitionSpec = {
+                        val forward = if (targetState >= initialState) 1 else -1
+                        val spatial = spatialSpec<IntOffset>(reduceMotion)
+                        val effect = effectSpec<Float>(reduceMotion)
+                        (slideInHorizontally(spatial) { it / 4 * forward } + fadeIn(effect)) togetherWith
+                            (slideOutHorizontally(spatial) { -it / 4 * forward } + fadeOut(effect))
+                    },
+                    sizeTransform = SizeTransform(sizeAnimationSpec = { _, _ -> spatialSpec<IntSize>(reduceMotion) }),
+                ) { shown ->
+                    // A column of its own, with the outer column's arrangement: the steps' children
+                    // were siblings of a `spacedBy` column, and inside an AnimatedContent they would
+                    // otherwise lose the space between them.
+                    Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md)) {
+                        when (Step.entries[shown]) {
+                            Step.WELCOME -> {
+                                Heading(stringResource(R.string.onboarding_welcome_title))
+                                Body(stringResource(R.string.onboarding_welcome_body))
+                                OutlinedTextField(
+                                    value = name,
+                                    onValueChange = { value -> name = value.take(40) },
+                                    label = { RoutineText(stringResource(R.string.onboarding_name_label)) },
+                                    placeholder = { RoutineText(stringResource(R.string.onboarding_name_hint)) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().testTag("onboarding-name"),
+                                )
+                                Spacer(Modifier.size(RoutineSpacing.md))
+                                RoutineText(stringResource(R.string.onboarding_language_title),
+                                    style = MaterialTheme.typography.titleSmall, maxLines = RoutineTextDefaults.Body,
+                                    modifier = Modifier.semantics { heading() })
+                                LanguageSelector(
+                                    selected = appLanguage,
+                                    onSelect = { language -> onAction(TimelineAction.SetAppLanguage(language)) },
+                                    tagPrefix = "onboarding-language",
+                                )
+                                RoutineText(stringResource(R.string.onboarding_language_hint),
+                                    style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary,
+                                    maxLines = RoutineTextDefaults.Paragraph)
+                            }
+                            Step.START -> {
+                                Heading(stringResource(R.string.onboarding_start_title))
+                                Body(stringResource(R.string.onboarding_start_body))
+                                Body(stringResource(R.string.onboarding_rhythm_note))
+                            }
+                        }
                     }
                 }
             }
@@ -229,16 +269,24 @@ private fun Body(text: String) {
     )
 }
 
+/** The dot the reader is on is the larger one; both sizes are the ones the indicator has always had. */
+private val DotActive = 10.dp
+private val DotInactive = 6.dp
+
 /** Four dots, one per step: where the reader is, without a number that sounds like a form. */
 @Composable
 private fun StepDots(step: Int, count: Int, modifier: Modifier = Modifier) {
+    val reduceMotion = LocalReduceMotion.current
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
         for (index in 0 until count) {
-            Box(
-                Modifier.size(if (index == step) 10.dp else 6.dp)
-                    .clip(CircleShape)
-                    .background(if (index == step) RoutineColors.Primary else RoutineColors.TextDisabled),
-            )
+            // Grown and tinted rather than swapped: a step indicator that jumps to its new state
+            // says the app skipped something. Both animate inside this scope and no wider — two dots
+            // and a spacer is what recomposes while they move.
+            val size by animateDpAsState(if (index == step) DotActive else DotInactive,
+                spatialSpec<DpVector>(reduceMotion), label = "step-dot-size")
+            val tint by animateColorAsState(if (index == step) RoutineColors.Primary else RoutineColors.TextDisabled,
+                effectSpec(reduceMotion), label = "step-dot-tint")
+            Box(Modifier.size(size).clip(CircleShape).background(tint))
         }
         Spacer(Modifier.size(RoutineSpacing.xs))
     }

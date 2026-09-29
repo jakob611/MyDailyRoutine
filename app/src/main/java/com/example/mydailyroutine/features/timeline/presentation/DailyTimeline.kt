@@ -73,6 +73,7 @@ import com.example.mydailyroutine.features.timeline.components.TimelineBlockCard
 import com.example.mydailyroutine.features.timeline.components.appPulse
 import java.time.LocalDate
 import java.time.ZonedDateTime
+import kotlinx.collections.immutable.PersistentList
 
 /**
  * The day list: one glance card, the contextual notices, then the schedule.
@@ -90,7 +91,11 @@ fun DailyTimeline(
     planning: PlanningConfig,
     backlogCount: Int,
     execution: ActiveExecution?,
-    dueTasks: List<Task>,
+    // `PersistentList`, not `List`: the caller already hands one over, and an interface-typed
+    // parameter is unstable to the Compose compiler whatever it holds, which is enough to make the
+    // whole day unskippable — the day recomposes when the minute clock ticks even if nothing in it
+    // moved. The persistent list is the type the compiler trusts.
+    dueTasks: PersistentList<Task>,
     onAction: (TimelineAction) -> Unit,
     topInset: Dp = 0.dp,
     /** Space the floating add control and the navigation bar take; measured, see RoutineApp. */

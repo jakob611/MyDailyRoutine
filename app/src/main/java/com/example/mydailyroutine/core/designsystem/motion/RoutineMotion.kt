@@ -1,13 +1,21 @@
 package com.example.mydailyroutine.core.designsystem.motion
 
 import android.provider.Settings
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -20,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntSize
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import kotlin.math.PI
 import kotlin.math.pow
@@ -95,6 +104,74 @@ fun <T> spatialSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
 /** Colour and opacity: a short tween that cannot overshoot, or nothing at all. */
 fun <T> effectSpec(reduceMotion: Boolean, millis: Int = TransitionMillis): FiniteAnimationSpec<T> =
     if (reduceMotion) snap<T>() else tween<T>(millis)
+
+/** How long a control takes to grow into the surface it opens. Material's container transform. */
+const val ContainerMorphMillis = 420
+
+/**
+ * The one morph in the app: the add control growing into the sheet it opens.
+ *
+ * A tween where everything else that moves is a spring, and deliberately so. A spring can overshoot,
+ * which is what makes it feel alive on a knob or a badge; on a pane that is becoming the size of the
+ * window, an overshoot is a sheet that grows past the screen and comes back. The curve is the
+ * standard accelerate-then-decelerate one, which is what makes a shape changing size read as a single
+ * object travelling rather than two objects cross-fading.
+ *
+ * It still answers [LocalReduceMotion], like every other spec here.
+ */
+fun <T> containerMorphSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
+    if (reduceMotion) snap<T>() else tween<T>(ContainerMorphMillis, easing = FastOutSlowInEasing)
+
+/**
+ * The reveal of a section that folds open: the height on the spatial spring, the opacity on the
+ * effect tween, both answered by [LocalReduceMotion].
+ *
+ * One pair of specs for every disclosure in the app — a card's expanded actions, a sheet's advanced
+ * options, a folded year-view panel, a task row — because these were written five times over and
+ * drifted: two of them used a bare `tween` that never asked the system setting, one paired the
+ * reveal with a second size animation on its parent, and one had no reveal at all. A fold that
+ * animates its size twice reads as a stutter, and one that ignores remove-animations is a motion
+ * the reader asked the system to take away.
+ *
+ * The size belongs to the reveal, not to a parent's `animateContentSize`: `expandVertically`
+ * measures the content once and animates the clip, while `animateContentSize` re-measures the whole
+ * subtree — and with it the list the card sits in — on every frame of the same animation.
+ */
+fun revealEnter(reduceMotion: Boolean): EnterTransition =
+    expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion))
+
+/** The matching fold-away. [millis] shortens the fade only, for exits that must not outstay. */
+fun revealExit(reduceMotion: Boolean, millis: Int = TransitionMillis): ExitTransition =
+    shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion, millis))
+
+/**
+ * The angle of a disclosure chevron: a quarter turn on the spatial spring, or an immediate quarter
+ * turn under the system's remove-animations setting.
+ *
+ * Handed back as a [State] and read by [turning], never as a `Float` — the same reason
+ * [LocalPulse] carries a state. An angle read during composition invalidates the scope that read it
+ * on every frame of the turn, and the scope that reads a chevron's angle is the section the chevron
+ * belongs to: an entry-editor sheet, a year-view panel holding a grid of twelve cards, a day-view
+ * card. Turning the arrow then costs a recomposition of everything under it, sixty times a second,
+ * for one icon.
+ */
+@Composable
+fun rememberChevronTurn(expanded: Boolean): State<Float> = animateFloatAsState(
+    if (expanded) 180f else 0f,
+    spatialSpec<Float>(LocalReduceMotion.current),
+    label = "chevron-turn",
+)
+
+/**
+ * Turns a node by an animated angle, read in the **draw phase**.
+ *
+ * Same pixels as `Modifier.rotate(angle)`, which is a canvas transform around the centre — a
+ * `graphicsLayer` rotates around its `transformOrigin`, which is the centre by default. What
+ * differs is when the angle is read: `rotate(angle)` takes the value as an argument, so the frame
+ * lands in composition; here it lands in the layer, where a changing number costs a repaint of this
+ * node and nothing else.
+ */
+fun Modifier.turning(angle: State<Float>): Modifier = graphicsLayer { rotationZ = angle.value }
 
 /**
  * Apple's spring vocabulary, converted exactly rather than approximated.

@@ -118,7 +118,31 @@ private object FormatCache {
 }
 
 fun LocalTime.clockLabel(): String = format(FormatCache.current().clockFormat)
-fun minuteLabel(minute: Int): String = String.format(interfaceLocale, "%02d:%02d", minute / 60, minute % 60)
+/**
+ * `HH:mm` for a minute of the day.
+ *
+ * Built by hand rather than by `String.format`, which parses its pattern and boxes both arguments on
+ * every call: this label is asked for twice per block — the start and the end of every card on the
+ * timeline — on every recomposition of the day, and a dense day asks forty times. Both interface
+ * languages write ASCII digits, so padding is arithmetic here and the five characters are the same
+ * five characters. A minute outside the day is not a time the timeline can hold, and keeps the
+ * formatter, so nothing that used to print something now prints something else.
+ */
+fun minuteLabel(minute: Int): String =
+    if (minute in 0..1439) {
+        buildString(5) {
+            appendTwoDigits(minute / 60)
+            append(':')
+            appendTwoDigits(minute % 60)
+        }
+    } else {
+        String.format(interfaceLocale, "%02d:%02d", minute / 60, minute % 60)
+    }
+
+private fun StringBuilder.appendTwoDigits(value: Int) {
+    append('0' + value / 10)
+    append('0' + value % 10)
+}
 
 /**
  * The only place in the app that decides how a date is written.

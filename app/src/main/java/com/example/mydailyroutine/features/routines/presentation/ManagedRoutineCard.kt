@@ -1,5 +1,6 @@
 package com.example.mydailyroutine.features.routines.presentation
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
@@ -38,6 +38,11 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaul
 import com.example.mydailyroutine.core.designsystem.components.TimeGutter
 import com.example.mydailyroutine.core.designsystem.components.timelineRail
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.rememberChevronTurn
+import com.example.mydailyroutine.core.designsystem.motion.revealEnter
+import com.example.mydailyroutine.core.designsystem.motion.revealExit
+import com.example.mydailyroutine.core.designsystem.motion.turning
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -68,6 +73,7 @@ fun ManagedRoutineCard(
     onAction: (TimelineAction) -> Unit,
 ) {
     var expanded by remember(block.key) { mutableStateOf(false) }
+    val reduceMotion = LocalReduceMotion.current
     val haptics = LocalRoutineHaptics.current
     val sleep = block.origin == RoutineOrigin.SLEEP
     val morning = block.origin == RoutineOrigin.MORNING_BUFFER
@@ -116,7 +122,10 @@ fun ManagedRoutineCard(
                             Icon(
                                 Icons.Outlined.ExpandMore,
                                 contentDescription = expandLabel,
-                                modifier = Modifier.size(RoutineMetrics.IconSize).rotate(if (expanded) 180f else 0f),
+                                // Turned in the draw phase and sprung like every other chevron in the
+                                // app: a snapped arrow is an affordance that appears not to move, and
+                                // an angle read in composition recomposes the card to turn an icon.
+                                modifier = Modifier.size(RoutineMetrics.IconSize).turning(rememberChevronTurn(expanded)),
                                 tint = tint,
                             )
                         }
@@ -132,7 +141,14 @@ fun ManagedRoutineCard(
                             color = RoutineColors.TextSecondary,
                             maxLines = RoutineTextDefaults.Paragraph,
                         )
-                        if (expanded) {
+                        // Folded in, not swapped in: the actions arrive from the edge they belong to,
+                        // which is how the reader learns where they came from. The resting card is
+                        // identical; only the transition moves.
+                        AnimatedVisibility(
+                            visible = expanded,
+                            enter = revealEnter(reduceMotion),
+                            exit = revealExit(reduceMotion),
+                        ) {
                             ActionRow {
                                 TextButton(enabled = !busy, onClick = { onAction(TimelineAction.Skip(block)) }) {
                                     RoutineLabel(stringResource(R.string.skip_date), style = MaterialTheme.typography.labelLarge)

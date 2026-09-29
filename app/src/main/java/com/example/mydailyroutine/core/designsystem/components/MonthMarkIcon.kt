@@ -1,9 +1,10 @@
 package com.example.mydailyroutine.core.designsystem.components
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -40,20 +41,35 @@ fun MonthMarkIcon(
             MonthMark.Dot -> R.string.mark_shape_dot
         },
     )
-    Canvas(modifier.size(size).semantics { contentDescription = shape }) {
-        // A fixed hairline, not a fraction of the box: the ring must look like a ring at 6 dp and at
-        // any font scale, and `size` inside this lambda is the canvas, not the parameter.
-        val stroke = 1.5.dp.toPx()
-        val side = this.size.minDimension
-        val radius = side / 2f
-        when (mark) {
-            MonthMark.Dot -> drawCircle(color, radius = radius)
-            // The ring is stroked inside its own box so a ring and a dot still measure the same.
-            MonthMark.Ring -> drawCircle(color, radius = radius - stroke / 2f, style = Stroke(stroke))
-            MonthMark.Triangle -> drawPath(trianglePath(side), color)
-            MonthMark.Diamond -> drawPath(diamondPath(side), color)
-        }
-    }
+    // What a `Canvas` is — a spacer that draws — with the geometry cached per size, so the pixels are
+    // the same pixels: the straight-edged marks were rebuilt on every draw, and a `Path` is a native
+    // allocation plus a tesselation. These icons sit in the month grid, where one cell can carry two
+    // of them and every cell is re-recorded whenever the month is.
+    Spacer(
+        modifier.size(size).semantics { contentDescription = shape }
+            .drawWithCache {
+                // A fixed hairline, not a fraction of the box: the ring must look like a ring at 6 dp
+                // and at any font scale, and `size` in here is the canvas, not the parameter.
+                val stroke = 1.5.dp.toPx()
+                val side = this.size.minDimension
+                val radius = side / 2f
+                // Only the mark that is actually drawn pays for a path.
+                val outline = when (mark) {
+                    MonthMark.Triangle -> trianglePath(side)
+                    MonthMark.Diamond -> diamondPath(side)
+                    else -> null
+                }
+                onDrawBehind {
+                    when (mark) {
+                        MonthMark.Dot -> drawCircle(color, radius = radius)
+                        // The ring is stroked inside its own box so a ring and a dot still measure the
+                        // same.
+                        MonthMark.Ring -> drawCircle(color, radius = radius - stroke / 2f, style = Stroke(stroke))
+                        MonthMark.Triangle, MonthMark.Diamond -> outline?.let { drawPath(it, color) }
+                    }
+                }
+            },
+    )
 }
 
 private fun trianglePath(side: Float): Path = Path().apply {

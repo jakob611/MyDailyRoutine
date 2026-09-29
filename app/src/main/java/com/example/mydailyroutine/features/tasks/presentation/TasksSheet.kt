@@ -1,12 +1,6 @@
 package com.example.mydailyroutine.features.tasks.presentation
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,7 +48,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -73,9 +66,11 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.rememberChevronTurn
+import com.example.mydailyroutine.core.designsystem.motion.revealEnter
+import com.example.mydailyroutine.core.designsystem.motion.revealExit
 import com.example.mydailyroutine.core.designsystem.motion.routineItemAnimation
-import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
-import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
+import com.example.mydailyroutine.core.designsystem.motion.turning
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.model.Subject
@@ -194,7 +189,10 @@ fun TasksSheet(
                 onAction = onAction, onExpand = { id -> expandedId = if (expandedId == id) null else id }, onRequestDelete = { deleteId = it })
             if (done.isNotEmpty()) {
                 item(key = "tasks-done-header") {
-                    val doneChevron by animateFloatAsState(if (showDone) 180f else 0f, spatialSpec<Float>(LocalReduceMotion.current), label = "done-chevron")
+                    // Handed on as a State and read in the draw phase: this header sits in a lazy
+                    // list, and an angle read in composition would rebuild the header row for the
+                    // whole turn.
+                    val doneChevron = rememberChevronTurn(showDone)
                     Row(
                     routineItemAnimation().fillMaxWidth()
                         .clickable(enabled = !busy) { haptics.toggle(!showDone); showDone = !showDone },
@@ -208,7 +206,7 @@ fun TasksSheet(
                         maxLines = RoutineTextDefaults.Body,
                     )
                     Icon(Icons.Outlined.ExpandMore, null, tint = RoutineColors.TextSecondary,
-                        modifier = Modifier.size(RoutineMetrics.IconSize).rotate(doneChevron))
+                        modifier = Modifier.size(RoutineMetrics.IconSize).turning(doneChevron))
                     TextButton(enabled = !busy, onClick = { haptics.warning(); onAction(TimelineAction.ClearCompletedTasks) }) {
                         RoutineLabel(stringResource(R.string.tasks_clear_done), style = MaterialTheme.typography.labelLarge)
                     }
@@ -393,7 +391,8 @@ private fun TaskRow(
     var editNote by rememberSaveable(task.id) { mutableStateOf(task.note.orEmpty()) }
     var pickingEditDate by rememberSaveable { mutableStateOf(false) }
     val haptics = LocalRoutineHaptics.current
-    val chevron by animateFloatAsState(if (expanded) 180f else 0f, spatialSpec<Float>(LocalReduceMotion.current), label = "task-chevron")
+    val reduceMotion = LocalReduceMotion.current
+    val chevron = rememberChevronTurn(expanded)
     OutlinedCard(shape = RoutineShapes.Card, border = BorderStroke(1.dp, RoutineColors.CardBorder), modifier = Modifier.fillMaxWidth()) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.xs),
@@ -428,12 +427,12 @@ private fun TaskRow(
                     )
                 }
                 Icon(Icons.Outlined.ExpandMore, null, tint = RoutineColors.TextSecondary,
-                    modifier = Modifier.size(RoutineMetrics.IconSize).rotate(chevron))
+                    modifier = Modifier.size(RoutineMetrics.IconSize).turning(chevron))
             }
             AnimatedVisibility(
                 visible = expanded,
-                enter = fadeIn(tween(TransitionMillis)) + expandVertically(tween(TransitionMillis)),
-                exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
+                enter = revealEnter(reduceMotion),
+                exit = revealExit(reduceMotion, 120),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                     OutlinedTextField(
