@@ -508,18 +508,19 @@ private fun LiquidSliderTrack(shown: State<Float>, backdrop: LayerBackdrop) {
             // First in the chain, so what the layer records is the track's own fill.
             .layerBackdrop(backdrop)
             .clip(capsule)
-            .background(RoutineColors.Surface4)
-            // The fill is drawn, not laid out — and drawn between the surface and the hairline,
-            // which is the order the two children used to paint in.
+            // The fill is drawn, not laid out — and drawn under the hairline, matching the switch
+            // track: surface, then Primary, then the border modifier paints last.
             //
             // It was a child of the track sized with `fillMaxWidth(shown)`, and a fraction in a
             // layout modifier is a layout read of an animated value: every frame of the thumb's
             // spring re-measured the track, re-measured the thumb's box beside it and re-recorded
             // the layer the thumb refracts. A drag publishes a new value on every move, so that was
             // every frame of every drag of every slider in the entry editor. What is left is one
-            // repaint of a six-dp strip.
+            // repaint of a six-dp strip. Drawing the fill after drawContent() put Primary over the
+            // hairline; surface and fill are painted here so the border stays on top.
             .drawWithContent {
-                drawContent()
+                val radius = CornerRadius(size.height / 2f)
+                drawRoundRect(color = RoutineColors.Surface4, cornerRadius = radius)
                 val width = size.width * shown.value.coerceIn(0f, 1f)
                 if (width > 0f) {
                     drawRoundRect(
@@ -527,9 +528,10 @@ private fun LiquidSliderTrack(shown: State<Float>, backdrop: LayerBackdrop) {
                         size = Size(width, size.height),
                         // The capsule the fill used to be clipped by: half the height, which is what
                         // a 50 % corner resolves to on a strip this short.
-                        cornerRadius = CornerRadius(size.height / 2f),
+                        cornerRadius = radius,
                     )
                 }
+                drawContent()
             }
             .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.2f), capsule),
     )

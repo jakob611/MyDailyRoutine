@@ -139,10 +139,16 @@ fun TimelineBlockCard(
     val dragOffset = remember(block.key) { mutableFloatStateOf(0f) }
     val dragScope = rememberCoroutineScope()
     var dragging by remember(block.key) { mutableStateOf(false) }
+    val reduceMotion = LocalReduceMotion.current
     // Release springs the card home. A bare reset teleports it in one frame, and the eye reads that
-    // teleport as the card jumping, even when the commit itself reflows correctly.
+    // teleport as the card jumping, even when the commit itself reflows correctly. Under remove
+    // animations the spring would still run; snap straight home instead.
     val settleDrag: () -> Unit = {
         dragging = false
+        if (reduceMotion) {
+            dragOffset.floatValue = 0f
+            return@settleDrag
+        }
         val from = dragOffset.floatValue
         dragScope.launch {
             Animatable(from).animateTo(0f, spring(dampingRatio = 0.55f, stiffness = 320f)) {
@@ -160,7 +166,6 @@ fun TimelineBlockCard(
     val active = !block.isSuppressed && !block.isCompleted &&
         now.toInstant() >= window.start && now.toInstant() < window.end
     val past = now.toInstant() >= window.end || block.isCompleted
-    val reduceMotion = LocalReduceMotion.current
     val activeAmount by animateFloatAsState(if (active) 1f else 0f, spatialSpec<Float>(reduceMotion), label = "active-border")
     val barColor = block.subject?.let { Color(it.colorHex.toInt()) } ?: style.accent
     val toggleDescription = stringResource(if (block.isCompleted) R.string.mark_not_done else R.string.mark_done)
