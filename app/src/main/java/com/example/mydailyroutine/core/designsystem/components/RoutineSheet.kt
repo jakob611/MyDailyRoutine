@@ -24,9 +24,15 @@ import androidx.compose.ui.unit.Velocity
 fun RoutineSheet(visible: Boolean, content: @Composable (sheetState: SheetState) -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var mounted by remember { mutableStateOf(visible) }
+    var previousVisible by remember { mutableStateOf(visible) }
     LaunchedEffect(visible) {
-        if (visible) mounted = true
-        else if (mounted) {
+        val reopening = visible && !previousVisible
+        previousVisible = visible
+        if (visible) {
+            // A reopen can cancel hide() while the content is still mounted. In that case
+            // ModalBottomSheet's initial show effect will not run a second time.
+            if (mounted && reopening) sheetState.show() else mounted = true
+        } else if (mounted) {
             sheetState.hide()
             mounted = false
         }

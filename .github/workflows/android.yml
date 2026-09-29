@@ -103,8 +103,14 @@ jobs:
         with:
           name: debug-apk
           path: app/build/outputs/apk/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
       - name: Publish debug APK to rolling release
-        if: success()
+        # A PR build must not replace the shared download for master.
+        if: success() && github.ref == 'refs/heads/master'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

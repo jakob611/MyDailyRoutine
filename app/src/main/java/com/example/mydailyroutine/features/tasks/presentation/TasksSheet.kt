@@ -52,9 +52,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -72,6 +72,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.routineItemAnimation
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
@@ -208,7 +209,7 @@ fun TasksSheet(
                         maxLines = RoutineTextDefaults.Body,
                     )
                     Icon(Icons.Outlined.ExpandMore, null, tint = RoutineColors.TextSecondary,
-                        modifier = Modifier.size(RoutineMetrics.IconSize).rotate(doneChevron))
+                        modifier = Modifier.size(RoutineMetrics.IconSize).graphicsLayer { rotationZ = doneChevron })
                     TextButton(enabled = !busy, onClick = { haptics.warning(); onAction(TimelineAction.ClearCompletedTasks) }) {
                         RoutineLabel(stringResource(R.string.tasks_clear_done), style = MaterialTheme.typography.labelLarge)
                     }
@@ -428,12 +429,12 @@ private fun TaskRow(
                     )
                 }
                 Icon(Icons.Outlined.ExpandMore, null, tint = RoutineColors.TextSecondary,
-                    modifier = Modifier.size(RoutineMetrics.IconSize).rotate(chevron))
+                    modifier = Modifier.size(RoutineMetrics.IconSize).graphicsLayer { rotationZ = chevron })
             }
             AnimatedVisibility(
                 visible = expanded,
-                enter = fadeIn(tween(TransitionMillis)) + expandVertically(tween(TransitionMillis)),
-                exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
+                enter = fadeIn(effectSpec(LocalReduceMotion.current, TransitionMillis)) + expandVertically(effectSpec(LocalReduceMotion.current, TransitionMillis)),
+                exit = fadeOut(effectSpec(LocalReduceMotion.current, 120)) + shrinkVertically(effectSpec(LocalReduceMotion.current, 120)),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                     OutlinedTextField(

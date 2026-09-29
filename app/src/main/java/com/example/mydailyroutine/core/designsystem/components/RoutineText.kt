@@ -46,7 +46,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,7 +53,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -338,7 +336,7 @@ fun CollapsibleSection(
                 Icons.Outlined.ExpandMore,
                 contentDescription = stringResource(if (expanded) R.string.section_collapse else R.string.section_expand),
                 tint = RoutineColors.TextSecondary,
-                modifier = Modifier.rotate(chevron),
+                modifier = Modifier.graphicsLayer { rotationZ = chevron },
             )
         }
         AnimatedVisibility(

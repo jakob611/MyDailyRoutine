@@ -684,7 +684,7 @@ private fun GoalBar(fraction: Float, color: Color) {
     val width by animateFloatAsState(shown.coerceIn(0f, 1f),
         if (LocalReduceMotion.current) snap<Float>() else SnappySpring, label = "goal-progress")
     Box(Modifier.fillMaxWidth().height(RoutineSpacing.sm).clip(RoutineShapes.Chip).background(RoutineColors.Surface2)) {
-        Box(Modifier.fillMaxWidth(width).height(RoutineSpacing.sm).clip(RoutineShapes.Chip).background(color))
+        Box(Modifier.fillMaxWidth(width.coerceIn(0f, 1f)).height(RoutineSpacing.sm).clip(RoutineShapes.Chip).background(color))
     }
 }
 

@@ -36,6 +36,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -59,7 +60,6 @@ import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.*
-import androidx.compose.ui.draw.rotate
 import androidx.compose.material3.Checkbox
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -346,7 +346,7 @@ fun EntryEditorSheet(
                     }
                     ActionRow {
                         TextButton(onClick = { advanced = !advanced; haptics.tap() }) {
-                            Icon(Icons.Outlined.ExpandMore, null, Modifier.size(RoutineMetrics.IconSize).rotate(advancedChevron))
+                            Icon(Icons.Outlined.ExpandMore, null, Modifier.size(RoutineMetrics.IconSize).graphicsLayer { rotationZ = advancedChevron })
                             Spacer(Modifier.width(RoutineSpacing.sm))
                             RoutineLabel(stringResource(R.string.entry_more_options), style = MaterialTheme.typography.labelLarge)
                         }

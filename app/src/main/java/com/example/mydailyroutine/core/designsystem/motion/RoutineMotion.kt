@@ -1,6 +1,9 @@
 package com.example.mydailyroutine.core.designsystem.motion
 
 import android.provider.Settings
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.animateFloat
@@ -12,6 +15,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -46,20 +50,28 @@ import kotlin.math.pow
  */
 val LocalReduceMotion = staticCompositionLocalOf { false }
 
-/**
- * Reads the system animation scales once per composition host. Any of the three being zero means the
- * user asked for no animation; `ANIMATOR_DURATION_SCALE` is the one the "Remove animations" toggle
- * writes, the other two cover OEMs and adb.
- */
+/** Observe all three scales, including changes made while this composition remains alive. */
 @Composable
 fun rememberReduceMotion(): Boolean {
     val resolver = LocalContext.current.contentResolver
-    return remember(resolver) {
-        runCatching {
-            listOf(Settings.Global.ANIMATOR_DURATION_SCALE, Settings.Global.TRANSITION_ANIMATION_SCALE,
-                Settings.Global.WINDOW_ANIMATION_SCALE).any { Settings.Global.getFloat(resolver, it, 1f) == 0f }
-        }.getOrDefault(false)
+    val scales = remember {
+        listOf(Settings.Global.ANIMATOR_DURATION_SCALE, Settings.Global.TRANSITION_ANIMATION_SCALE,
+            Settings.Global.WINDOW_ANIMATION_SCALE)
     }
+    fun readScales() = runCatching {
+        scales.any { Settings.Global.getFloat(resolver, it, 1f) == 0f }
+    }.getOrDefault(false)
+    val reduced = remember(resolver) { mutableStateOf(readScales()) }
+    DisposableEffect(resolver) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) { reduced.value = readScales() }
+        }
+        scales.forEach { resolver.registerContentObserver(Settings.Global.getUriFor(it), false, observer) }
+        // Close the gap between the first read and registration.
+        reduced.value = readScales()
+        onDispose { resolver.unregisterContentObserver(observer) }
+    }
+    return reduced.value
 }
 
 /**

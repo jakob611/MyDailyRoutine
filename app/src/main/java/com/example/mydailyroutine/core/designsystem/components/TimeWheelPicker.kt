@@ -38,6 +38,7 @@ import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import kotlin.math.abs
 import kotlinx.coroutines.launch
 
@@ -63,6 +64,7 @@ private fun WheelDrum(
     state: LazyListState,
     tag: String,
 ) {
+    val reduceMotion = LocalReduceMotion.current
     val fling = rememberSnapFlingBehavior(lazyListState = state)
     val haptics = LocalRoutineHaptics.current
     val scope = rememberCoroutineScope()
@@ -79,7 +81,9 @@ private fun WheelDrum(
             items(count, key = { it }) { index ->
                 Box(
                     Modifier.fillMaxWidth().height(WheelItem).testTag("$tag-$index")
-                        .clickable { haptics.tap(); scope.launch { state.animateScrollToItem(index) } },
+                        .clickable { haptics.tap(); scope.launch {
+                            if (reduceMotion) state.scrollToItem(index) else state.animateScrollToItem(index)
+                        } },
                     contentAlignment = Alignment.Center,
                 ) {
                     RoutineLabel("%02d".format(index), style = MaterialTheme.typography.titleMedium)

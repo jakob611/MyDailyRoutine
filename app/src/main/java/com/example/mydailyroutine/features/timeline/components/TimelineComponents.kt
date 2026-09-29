@@ -4,9 +4,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.snap
+import kotlinx.coroutines.Job
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -90,6 +91,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import androidx.compose.runtime.State
 import com.example.mydailyroutine.core.designsystem.motion.LocalPulse
 import com.example.mydailyroutine.core.designsystem.motion.pulsing
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
@@ -134,6 +136,8 @@ fun TimelineBlockCard(
     canStart: Boolean = false,
     onAction: (TimelineAction) -> Unit,
 ) {
+    val reduceMotion = LocalReduceMotion.current
+    var settleJob by remember(block.key) { mutableStateOf<Job?>(null) }
     var expanded by rememberSaveable(block.key) { mutableStateOf(false) }
     var dragY by remember(block.key) { mutableFloatStateOf(0f) }
     val dragScope = rememberCoroutineScope()
@@ -142,9 +146,10 @@ fun TimelineBlockCard(
     // reads that teleport as the card jumping, even when the commit itself reflows correctly.
     val settleDrag: () -> Unit = {
         dragging = false
+        settleJob?.cancel()
         val from = dragY
-        dragScope.launch {
-            Animatable(from).animateTo(0f, spring(dampingRatio = 0.55f, stiffness = 320f)) { dragY = value }
+        settleJob = dragScope.launch {
+            Animatable(from).animateTo(0f, if (reduceMotion) snap() else spring(dampingRatio = 0.55f, stiffness = 320f)) { dragY = value }
         }
     }
     val currentAction by rememberUpdatedState(onAction)
@@ -208,14 +213,14 @@ fun TimelineBlockCard(
                             },
                         )
                     }
-                    .animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
-                    .pointerInput(block.key, block.startsAt, block.endsAt, busy) {
+                    .animateContentSize(if (reduceMotion) snap() else spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
+                    .pointerInput(block.key, block.startsAt, block.endsAt, busy, block.isCompleted, block.isSuppressed, block.isFixedCommitment, block.category, reduceMotion) {
                         if (!busy && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
                             // One tick per detent the drag passes, the way an iOS picker rail feels:
                             // the finger hears the fifteen-minute steps it cannot see on a dense day.
                             var detent = 0
                             detectDragGesturesAfterLongPress(
-                                onDragStart = { dragging = true; detent = 0; haptics.dragStart() },
+                                onDragStart = { settleJob?.cancel(); dragging = true; detent = 0; haptics.dragStart() },
                                 onDrag = { change, amount ->
                                     change.consume()
                                     dragY += amount.y
@@ -393,8 +398,8 @@ fun TimelineBlockCard(
                         }
                         AnimatedVisibility(
                             visible = expanded,
-                            enter = fadeIn(tween(TransitionMillis)) + slideInVertically(tween(TransitionMillis)) { -it / 4 },
-                            exit = fadeOut(tween(TransitionMillis)),
+                            enter = fadeIn(effectSpec(LocalReduceMotion.current, TransitionMillis)) + slideInVertically(effectSpec(LocalReduceMotion.current, TransitionMillis)) { -it / 4 },
+                            exit = fadeOut(effectSpec(LocalReduceMotion.current, TransitionMillis)),
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                                 HorizontalDivider(color = RoutineColors.Border)
@@ -589,7 +594,10 @@ fun MilestoneCard(
             )
             Card(
                 onClick = { haptics.tap(); expanded = !expanded },
-                modifier = Modifier.weight(1f).animateContentSize(),
+                modifier = Modifier.weight(1f).animateContentSize(if (LocalReduceMotion.current) snap() else spring(
+                    stiffness = Spring.StiffnessMediumLow,
+                    visibilityThreshold = androidx.compose.ui.unit.IntSize(1, 1),
+                )),
                 shape = RoutineShapes.Card,
                 border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
@@ -639,8 +647,8 @@ fun MilestoneCard(
                     )
                     AnimatedVisibility(
                         visible = expanded,
-                        enter = fadeIn(tween(TransitionMillis)),
-                        exit = fadeOut(tween(TransitionMillis)),
+                        enter = fadeIn(effectSpec(LocalReduceMotion.current, TransitionMillis)),
+                        exit = fadeOut(effectSpec(LocalReduceMotion.current, TransitionMillis)),
                     ) {
                         ActionRow {
                             TextButton(enabled = !busy, onClick = { onAction(TimelineAction.Edit(item)) }) {

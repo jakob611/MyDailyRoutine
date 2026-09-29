@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -96,7 +97,8 @@ fun Modifier.swipeToShift(
     val density = LocalDensity.current
     val reduceMotion = LocalReduceMotion.current
     val haptics = LocalRoutineHaptics.current
-    val tracker = remember(density) {
+    val currentOnShift by rememberUpdatedState(onShift)
+    val tracker = remember(density, threshold) {
         SwipeShiftTracker(
             thresholdPx = with(density) { threshold.toPx() },
             maxOffsetPx = with(density) { 72.dp.toPx() },
@@ -107,25 +109,30 @@ fun Modifier.swipeToShift(
         .graphicsLayer { translationX = if (reduceMotion) 0f else tracker.offset }
         .pointerInput(enabled, tracker) {
             if (!enabled) return@pointerInput
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                // Null means the gesture went to something else — a vertical list, a horizontal
-                // carousel inside the page — and this modifier must not have an opinion about it.
-                val start = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
-                if (start == null) {
+            try {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    // Null means the gesture went to something else — a vertical list, a horizontal
+                    // carousel inside the page — and this modifier must not have an opinion about it.
+                    val start = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
+                    if (start == null) {
+                        tracker.reset()
+                        return@awaitEachGesture
+                    }
+                    val released = horizontalDrag(start.id) { change ->
+                        val delta = change.positionChange().x
+                        change.consume()
+                        if (tracker.add(delta)) haptics.selection()
+                    }
+                    val direction = if (released) tracker.commit() else 0
+                    // The page transition is the app's own motion; the drag layer is back at rest before
+                    // it starts, so the two never add up into double travel.
                     tracker.reset()
-                    return@awaitEachGesture
+                    if (direction != 0) currentOnShift(direction)
                 }
-                horizontalDrag(start.id) { change ->
-                    val delta = change.positionChange().x
-                    change.consume()
-                    if (tracker.add(delta)) haptics.selection()
-                }
-                val direction = tracker.commit()
-                // The page transition is the app's own motion; the drag layer is back at rest before
-                // it starts, so the two never add up into double travel.
+            } finally {
+                // Also reset when pointerInput is cancelled (disabled or removed mid-drag).
                 tracker.reset()
-                if (direction != 0) onShift(direction)
             }
         }
 }
