@@ -2,11 +2,12 @@ package com.example.mydailyroutine.features.timeline.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -46,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -66,6 +68,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.example.mydailyroutine.R
@@ -91,8 +95,8 @@ import androidx.compose.runtime.State
 import com.example.mydailyroutine.core.designsystem.motion.LocalPulse
 import com.example.mydailyroutine.core.designsystem.motion.pulsing
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
-import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
 import com.example.mydailyroutine.core.platform.uiLocale
 import com.example.mydailyroutine.core.presentation.TimelineAction
@@ -134,16 +138,20 @@ fun TimelineBlockCard(
     canStart: Boolean = false,
     onAction: (TimelineAction) -> Unit,
 ) {
+    val reduceMotion = LocalReduceMotion.current
     var expanded by rememberSaveable(block.key) { mutableStateOf(false) }
     var dragY by remember(block.key) { mutableFloatStateOf(0f) }
     val dragScope = rememberCoroutineScope()
+    var settleJob by remember(block.key) { mutableStateOf<Job?>(null) }
     var dragging by remember(block.key) { mutableStateOf(false) }
     // Release springs the card home. A bare `dragY = 0f` teleports it in one frame, and the eye
     // reads that teleport as the card jumping, even when the commit itself reflows correctly.
     val settleDrag: () -> Unit = {
         dragging = false
         val from = dragY
-        dragScope.launch {
+        settleJob?.cancel()
+        if (reduceMotion) dragY = 0f
+        else settleJob = dragScope.launch {
             Animatable(from).animateTo(0f, spring(dampingRatio = 0.55f, stiffness = 320f)) { dragY = value }
         }
     }
@@ -208,14 +216,14 @@ fun TimelineBlockCard(
                             },
                         )
                     }
-                    .animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
-                    .pointerInput(block.key, block.startsAt, block.endsAt, busy) {
+                    .animateContentSize(if (reduceMotion) snap() else spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
+                    .pointerInput(block, busy, reduceMotion, dragStepPx) {
                         if (!busy && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
                             // One tick per detent the drag passes, the way an iOS picker rail feels:
                             // the finger hears the fifteen-minute steps it cannot see on a dense day.
                             var detent = 0
                             detectDragGesturesAfterLongPress(
-                                onDragStart = { dragging = true; detent = 0; haptics.dragStart() },
+                                onDragStart = { settleJob?.cancel(); dragging = true; detent = 0; haptics.dragStart() },
                                 onDrag = { change, amount ->
                                     change.consume()
                                     dragY += amount.y
@@ -393,8 +401,8 @@ fun TimelineBlockCard(
                         }
                         AnimatedVisibility(
                             visible = expanded,
-                            enter = fadeIn(tween(TransitionMillis)) + slideInVertically(tween(TransitionMillis)) { -it / 4 },
-                            exit = fadeOut(tween(TransitionMillis)),
+                            enter = fadeIn(effectSpec<Float>(reduceMotion)) + slideInVertically(effectSpec<IntOffset>(reduceMotion)) { -it / 4 },
+                            exit = fadeOut(effectSpec<Float>(reduceMotion)),
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                                 HorizontalDivider(color = RoutineColors.Border)
@@ -577,6 +585,7 @@ fun MilestoneCard(
     onAction: (TimelineAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val reduceMotion = LocalReduceMotion.current
     var expanded by rememberSaveable(item.key) { mutableStateOf(false) }
     val haptics = LocalRoutineHaptics.current
     val expandLabel = stringResource(if (expanded) R.string.collapse_block else R.string.expand_block)
@@ -589,7 +598,8 @@ fun MilestoneCard(
             )
             Card(
                 onClick = { haptics.tap(); expanded = !expanded },
-                modifier = Modifier.weight(1f).animateContentSize(),
+                modifier = Modifier.weight(1f).animateContentSize(if (reduceMotion) snap() else spring(
+                    stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntSize.VisibilityThreshold)),
                 shape = RoutineShapes.Card,
                 border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
@@ -639,8 +649,8 @@ fun MilestoneCard(
                     )
                     AnimatedVisibility(
                         visible = expanded,
-                        enter = fadeIn(tween(TransitionMillis)),
-                        exit = fadeOut(tween(TransitionMillis)),
+                        enter = fadeIn(effectSpec<Float>(reduceMotion)),
+                        exit = fadeOut(effectSpec<Float>(reduceMotion)),
                     ) {
                         ActionRow {
                             TextButton(enabled = !busy, onClick = { onAction(TimelineAction.Edit(item)) }) {

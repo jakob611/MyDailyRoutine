@@ -1,5 +1,9 @@
 package com.example.mydailyroutine.core.designsystem.motion
 
+import android.content.ContentResolver
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
@@ -12,6 +16,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -33,33 +38,46 @@ import kotlin.math.pow
  *   duration: a spring can be retargeted mid-gesture, so interrupting a screen change with another
  *   one stays smooth instead of jumping. Damping is "no bouncy" on purpose; this is a planning tool,
  *   and M3's own guidance is that the calm `standard` scheme fits utilitarian apps while the bouncy
- *   `expressive` scheme is for hero moments. The one place the app allows a bounce is the overdue
- *   badge (`PopSpring`), which *is* a hero moment.
- * * **Effect** ([effectSpec]) changes colour and opacity. It is a plain tween at 180 ms — inside the
- *   200-300 ms window Material recommends for touch-driven transitions, and never overshooting,
- *   because an opacity that goes past 1 is not a flourish, it is a flicker.
+ *   `expressive` scheme is for hero moments. Glass controls use a separate spring vocabulary below.
+ * * **Effect** ([effectSpec]) changes colour and opacity. It is a short tween at [TransitionMillis],
+ *   never overshooting: opacity outside 0..1 is not a spatial bounce.
  *
- * Everything obeys the system's **Remove animations** setting. When the user turns animations off
- * (accessibility → remove animations, which sets the animator/window/transition scales to 0), every
- * transition in the app resolves with [snap]: no slides, no fades, no rotating chevrons. Motion
- * sensitivity is a vestibular condition, not a taste, so this is not optional polish.
+ * App-owned specs below resolve with [snap] when any system animation scale is zero. Compose and
+ * Material also observe the animator duration scale themselves. This local is an additional app
+ * policy, not a replacement for that mechanism; direct finger tracking is distinct from a timed
+ * animation. Keep new app-owned animations on these specs (or explicitly branch on the local).
  */
 val LocalReduceMotion = staticCompositionLocalOf { false }
 
-/**
- * Reads the system animation scales once per composition host. Any of the three being zero means the
- * user asked for no animation; `ANIMATOR_DURATION_SCALE` is the one the "Remove animations" toggle
- * writes, the other two cover OEMs and adb.
- */
+private val AnimationScaleSettings = listOf(
+    Settings.Global.ANIMATOR_DURATION_SCALE,
+    Settings.Global.TRANSITION_ANIMATION_SCALE,
+    Settings.Global.WINDOW_ANIMATION_SCALE,
+)
+
+private fun ContentResolver.reduceMotionEnabled(): Boolean = runCatching {
+    AnimationScaleSettings.any { Settings.Global.getFloat(this, it, 1f) == 0f }
+}.getOrDefault(false)
+
+/** Observe changes too: returning from accessibility settings need not recreate the activity. */
 @Composable
 fun rememberReduceMotion(): Boolean {
     val resolver = LocalContext.current.contentResolver
-    return remember(resolver) {
-        runCatching {
-            listOf(Settings.Global.ANIMATOR_DURATION_SCALE, Settings.Global.TRANSITION_ANIMATION_SCALE,
-                Settings.Global.WINDOW_ANIMATION_SCALE).any { Settings.Global.getFloat(resolver, it, 1f) == 0f }
-        }.getOrDefault(false)
+    val reduced = remember(resolver) { mutableStateOf(resolver.reduceMotionEnabled()) }
+    DisposableEffect(resolver) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                reduced.value = resolver.reduceMotionEnabled()
+            }
+        }
+        AnimationScaleSettings.forEach { setting ->
+            resolver.registerContentObserver(Settings.Global.getUriFor(setting), false, observer)
+        }
+        // Close the gap between the initial read and registration.
+        reduced.value = resolver.reduceMotionEnabled()
+        onDispose { resolver.unregisterContentObserver(observer) }
     }
+    return reduced.value
 }
 
 /**
@@ -70,9 +88,8 @@ fun rememberReduceMotion(): Boolean {
  * new place with no explanation of where it came from.
  *
  * All three specs are given, not just placement. `animateItem` defaults the two fade specs to
- * springs of its own, and those springs never ask [LocalReduceMotion] — so a list left on the
- * default would keep fading rows in and out under the system setting that turned every other
- * animation in the app off.
+ * springs of its own. Those follow Compose's animator scale, but do not ask [LocalReduceMotion]
+ * about the app's broader policy (including the window and transition scales).
  *
  * Only for lists that actually mutate. A picker wheel or a fixed set of options has nothing to
  * animate and would only wobble.

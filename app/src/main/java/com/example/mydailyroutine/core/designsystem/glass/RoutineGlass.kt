@@ -14,18 +14,17 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -145,8 +144,8 @@ private const val HighTextContrastSetting = "high_text_contrast_enabled"
  * routing it through the backdrop rather than adding a flag to each control: one fallback exists,
  * one set of colours is measured by the contrast gate, and nothing can be left behind.
  *
- * Read once per composition host, exactly like `rememberReduceMotion`, so it takes effect the next
- * time the screen is built rather than mid-frame.
+ * Currently read once per composition host. Unlike `rememberReduceMotion`, this still needs a
+ * contrast-change listener if changes must take effect without recreating the host.
  */
 @Composable
 fun rememberReduceTransparency(): Boolean {
@@ -393,18 +392,23 @@ fun RoutineGlassSurface(
  *   shared sampling region for several glass elements; kyant0's backdrop gives each layer its own,
  *   and glass sampling glass is the one thing that library documents as fatal.
  */
-@Immutable
+@Stable
 class GlassTouch internal constructor(
     /** Hand this to `clickable(interactionSource = …, indication = null)`: the scale *is* the
      *  feedback, so a Material ripple on top of it would be a second, contradicting answer. */
     val source: MutableInteractionSource,
-    /** The control's scale right now: [AppleMotion.PressScale] while pressed, 1 at rest. */
-    val press: Float,
+    private val fraction: State<Float>,
+    private val scale: Float,
     /** 0..1 strength of the touch-point highlight. */
-    val glow: Float,
-    /** Where the finger went down, in the control's own coordinates; null once it lifts. */
-    val point: Offset?,
-)
+    private val glowState: State<Float>,
+    /** Last press position, retained until the release glow has faded. */
+    private val pointState: State<Offset?>,
+) {
+    /** [AppleMotion.PressScale] while pressed, 1 at rest. Read only in a layer callback. */
+    val press: Float get() = 1f - (1f - scale) * fraction.value
+    val glow: Float get() = glowState.value
+    val point: Offset? get() = pointState.value
+}
 
 /** Owns the press animation for one interactive glass control. */
 @Composable
@@ -412,21 +416,22 @@ fun rememberGlassTouch(reduceMotion: Boolean, scale: Float = AppleMotion.PressSc
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     // Movement on the glass spring (it may overshoot); the highlight on an effect tween (it may not).
-    val fraction by animateFloatAsState(if (pressed) 1f else 0f, glassTouchSpec<Float>(reduceMotion),
+    val fraction = animateFloatAsState(if (pressed) 1f else 0f, glassTouchSpec<Float>(reduceMotion),
         label = "glass-press")
-    val glow by animateFloatAsState(if (pressed) 1f else 0f, effectSpec<Float>(reduceMotion, 120),
+    val glow = animateFloatAsState(if (pressed) 1f else 0f, effectSpec<Float>(reduceMotion, 120),
         label = "glass-glow")
-    var point by remember { mutableStateOf<Offset?>(null) }
+    val point = remember { mutableStateOf<Offset?>(null) }
     LaunchedEffect(source) {
         source.interactions.collect { interaction ->
             when (interaction) {
-                is PressInteraction.Press -> point = interaction.pressPosition
-                is PressInteraction.Release -> point = null
-                is PressInteraction.Cancel -> point = null
+                is PressInteraction.Press -> point.value = interaction.pressPosition
+                // Keep the last position during fade-out; clearing it cuts the glow off instantly.
+                is PressInteraction.Release, is PressInteraction.Cancel -> Unit
             }
         }
     }
-    return GlassTouch(source, 1f - (1f - scale) * fraction, glow, point)
+    // Never read animation values here: this helper is also called from the app root.
+    return remember(source, fraction, scale, glow, point) { GlassTouch(source, fraction, scale, glow, point) }
 }
 
 /**
@@ -440,23 +445,26 @@ fun Modifier.routineGlassTouch(touch: GlassTouch, shape: CornerBasedShape): Modi
         scaleX = touch.press
         scaleY = touch.press
     }
-    .drawWithContent {
-        drawContent()
-        val point = touch.point ?: return@drawWithContent
-        if (touch.glow <= 0f) return@drawWithContent
-        // Filled through the outline rather than drawn as a circle, because this modifier sits
-        // outside the panel's clip: a raw circle would spill past the rounded corners.
-        drawOutline(
-            outline = shape.createOutline(size, layoutDirection, this),
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    RoutineColors.GlassRim.copy(alpha = RoutineColors.GlassTouchGlow * touch.glow),
-                    Color.Transparent,
+    .drawWithCache {
+        val outline = shape.createOutline(size, layoutDirection, this)
+        onDrawWithContent {
+            drawContent()
+            val point = touch.point ?: return@onDrawWithContent
+            if (touch.glow <= 0f) return@onDrawWithContent
+            // Filled through the outline rather than drawn as a circle, because this modifier sits
+            // outside the panel's clip: a raw circle would spill past the rounded corners.
+            drawOutline(
+                outline = outline,
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        RoutineColors.GlassRim.copy(alpha = RoutineColors.GlassTouchGlow * touch.glow),
+                        Color.Transparent,
+                    ),
+                    center = point,
+                    radius = (size.minDimension * 1.15f).coerceAtLeast(1f),
                 ),
-                center = point,
-                radius = (size.minDimension * 1.15f).coerceAtLeast(1f),
-            ),
-        )
+            )
+        }
     }
 
 /**
@@ -503,16 +511,13 @@ fun RoutineAmbientBackground(modifier: Modifier = Modifier) {
  * clip — so the glow can fall outside the card's bounds; the card then paints over the part that
  * would otherwise sit under it.
  */
-fun Modifier.liquidUnderGlow(accent: Color, alpha: Float = 0.06f): Modifier = this.drawBehind {
+fun Modifier.liquidUnderGlow(accent: Color, alpha: Float = 0.06f): Modifier = if (alpha <= 0f) this else drawWithCache {
     val center = Offset(size.width * 0.5f, size.height * 1.04f)
     val radius = (size.width * 0.72f).coerceAtLeast(1f)
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(accent.copy(alpha = alpha), Color.Transparent),
-            center = center,
-            radius = radius,
-        ),
-        radius = radius,
+    val glow = Brush.radialGradient(
+        colors = listOf(accent.copy(alpha = alpha), Color.Transparent),
         center = center,
+        radius = radius,
     )
+    onDrawBehind { drawCircle(brush = glow, radius = radius, center = center) }
 }

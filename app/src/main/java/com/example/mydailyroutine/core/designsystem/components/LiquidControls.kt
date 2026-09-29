@@ -27,12 +27,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -43,6 +47,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
@@ -72,6 +81,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * The liquid controls of the design brief of 2026-09-19, built the way Kyant0's Backdrop catalog
@@ -85,7 +95,7 @@ import kotlinx.coroutines.launch
  * * The knob and the thumb stay **solid**. A 24 dp piece of glass over a moving list refracts into
  *   noise, and inside a bottom sheet there is no backdrop to sample at all; Apple paints its switch
  *   knob solid white for the same reason.
- * * Everything honours [LocalReduceMotion]: springs become snaps, the squash becomes nothing.
+ * * Under [LocalReduceMotion], springs become snaps. Direct finger tracking remains available.
  */
 
 private val SwitchWidth = 52.dp
@@ -157,7 +167,7 @@ private const val SwitchKnobStretch = 0.18f
  */
 private fun Modifier.liquidDisc(
     backdrop: Backdrop?,
-    grab: Float,
+    grab: () -> Float,
     blurRadius: Dp,
     lensRadius: Dp,
     lensDepth: Dp,
@@ -180,6 +190,7 @@ private fun Modifier.liquidDisc(
                 // disc per frame for pixels the white covers completely — and a settings screen
                 // carries fourteen discs. The first frame of a press already has `grab` above zero,
                 // so nothing is lost on the way in.
+                val grab = grab().coerceIn(0f, 1f)
                 if (grab > 0f) {
                     blur(blurRadius.toPx() * (1f - grab))
                     lens(lensRadius.toPx() * grab, lensDepth.toPx() * grab)
@@ -189,15 +200,19 @@ private fun Modifier.liquidDisc(
             // the outline for any non-null value, and on a settings screen that is fourteen of
             // them doing it every frame for something nobody can see.
             highlight = {
+                val grab = grab().coerceIn(0f, 1f)
                 if (grab > 0f) Highlight(DiscRim, alpha = grab, style = HighlightStyle.Ambient) else null
             },
             // Always on: the lift is what separates the disc from its track, and it is the one
             // thing the old flat disc never had.
             shadow = { Shadow(shadowRadius, color = RoutineColors.GlassShadow) },
-            innerShadow = { InnerShadow(DiscInnerShadow * grab, alpha = grab) },
+            innerShadow = {
+                val grab = grab().coerceIn(0f, 1f)
+                if (grab > 0f) InnerShadow(DiscInnerShadow * grab, alpha = grab) else null
+            },
             layerBlock = layerBlock,
             onDrawSurface = {
-                drawRect(RoutineColors.TextPrimary.copy(alpha = 1f - grab * clearance))
+                drawRect(RoutineColors.TextPrimary.copy(alpha = 1f - grab().coerceIn(0f, 1f) * clearance))
             },
         )
     }
@@ -214,6 +229,8 @@ fun RoutineSwitch(
     val pressed by interaction.collectIsPressedAsState()
     val position = remember { Animatable(if (checked) 1f else 0f) }
     val scope = rememberCoroutineScope()
+    val currentChecked by rememberUpdatedState(checked)
+    val currentOnCheckedChange by rememberUpdatedState(onCheckedChange)
     LaunchedEffect(checked, reduceMotion) {
         if (reduceMotion) position.snapTo(if (checked) 1f else 0f)
         else position.animateTo(if (checked) 1f else 0f, PopSpring)
@@ -266,7 +283,7 @@ fun RoutineSwitch(
                         },
                         onDragEnd = {
                             val target = position.value >= 0.5f
-                            if (target != checked) onCheckedChange?.invoke(target)
+                            if (target != currentChecked) currentOnCheckedChange?.invoke(target)
                             scope.launch {
                                 if (reduceMotion) position.snapTo(if (target) 1f else 0f)
                                 else position.animateTo(if (target) 1f else 0f, PopSpring)
@@ -274,8 +291,8 @@ fun RoutineSwitch(
                         },
                         onDragCancel = {
                             scope.launch {
-                                if (reduceMotion) position.snapTo(if (checked) 1f else 0f)
-                                else position.animateTo(if (checked) 1f else 0f, PopSpring)
+                                if (reduceMotion) position.snapTo(if (currentChecked) 1f else 0f)
+                                else position.animateTo(if (currentChecked) 1f else 0f, PopSpring)
                             }
                         },
                     )
@@ -323,7 +340,7 @@ fun RoutineSwitch(
                 }
                 .liquidDisc(
                     backdrop = trackBackdrop.takeIf { glassKnob },
-                    grab = squash,
+                    grab = { squash },
                     blurRadius = SwitchKnobBlur,
                     lensRadius = SwitchKnobLens,
                     lensDepth = SwitchKnobLensDepth,
@@ -361,9 +378,10 @@ fun LiquidSlider(
 ) {
     val reduceMotion = LocalReduceMotion.current
     var dragging by remember { mutableStateOf(false) }
+    val currentOnValueChange by rememberUpdatedState(onValueChange)
     val span = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.0001f)
     val fraction = ((value - valueRange.start) / span).coerceIn(0f, 1f)
-    val shown by animateFloatAsState(fraction, glassMorphSpec<Float>(reduceMotion), label = "slider-fill")
+    val shown by animateFloatAsState(fraction, glassMorphSpec<Float>(reduceMotion || dragging), label = "slider-fill")
     // One progress for "the finger has it": the growth, the lens and the clearing all read from it,
     // so they can never drift out of step with each other.
     val grab by animateFloatAsState(
@@ -371,6 +389,10 @@ fun LiquidSlider(
         glassTouchSpec<Float>(reduceMotion),
         label = "slider-grab",
     )
+    // Position follows the finger directly. The existing spring remains for taps/programmatic edits.
+    // Read both states only from draw/layer callbacks, never while building the modifier chain.
+    val currentFraction by rememberUpdatedState(fraction)
+    val displayedFraction = { (if (dragging) currentFraction else shown).coerceIn(0f, 1f) }
     var widthPx by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
     val thumbPx = with(density) { SliderThumb.toPx() }
@@ -392,24 +414,38 @@ fun LiquidSlider(
             .height(RoutineMetrics.TouchTarget)
             .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
             .onSizeChanged { widthPx = it.width.toFloat() }
-            .pointerInput(enabled, valueRange, widthPx) {
+            .pointerInput(enabled, valueRange, widthPx, thumbPx) {
                 if (!enabled || widthPx <= 0f) return@pointerInput
-                detectTapGestures(onTap = { onValueChange(valueAt(it.x)) })
+                detectTapGestures(onTap = { currentOnValueChange(valueAt(it.x)) })
             }
-            .pointerInput(enabled, valueRange, widthPx) {
+            .pointerInput(enabled, valueRange, widthPx, thumbPx) {
                 if (!enabled || widthPx <= 0f) return@pointerInput
-                detectHorizontalDragGestures(
-                    onDragStart = { offset ->
-                        dragging = true
-                        onValueChange(valueAt(offset.x))
-                    },
-                    onHorizontalDrag = { change, _ ->
-                        onValueChange(valueAt(change.position.x))
-                        change.consume()
-                    },
-                    onDragEnd = { dragging = false },
-                    onDragCancel = { dragging = false },
-                )
+                try {
+                    detectHorizontalDragGestures(
+                        onDragStart = { offset ->
+                            dragging = true
+                            currentOnValueChange(valueAt(offset.x))
+                        },
+                        onHorizontalDrag = { change, _ ->
+                            currentOnValueChange(valueAt(change.position.x))
+                            change.consume()
+                        },
+                        onDragEnd = { dragging = false },
+                        onDragCancel = { dragging = false },
+                    )
+                } finally {
+                    dragging = false
+                }
+            }
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(value.coerceIn(valueRange), valueRange)
+                if (!enabled) disabled()
+                setProgress { requested ->
+                    if (!enabled) false else {
+                        currentOnValueChange(requested.coerceIn(valueRange))
+                        true
+                    }
+                }
             },
         contentAlignment = Alignment.CenterStart,
     ) {
@@ -423,11 +459,15 @@ fun LiquidSlider(
                     .background(RoutineColors.Surface4)
                     .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.2f), capsule),
             )
-            Box(
-                Modifier.fillMaxWidth(shown).fillMaxHeight()
-                    .clip(capsule)
-                    .background(RoutineColors.Primary),
-            )
+            Box(Modifier.fillMaxSize().drawBehind {
+                val fillWidth = (size.width * displayedFraction()).roundToInt().toFloat()
+                val radius = minOf(fillWidth, size.height) / 2f
+                drawRoundRect(
+                    color = RoutineColors.Primary,
+                    size = Size(fillWidth, size.height),
+                    cornerRadius = CornerRadius(radius, radius),
+                )
+            })
         }
         val growBlock: GraphicsLayerScope.() -> Unit = {
             val scale = 1f + grab * SliderThumbGrowth
@@ -438,11 +478,11 @@ fun LiquidSlider(
             Modifier
                 .size(SliderThumb)
                 .graphicsLayer {
-                    translationX = thumbPx / 2f + shown * (widthPx - thumbPx).coerceAtLeast(0f)
+                    translationX = thumbPx / 2f + displayedFraction() * (widthPx - thumbPx).coerceAtLeast(0f)
                 }
                 .liquidDisc(
                     backdrop = trackBackdrop.takeIf { glassThumb },
-                    grab = grab,
+                    grab = { grab },
                     blurRadius = SliderThumbBlur,
                     lensRadius = SliderThumbLens,
                     lensDepth = SliderThumbLensDepth,

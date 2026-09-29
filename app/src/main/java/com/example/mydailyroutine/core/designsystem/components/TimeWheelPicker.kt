@@ -25,6 +25,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -40,6 +42,10 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import kotlin.math.abs
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 
 /** One drum row. Five rows stay visible, exactly as on an iOS picker. */
 private val WheelItem = 44.dp
@@ -66,8 +72,13 @@ private fun WheelDrum(
     val fling = rememberSnapFlingBehavior(lazyListState = state)
     val haptics = LocalRoutineHaptics.current
     val scope = rememberCoroutineScope()
+    val reduceMotion = LocalReduceMotion.current
+    val currentHaptics by rememberUpdatedState(haptics)
     LaunchedEffect(state) {
-        snapshotFlow { state.isScrollInProgress }.collect { scrolling -> if (!scrolling) haptics.tap() }
+        snapshotFlow {
+            if (state.isScrollInProgress || state.layoutInfo.visibleItemsInfo.isEmpty()) null
+            else centerIndexOf(state)
+        }.filterNotNull().distinctUntilChanged().drop(1).collect { currentHaptics.selection() }
     }
     Box(Modifier.width(76.dp)) {
         LazyColumn(
@@ -79,7 +90,11 @@ private fun WheelDrum(
             items(count, key = { it }) { index ->
                 Box(
                     Modifier.fillMaxWidth().height(WheelItem).testTag("$tag-$index")
-                        .clickable { haptics.tap(); scope.launch { state.animateScrollToItem(index) } },
+                        .clickable {
+                            scope.launch {
+                                if (reduceMotion) state.scrollToItem(index) else state.animateScrollToItem(index)
+                            }
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     RoutineLabel("%02d".format(index), style = MaterialTheme.typography.titleMedium)
@@ -97,12 +112,17 @@ private fun WheelDrum(
     }
 }
 
-/**
- * The row in the selection window. The snap fling only ever rests on a row boundary and the drum
- * pads two rows top and bottom, so at rest the first visible row *is* the centred one; confirm
- * always happens at rest, because a finger cannot press the button mid-fling and keep it pressed.
- */
-private fun centerIndexOf(state: LazyListState): Int = state.firstVisibleItemIndex
+/** Read actual geometry: confirmation is possible while the wheel is still flinging. */
+private fun centerIndexOf(state: LazyListState): Int {
+    val info = state.layoutInfo
+    val rows = info.visibleItemsInfo
+    return wheelCenterIndex(
+        offsets = rows.map { it.offset },
+        sizes = rows.map { it.size },
+        indices = rows.map { it.index },
+        viewportCenter = (info.viewportStartOffset + info.viewportEndOffset) / 2,
+    ) ?: state.firstVisibleItemIndex
+}
 
 /**
  * The picker: two drums, hours and minutes, on one dark panel. Confirm reads the rows that are
