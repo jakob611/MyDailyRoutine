@@ -28,6 +28,15 @@ class WheelMathTest {
         assertEquals(4, wheelCenterIndex(listOf(0, 44, 88, 132, 176), sizes, listOf(3, 4, 5, 6, 7), 88))
     }
 
+    @Test fun paddedLazyViewportUsesItsNegativeStartOffset() {
+        // 88 px content padding: viewport is [-88, 132], with its centre at 22.
+        assertEquals(0, wheelCenterIndex(listOf(0, 44, 88), listOf(44, 44, 44), listOf(0, 1, 2), 22))
+    }
+
+    @Test fun confirmationDuringAFlingUsesTheClosestRowNotTheFirstVisibleRow() {
+        assertEquals(9, wheelCenterIndex(listOf(-28, 16, 60), listOf(44, 44, 44), listOf(8, 9, 10), 22))
+    }
+
     @Test fun anEmptyDrumSelectsNothing() {
         assertNull(wheelCenterIndex(emptyList(), emptyList(), emptyList(), 110))
     }

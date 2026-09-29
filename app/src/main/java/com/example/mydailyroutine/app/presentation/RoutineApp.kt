@@ -135,6 +135,7 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     val state by viewModel.state.collectAsStateWithLifecycle()
     val data = state.content
     val context = LocalContext.current
+    val reduceMotion = rememberReduceMotion()
     val haptics = rememberRoutineHaptics(state.preferences.hapticsEnabled)
     val sounds = rememberRoutineSounds(state.preferences.soundEffectsEnabled)
     val nativeHaptics = LocalHapticFeedback.current
@@ -153,7 +154,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     // and every default the flow sets is already what the app ships with. It answers with the same
     // haptics and sounds as the rest of the app, so the first tap already feels like this app.
     if (!state.preferences.onboardingDone) {
-        CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalRoutineSounds provides sounds) {
+        CompositionLocalProvider(LocalRoutineHaptics provides haptics, LocalRoutineSounds provides sounds,
+            LocalReduceMotion provides reduceMotion, LocalHapticFeedback provides gatedHaptics) {
             OnboardingScreen(
                 userName = state.preferences.userName,
                 schoolStart = state.preferences.schoolStart,
@@ -191,7 +193,6 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     // Read before the modifier: a semantics block is not a composable scope, so the string has to
     // exist by the time the dot is described.
     val badgeLabel = pluralStringResource(R.plurals.tasks_badge_waiting, waitingTasks, waitingTasks)
-    val reduceMotion = rememberReduceMotion()
     // The "Dodaj blok" container transform measures its endpoints in root pixels: the pill the
     // finger just pressed and the window-sized root the pane is laid out inside. Measuring and
     // placing in the same space is what keeps the growing pane glued to the pill it starts from.
@@ -601,8 +602,8 @@ private fun AddBlockMorph(
     val reduceMotion = LocalReduceMotion.current
     val density = LocalDensity.current
     var progress by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(active) {
-        if (!active) {
+    LaunchedEffect(active, reduceMotion) {
+        if (!active || reduceMotion) {
             progress = 0f
             return@LaunchedEffect
         }

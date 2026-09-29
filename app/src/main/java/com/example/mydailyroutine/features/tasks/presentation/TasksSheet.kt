@@ -2,7 +2,6 @@ package com.example.mydailyroutine.features.tasks.presentation
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -60,6 +59,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.components.ActionRow
@@ -74,8 +74,8 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.routineItemAnimation
+import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
-import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import com.example.mydailyroutine.core.presentation.TimelineAction
 import com.example.mydailyroutine.core.presentation.RoutineDate
 import com.example.mydailyroutine.domain.model.Subject
@@ -432,8 +432,8 @@ private fun TaskRow(
             }
             AnimatedVisibility(
                 visible = expanded,
-                enter = fadeIn(tween(TransitionMillis)) + expandVertically(tween(TransitionMillis)),
-                exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
+                enter = fadeIn(effectSpec<Float>(LocalReduceMotion.current)) + expandVertically(effectSpec<IntSize>(LocalReduceMotion.current)),
+                exit = fadeOut(effectSpec<Float>(LocalReduceMotion.current, 120)) + shrinkVertically(effectSpec<IntSize>(LocalReduceMotion.current, 120)),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                     OutlinedTextField(

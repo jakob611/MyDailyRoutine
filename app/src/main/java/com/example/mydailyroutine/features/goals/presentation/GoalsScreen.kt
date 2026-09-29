@@ -55,6 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.alpha
@@ -679,12 +680,18 @@ private fun StatusCard(
 
 @Composable
 private fun GoalBar(fraction: Float, color: Color) {
-    var shown by remember { mutableFloatStateOf(0f) }
+    val reduceMotion = LocalReduceMotion.current
+    var shown by remember { mutableFloatStateOf(if (reduceMotion) fraction else 0f) }
     LaunchedEffect(fraction) { shown = fraction }
     val width by animateFloatAsState(shown.coerceIn(0f, 1f),
-        if (LocalReduceMotion.current) snap<Float>() else SnappySpring, label = "goal-progress")
+        if (reduceMotion) snap<Float>() else SnappySpring, label = "goal-progress")
     Box(Modifier.fillMaxWidth().height(RoutineSpacing.sm).clip(RoutineShapes.Chip).background(RoutineColors.Surface2)) {
-        Box(Modifier.fillMaxWidth(width).height(RoutineSpacing.sm).clip(RoutineShapes.Chip).background(color))
+        Box(Modifier.layout { measurable, constraints ->
+            // Preserve the exact shape at each width, but read the frame during measure, not composition.
+            val pixels = (constraints.maxWidth * width.coerceIn(0f, 1f)).roundToInt()
+            val bar = measurable.measure(constraints.copy(minWidth = pixels, maxWidth = pixels))
+            layout(bar.width, bar.height) { bar.placeRelative(0, 0) }
+        }.height(RoutineSpacing.sm).clip(RoutineShapes.Chip).background(color))
     }
 }
 

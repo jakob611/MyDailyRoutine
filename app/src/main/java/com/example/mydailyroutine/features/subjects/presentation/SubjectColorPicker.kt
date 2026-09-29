@@ -1,7 +1,6 @@
 package com.example.mydailyroutine.features.subjects.presentation
 
 import android.graphics.Color as AndroidColor
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -25,7 +24,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -208,26 +209,26 @@ private fun ColorWheel(
             }
             .semantics { contentDescription = wheelDescription },
     ) {
-        Canvas(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().drawWithCache {
+            val center = Offset(size.width / 2f, size.height / 2f)
             val radius = size.minDimension / 2f
-            drawCircle(Brush.sweepGradient(RoutineColors.HueWheel, center), radius = radius, center = center)
-            drawCircle(
-                // White fading to *transparent white*: `Color.Transparent` is transparent black,
-                // and interpolating towards it would grey the middle of the ramp.
-                Brush.radialGradient(
-                    listOf(RoutineColors.HueWheelCentre, RoutineColors.HueWheelCentre.copy(alpha = 0f)),
-                    center = center,
-                    radius = radius,
-                ),
-                radius = radius,
+            val hue = Brush.sweepGradient(RoutineColors.HueWheel, center)
+            // White fading to transparent white, not transparent black.
+            val saturation = Brush.radialGradient(
+                listOf(RoutineColors.HueWheelCentre, RoutineColors.HueWheelCentre.copy(alpha = 0f)),
                 center = center,
+                radius = radius,
             )
-            // The wheel darkens with the slider, so the circle always shows the colours the finger
-            // would actually land on rather than a brighter promise of them.
-            if (value < 1f) {
-                drawCircle(RoutineColors.HueWheelShade.copy(alpha = 1f - value), radius = radius, center = center)
+            onDrawBehind {
+                drawCircle(hue, radius = radius, center = center)
+                drawCircle(saturation, radius = radius, center = center)
+                // Brightness changes invalidate drawing, not the cached gradient shaders.
+                val brightness = latestValue
+                if (brightness < 1f) {
+                    drawCircle(RoutineColors.HueWheelShade.copy(alpha = 1f - brightness), radius = radius, center = center)
+                }
             }
-        }
+        })
         // The thumb rides a draw-phase translation over the static wheel: moving it never
         // re-lays out the circle, so the finger and the thumb move in the same frame.
         val centre = widthPx / 2f
