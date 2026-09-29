@@ -115,6 +115,8 @@ class AccessibilityTest {
         compose.onAllNodesWithText(text(R.string.metric_focus)).assertCountEquals(0)
         compose.onAllNodesWithText(text(R.string.metric_completed)).assertCountEquals(0)
         compose.onAllNodesWithText(text(R.string.auto_heal)).assertCountEquals(0)
+        // "Available: 0 min of reserve" is the loudest zero the calm-empty brief forbids.
+        compose.onAllNodesWithText(compose.activity.getString(R.string.reserve_remaining, 0)).assertCountEquals(0)
         compose.onAllNodesWithText(text(R.string.empty_day_title)).assertCountEquals(1)
     }
 

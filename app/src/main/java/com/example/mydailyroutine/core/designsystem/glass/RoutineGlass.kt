@@ -419,11 +419,17 @@ fun rememberGlassTouch(reduceMotion: Boolean, scale: Float = AppleMotion.PressSc
     LaunchedEffect(source) {
         source.interactions.collect { interaction ->
             when (interaction) {
+                // Keep the last point on release/cancel so the glow can fade where the finger was.
+                // Clearing it here makes routineGlassTouch return early and the 120 ms effect tween
+                // never paints.
                 is PressInteraction.Press -> point = interaction.pressPosition
-                is PressInteraction.Release -> point = null
-                is PressInteraction.Cancel -> point = null
+                is PressInteraction.Release, is PressInteraction.Cancel -> Unit
             }
         }
+    }
+    // Drop the point only once the highlight has finished fading and the finger is up.
+    LaunchedEffect(glow, pressed) {
+        if (!pressed && glow <= 0f) point = null
     }
     return GlassTouch(source, 1f - (1f - scale) * fraction, glow, point)
 }

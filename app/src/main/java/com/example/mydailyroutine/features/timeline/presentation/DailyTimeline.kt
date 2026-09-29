@@ -117,11 +117,12 @@ fun DailyTimeline(
     val hasItems = day.items.isNotEmpty()
     // Healing is offered when the day has actually slipped (a block that should have ended and is
     // neither done nor set aside) or when the queue holds something. On a tidy day both buttons
-    // would be no-ops, and a no-op button is worse than no button.
+    // would be no-ops, and a no-op button is worse than no button. An empty day has no blocks to
+    // heal — backlog alone must not put the ActionRow above the invitation card.
     val slipped = today && day.items.filterIsInstance<ResolvedTimelineItem.Block>().any {
         !it.isCompleted && !it.isSuppressed && it.endMinute <= nowMinute
     }
-    val offerHealing = slipped || backlogCount > 0
+    val offerHealing = hasItems && (slipped || backlogCount > 0)
     val noValue = stringResource(R.string.value_none)
     val completedValue = if (day.metrics.blockCount == 0) noValue
     else stringResource(R.string.completed_count, day.metrics.completedCount, day.metrics.blockCount)
