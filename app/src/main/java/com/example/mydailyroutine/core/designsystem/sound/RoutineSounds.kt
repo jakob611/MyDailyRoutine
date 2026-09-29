@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import com.example.mydailyroutine.R
+import java.util.concurrent.ConcurrentHashMap
 
 val LocalRoutineSounds = staticCompositionLocalOf<RoutineSounds> { error("RoutineSounds provider is required") }
 
@@ -47,7 +48,14 @@ val LocalRoutineSounds = staticCompositionLocalOf<RoutineSounds> { error("Routin
  */
 @Stable
 class RoutineSounds internal constructor(context: Context, private val enabled: State<Boolean>) {
-    private val loaded = mutableSetOf<Int>()
+    /**
+     * The samples the pool has finished loading — concurrent, because two threads meet here.
+     * `setOnLoadCompleteListener` answers on SoundPool's own callback thread while [play] asks on
+     * the main one, and a plain `mutableSetOf` read and written from two threads is a race: at best
+     * a sound that never plays because the write was lost, at worst a `HashMap` resize walked by two
+     * threads at once, which does not terminate.
+     */
+    private val loaded: MutableSet<Int> = ConcurrentHashMap.newKeySet()
     private val pool = SoundPool.Builder()
         .setMaxStreams(MAX_CONCURRENT)
         .setAudioAttributes(feedbackAudio)

@@ -3,6 +3,7 @@ package com.example.mydailyroutine.core.designsystem.haptics
 import android.content.Context
 import android.media.AudioAttributes
 import android.os.Build
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -19,6 +20,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalView
 
 val LocalRoutineHaptics = staticCompositionLocalOf<RoutineHaptics> { error("RoutineHaptics provider is required") }
+
+/** How long a reading of the system's haptic setting is trusted for. See [RoutineHaptics]. */
+private const val SystemSettingCacheMillis = 1_000L
 
 /**
  * The app's touch vocabulary, mapped one to one onto Apple's feedback generators.
@@ -57,12 +61,43 @@ class RoutineHaptics internal constructor(private val view: View, private val en
     private val context = view.context.applicationContext
     private val vibrator: Vibrator = systemVibrator(context)
 
+    /**
+     * Whether there is a motor at all, asked once. `hasVibrator` is a binder call to the system
+     * server, and it used to be made on every vibration — the answer cannot change while the app
+     * runs, so asking it per detent of a drag was asking the same question sixty times a second.
+     */
+    private val hasMotor: Boolean = runCatching { vibrator.hasVibrator() }.getOrDefault(false)
+
     /** Which of this class's primitives the motor can actually render; empty below API 31. */
     private val primitiveSupport: Set<Int> =
         if (Build.VERSION.SDK_INT >= 31) queryPrimitives() else emptySet()
 
-    private fun allowed(): Boolean = enabled.value && Settings.System.getInt(context.contentResolver,
-        Settings.System.HAPTIC_FEEDBACK_ENABLED, 1) != 0
+    /**
+     * The system's own touch-haptic setting, read at most once a second.
+     *
+     * It is a content-provider read — a binder call to the settings provider — and the vocabulary
+     * fires on every detent of a drag, so it used to cross into another process for each one, on the
+     * main thread, in the middle of the gesture the reader is feeling. The setting cannot change
+     * faster than a reader can leave this app, reach system settings and come back, and a value that
+     * is a second old is a value that is right; on return the cache has expired and the next call
+     * reads it again. Both fields are touched from the main thread only, which is where every
+     * haptic in a Compose gesture is fired from.
+     */
+    // Negative by one cache length, so the first call reads whatever the clock says.
+    private var systemSettingReadAt = -SystemSettingCacheMillis
+    private var systemSettingOn = true
+
+    private fun systemHapticsEnabled(): Boolean {
+        val now = SystemClock.uptimeMillis()
+        if (now - systemSettingReadAt >= SystemSettingCacheMillis) {
+            systemSettingReadAt = now
+            systemSettingOn = Settings.System.getInt(context.contentResolver,
+                Settings.System.HAPTIC_FEEDBACK_ENABLED, 1) != 0
+        }
+        return systemSettingOn
+    }
+
+    private fun allowed(): Boolean = enabled.value && systemHapticsEnabled()
 
     // ---- impact --------------------------------------------------------------------------------
 
@@ -266,13 +301,13 @@ class RoutineHaptics internal constructor(private val view: View, private val en
 
     @RequiresApi(29)
     private fun vibrate(effect: VibrationEffect) {
-        if (!vibrator.hasVibrator()) return
+        if (!hasMotor) return
         vibrator.vibrate(effect, touchAudio)
     }
 
     @Suppress("DEPRECATION") // the pre-API-26 overload below is the only one those devices have
     private fun waveform(timings: LongArray, amplitudes: IntArray) {
-        if (!vibrator.hasVibrator()) return
+        if (!hasMotor) return
         if (Build.VERSION.SDK_INT >= 26) {
             val pattern = if (vibrator.hasAmplitudeControl()) VibrationEffect.createWaveform(timings, amplitudes, -1)
             else VibrationEffect.createWaveform(timings, -1)

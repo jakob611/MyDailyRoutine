@@ -1,12 +1,6 @@
 package com.example.mydailyroutine.features.entry.presentation
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyRow
@@ -56,10 +50,11 @@ import com.example.mydailyroutine.domain.learning.VelocityCalibrator
 import com.example.mydailyroutine.domain.model.nominalMinutes
 import com.example.mydailyroutine.core.designsystem.haptics.LocalRoutineHaptics
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
-import com.example.mydailyroutine.core.designsystem.motion.effectSpec
-import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
+import com.example.mydailyroutine.core.designsystem.motion.rememberChevronTurn
+import com.example.mydailyroutine.core.designsystem.motion.revealEnter
+import com.example.mydailyroutine.core.designsystem.motion.revealExit
+import com.example.mydailyroutine.core.designsystem.motion.turning
 import com.example.mydailyroutine.core.designsystem.theme.*
-import androidx.compose.ui.draw.rotate
 import androidx.compose.material3.Checkbox
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -110,7 +105,9 @@ fun EntryEditorSheet(
     var advanced by rememberSaveable { mutableStateOf(false) }
     // One reduce-motion read for the whole sheet: every reveal below uses the same two specs.
     val reduceMotion = LocalReduceMotion.current
-    val advancedChevron by animateFloatAsState(if (advanced) 180f else 0f, spatialSpec<Float>(reduceMotion), label = "advanced-chevron")
+    // A State, turned in the draw phase. Read as a Float here, the arrow would recompose the sheet's
+    // whole body — every field, every switch — on each frame of a quarter turn.
+    val advancedChevron = rememberChevronTurn(advanced)
     var minimum by rememberSaveable { mutableStateOf("") }
     var elasticity by rememberSaveable { mutableStateOf("1.0") }
     var priority by rememberSaveable { mutableStateOf("3.0") }
@@ -297,8 +294,8 @@ fun EntryEditorSheet(
                 // remove-animations setting instead of always sliding.
                 AnimatedVisibility(
                     visible = kind == EntryKind.BLOCK || !allDay,
-                    enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
-                    exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
+                    enter = revealEnter(reduceMotion),
+                    exit = revealExit(reduceMotion),
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.md)) {
                         RoutineTimeField(startText, { times = times.withStart(it); error = null },
@@ -346,15 +343,15 @@ fun EntryEditorSheet(
                     }
                     ActionRow {
                         TextButton(onClick = { advanced = !advanced; haptics.tap() }) {
-                            Icon(Icons.Outlined.ExpandMore, null, Modifier.size(RoutineMetrics.IconSize).rotate(advancedChevron))
+                            Icon(Icons.Outlined.ExpandMore, null, Modifier.size(RoutineMetrics.IconSize).turning(advancedChevron))
                             Spacer(Modifier.width(RoutineSpacing.sm))
                             RoutineLabel(stringResource(R.string.entry_more_options), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                     AnimatedVisibility(
                         visible = advanced,
-                        enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
-                        exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
+                        enter = revealEnter(reduceMotion),
+                        exit = revealExit(reduceMotion),
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.md)) {
                             RoutineText(stringResource(R.string.elastic_settings), style = MaterialTheme.typography.titleSmall,

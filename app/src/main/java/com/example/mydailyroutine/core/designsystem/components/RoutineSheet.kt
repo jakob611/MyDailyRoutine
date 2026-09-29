@@ -35,6 +35,17 @@ fun RoutineSheet(visible: Boolean, content: @Composable (sheetState: SheetState)
 }
 
 /**
+ * The connection every sheet shares. It holds no state, so there is nothing to keep apart — and a
+ * fresh anonymous object per call meant a fresh nested-scroll node registration on every
+ * recomposition of every sheet, which is the recomposition a fling is running through.
+ */
+private val FlingResidual: NestedScrollConnection = object : NestedScrollConnection {
+    // onPostFling is only ever dispatched for real flings, so consuming everything here
+    // is exactly the residual that would otherwise reach the sheet and sink it.
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
+}
+
+/**
  * Stops a fast fling inside a sheet's body from handing its leftover velocity to the sheet's own
  * drag logic. Without this, every hard flick that reaches the content's edge also pushes the panel:
  * the sheet sinks a few pixels, the spring pulls it back, the next flick sinks it again — the whole
@@ -47,10 +58,4 @@ fun RoutineSheet(visible: Boolean, content: @Composable (sheetState: SheetState)
  * consumed — a finger dragging the content at the edge still follows the sheet, which is the
  * deliberate, pleasant part of the behaviour, so closing by slow drag keeps working.
  */
-fun Modifier.sheetFlingStabilizer(): Modifier = this.nestedScroll(
-    object : NestedScrollConnection {
-        // onPostFling is only ever dispatched for real flings, so consuming everything here
-        // is exactly the residual that would otherwise reach the sheet and sink it.
-        override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
-    },
-)
+fun Modifier.sheetFlingStabilizer(): Modifier = this.nestedScroll(FlingResidual)

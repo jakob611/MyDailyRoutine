@@ -13,11 +13,8 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -25,7 +22,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -91,7 +87,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.util.lerp
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -105,9 +100,12 @@ import androidx.compose.ui.semantics.semantics
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
 import com.example.mydailyroutine.core.designsystem.motion.LocalPulse
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.containerMorphSpec
 import com.example.mydailyroutine.core.designsystem.motion.effectSpec
 import com.example.mydailyroutine.core.designsystem.motion.rememberAppPulse
 import com.example.mydailyroutine.core.designsystem.motion.rememberReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.revealEnter
+import com.example.mydailyroutine.core.designsystem.motion.revealExit
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.components.GlassIconButton
 import com.example.mydailyroutine.core.designsystem.glass.LocalRoutineBackdrop
@@ -123,6 +121,7 @@ import com.example.mydailyroutine.features.settings.presentation.NotificationAcc
 import com.example.mydailyroutine.core.designsystem.theme.*
 import com.kyant.backdrop.Backdrop
 import java.time.ZonedDateTime
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -173,7 +172,15 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     LaunchedEffect(data.isLoading, data.error, data.mode, data.date) {
         if (!data.isLoading && data.error == null) StartupTrace.firstDayDrawn()
     }
-    val warningKeys = data.days[data.date]?.warnings.orEmpty().map { "${it.type}:${it.itemKeys}:${it.atMinute}" }.toSet()
+    // A set built once per change of the day's warnings rather than once per recomposition: the
+    // screen recomposes on every emission of the state flow and on every minute of the clock, and
+    // mapping the same warnings into strings each time is work whose answer cannot have changed.
+    // Keyed on the day's own list, never on `data.days`: in the year view that map holds three
+    // hundred and sixty-five days, and comparing it would cost more than the work it saves.
+    val dayWarnings = data.days[data.date]?.warnings.orEmpty()
+    val warningKeys = remember(dayWarnings) {
+        dayWarnings.map { "${it.type}:${it.itemKeys}:${it.atMinute}" }.toSet()
+    }
     var previousWarnings by remember(data.date) { mutableStateOf<Set<String>?>(null) }
     LaunchedEffect(warningKeys, data.isLoading) {
         if (!data.isLoading) {
@@ -185,8 +192,12 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
     // today or tomorrow. The count is now written quietly, and red is kept for the second group only —
     // a deadline that is still ahead is information, not a scolding (N3).
     val today = now.toLocalDate()
-    val overdueTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(today) }
-    val dueSoonTasks = state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == today || due == today.plusDays(1)) }
+    val overdueTasks = remember(state.planning.tasks, today) {
+        state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && due.isBefore(today) }
+    }
+    val dueSoonTasks = remember(state.planning.tasks, today) {
+        state.planning.tasks.count { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == today || due == today.plusDays(1)) }
+    }
     val waitingTasks = overdueTasks + dueSoonTasks
     // Read before the modifier: a semantics block is not a composable scope, so the string has to
     // exist by the time the dot is described.
@@ -293,15 +304,38 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                                     }
                                 }
                                 else -> when (shown.mode) {
-                                    TimelineMode.DAY -> shown.days[shown.date]?.let { day -> DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning, state.planning.backlog.size, state.execution,
-                                        state.planning.tasks.filter { task -> val due = task.dueDate; task.completedAtEpochMillis == null && due != null && (due == day.date || (day.date == now.toLocalDate() && due.isBefore(now.toLocalDate()))) }, onAction,
-                                        topInset = topInset, bottomInset = bottomInset, userName = state.preferences.userName,
-                                        eveningFull = state.panels.eveningFullDay == day.date,
-                                        skippedHidden = state.panels.skippedHiddenDay == day.date,
+                                    TimelineMode.DAY -> shown.days[shown.date]?.let { day ->
+                                        // Remembered, and as a persistent list. The day screen is the
+                                        // heaviest thing in this window and it must not be rebuilt when
+                                        // something it does not show changes: a `filter` written inline
+                                        // hands it a list that is a new instance on every recomposition,
+                                        // so an argument was never equal to the last one and the screen
+                                        // was recomposed by the minute clock, by the bar folding and by
+                                        // every save in flight. `PersistentList` is the type the Compose
+                                        // compiler treats as stable, which is what lets it skip at all.
+                                        val dueTasks = remember(state.planning.tasks, day.date, today) {
+                                            state.planning.tasks.filter { task ->
+                                                val due = task.dueDate
+                                                task.completedAtEpochMillis == null && due != null &&
+                                                    (due == day.date || (day.date == today && due.isBefore(today)))
+                                            }.toPersistentList()
+                                        }
                                         // Tomorrow's exam or deadline is what keeps tonight's plan untouched.
-                                        tomorrowHasDeadline = data.milestones.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) } ||
-                                            data.taskMarkers.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) } ||
-                                            data.goalMarkers.any { !it.isCompleted && it.dueDate == day.date.plusDays(1) }) }
+                                        val tomorrow = day.date.plusDays(1)
+                                        val tomorrowHasDeadline = remember(
+                                            data.milestones, data.taskMarkers, data.goalMarkers, tomorrow,
+                                        ) {
+                                            data.milestones.any { !it.isCompleted && it.dueDate == tomorrow } ||
+                                                data.taskMarkers.any { !it.isCompleted && it.dueDate == tomorrow } ||
+                                                data.goalMarkers.any { !it.isCompleted && it.dueDate == tomorrow }
+                                        }
+                                        DailyTimeline(day, now, state.panels.isSaving, state.preferences.health, state.preferences.planning,
+                                            state.planning.backlog.size, state.execution, dueTasks, onAction,
+                                            topInset = topInset, bottomInset = bottomInset, userName = state.preferences.userName,
+                                            eveningFull = state.panels.eveningFullDay == day.date,
+                                            skippedHidden = state.panels.skippedHiddenDay == day.date,
+                                            tomorrowHasDeadline = tomorrowHasDeadline)
+                                    }
                                     TimelineMode.WEEK -> WeeklyOverview(shown, onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset, bottomInset = bottomInset) { onAction(TimelineAction.SelectDate(it, true)) }
                                     TimelineMode.MONTH -> MonthlyOverview(shown, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset, bottomInset = bottomInset) { onAction(TimelineAction.SelectDate(it, true)) }
                                     TimelineMode.YEAR -> YearlyOverview(shown, state.preferences, now.toLocalDate(), onGoals = { onAction(TimelineAction.OpenGoals) }, topInset = topInset, bottomInset = bottomInset) { onAction(TimelineAction.SelectDate(it, true)) }
@@ -326,7 +360,27 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                     // alone — so on every screen the first line sat exactly the status bar deep under
                     // the open island. The order of these modifiers is the fix, not a style choice.
                     .onSizeChanged { size ->
-                        if (!collapsed) topInset = with(density) { size.height.toDp() }
+                        // The *open* footprint, and the largest one this window has measured.
+                        //
+                        // The bar folds and unfolds on every change of scroll direction, and its height
+                        // passes through every value between folded and open on the way there. Writing
+                        // each of them into the inset the screens below pad themselves by made the whole
+                        // window answer to the animation: `topInset` is read by the day list's
+                        // `contentPadding`, so every frame of the fold recomposed the screen, re-measured
+                        // the list and re-laid it out — sixty times a second, a hundred and twenty on a
+                        // 120 Hz panel, in exactly the moment the reader is scrolling. That is the frame
+                        // budget the transitions and the glass then did not have.
+                        //
+                        // The open height is also the *correct* number: content clears the tall bar so
+                        // that nothing jumps when it folds (that is the rule this inset already follows),
+                        // so a measurement that only ever grows is the rule restated. One unfold measures
+                        // up to it; after that the animation writes nothing at all. A configuration that
+                        // changes the bar's real height — rotation, display size, font scale — recreates
+                        // the activity, and the measurement starts over with it.
+                        if (!collapsed) {
+                            val open = with(density) { size.height.toDp() }
+                            if (open > topInset) topInset = open
+                        }
                     }
                     .statusBarsPadding()
                     .padding(top = RoutineSpacing.md, start = RoutineSpacing.md, end = RoutineSpacing.md),
@@ -415,8 +469,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         // empty-day state, where there is room and it reads as an invitation.
                         AnimatedVisibility(
                             visible = !state.panels.showGoals && !collapsed,
-                            enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
-                            exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
+                            enter = revealEnter(reduceMotion),
+                            exit = revealExit(reduceMotion),
                         ) {
                             DateNavigator(periodTitle(data),
                                 onToday = { onAction(TimelineAction.Today) },
@@ -433,8 +487,8 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         }
                         AnimatedVisibility(
                             visible = !state.panels.showGoals,
-                            enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
-                            exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion)),
+                            enter = revealEnter(reduceMotion),
+                            exit = revealExit(reduceMotion),
                         ) {
                             // Kyant0's LiquidBottomTabs pattern at segment scale: one capsule of accent
                             // wash that slides between the cells on the spatial spring, instead of four
@@ -504,12 +558,13 @@ fun RoutineApp(viewModel: RoutineViewModel, access: NotificationAccess,
                         // Root pixels, because root is the space the morph lays the pane out in —
                         // the no-arg boundsInWindow() is hidden-deprecated in this Compose version.
                         .onGloballyPositioned { coordinates ->
-                            pillBoundsPx = coordinates.boundsInRoot()
+                            // One measurement, two answers: the root rectangle is asked for once, and
+                            // both the morph's origin and the list's clearance are read off it.
+                            val pill = coordinates.boundsInRoot()
+                            pillBoundsPx = pill
                             // Distance from the bottom of the window to the top of the pill, plus the
                             // gap the list keeps under it. Root pixels, the same space the morph uses.
-                            bottomInset = with(density) {
-                                (windowPx.height - coordinates.boundsInRoot().top).toDp()
-                            } + RoutineSpacing.md
+                            bottomInset = with(density) { (windowPx.height - pill.top).toDp() } + RoutineSpacing.md
                         }
                         .routineGlassTouch(fastAddTouch, RoutineShapes.Pill)
                         .routineGlass(backdrop, RoutineShapes.Pill, GlassRole.Control)
@@ -610,7 +665,7 @@ private fun AddBlockMorph(
         // nothing is just a flicker. The sheet opens normally instead.
         if (reduceMotion || backdrop == null || window.width == 0 || pill.width <= 0f) return@LaunchedEffect
         progress = 0f
-        animate(0f, 1f, animationSpec = tween(420, easing = FastOutSlowInEasing)) { value, _ -> progress = value }
+        animate(0f, 1f, animationSpec = containerMorphSpec(reduceMotion)) { value, _ -> progress = value }
         // The sheet owns the surface now; leave composition entirely so the pane stops sampling.
         progress = 0f
     }
