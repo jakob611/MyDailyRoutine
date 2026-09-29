@@ -24,6 +24,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
@@ -192,7 +193,22 @@ enum class GlassRole(
         tintAlpha = RoutineColors.GlassTintCompactAlpha, fallback = RoutineColors.GlassFallback),
     /** Floating action button and other compact primary controls. */
     Control(4.dp, 14.dp, 24.dp, depth = false, dispersion = false, rim = 0.14f, shadowRadius = 10.dp,
-        tintAlpha = RoutineColors.GlassTintCompactAlpha, fallback = RoutineColors.GlassFallback),
+        tintAlpha = RoutineColors.GlassTintCompactAlpha, fallback = RoutineColors.GlassFallback);
+
+    /**
+     * The lit edge along the top, built once for the role rather than once per draw.
+     *
+     * The gradient names no coordinates, so the same instance serves any size; what it buys is
+     * that the renderer can keep the shader it compiled for it instead of compiling a new one
+     * every frame, on every glass element on the screen.
+     */
+    internal val specular: Brush = Brush.horizontalGradient(
+        0f to RoutineColors.GlassRim.copy(alpha = RoutineColors.GlassSpecular * rim),
+        0.6f to RoutineColors.GlassRim.copy(
+            alpha = RoutineColors.GlassSpecular * rim * RoutineColors.GlassSpecularFall,
+        ),
+        1f to Color.Transparent,
+    )
 }
 
 /** Rim hairline. Drawn centred on the shape outline, so the clip leaves half of it: ~0.8 dp of light. */
@@ -239,14 +255,9 @@ fun Modifier.routineBackdropLayer(backdrop: Backdrop?): Modifier {
  * status bar reads as a rendering defect.
  */
 private fun DrawScope.drawSpecular(role: GlassRole) {
-    val peak = RoutineColors.GlassSpecular * role.rim
     val width = RimWidth.toPx()
     drawLine(
-        brush = Brush.horizontalGradient(
-            0f to RoutineColors.GlassRim.copy(alpha = peak),
-            0.6f to RoutineColors.GlassRim.copy(alpha = peak * RoutineColors.GlassSpecularFall),
-            1f to Color.Transparent,
-        ),
+        brush = role.specular,
         start = Offset(0f, width / 2f),
         end = Offset(size.width, width / 2f),
         strokeWidth = width,
@@ -455,28 +466,32 @@ fun Modifier.routineGlassTouch(touch: GlassTouch, shape: CornerBasedShape): Modi
 @Composable
 fun RoutineAmbientBackground(modifier: Modifier = Modifier) {
     Box(
-        modifier.drawBehind {
-            drawRect(RoutineColors.Background)
-            drawRect(
-                Brush.radialGradient(
-                    colors = listOf(
-                        RoutineColors.AmbientTop.copy(alpha = RoutineColors.AmbientTopAlpha),
-                        Color.Transparent,
-                    ),
-                    center = Offset(size.width * 0.18f, size.height * 0.10f),
-                    radius = (size.width * 0.78f).coerceAtLeast(1f),
-                )
+        // Built once per size, not once per frame. A `Brush` is the key the renderer caches its
+        // compiled shader under, so a fresh instance on every draw is a fresh full-screen shader
+        // on every draw — and this one sits behind everything that scrolls, so it is redrawn
+        // whenever the content layer is recorded again.
+        modifier.drawWithCache {
+            val top = Brush.radialGradient(
+                colors = listOf(
+                    RoutineColors.AmbientTop.copy(alpha = RoutineColors.AmbientTopAlpha),
+                    Color.Transparent,
+                ),
+                center = Offset(size.width * 0.18f, size.height * 0.10f),
+                radius = (size.width * 0.78f).coerceAtLeast(1f),
             )
-            drawRect(
-                Brush.radialGradient(
-                    colors = listOf(
-                        RoutineColors.AmbientBottom.copy(alpha = RoutineColors.AmbientBottomAlpha),
-                        Color.Transparent,
-                    ),
-                    center = Offset(size.width * 0.82f, size.height * 0.78f),
-                    radius = (size.width * 0.88f).coerceAtLeast(1f),
-                )
+            val bottom = Brush.radialGradient(
+                colors = listOf(
+                    RoutineColors.AmbientBottom.copy(alpha = RoutineColors.AmbientBottomAlpha),
+                    Color.Transparent,
+                ),
+                center = Offset(size.width * 0.82f, size.height * 0.78f),
+                radius = (size.width * 0.88f).coerceAtLeast(1f),
             )
+            onDrawBehind {
+                drawRect(RoutineColors.Background)
+                drawRect(top)
+                drawRect(bottom)
+            }
         }
     )
 }
