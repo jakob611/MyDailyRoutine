@@ -151,15 +151,25 @@ object RoutineShapes {
     const val CornerSmoothing = 0.6f
 
     val Card = ContinuousCornerShape(16.dp, CornerSmoothing)
-    val Chip = ContinuousCornerShape(8.dp, CornerSmoothing)
+    /**
+     * Not smoothed. At 8 dp the smoothed outline differs from the plain one by a tenth of a dp —
+     * three tenths of a pixel — and a chip is something the app draws by the dozen. Paying a path
+     * clip per chip for a difference nobody can see is the wrong side of the trade.
+     */
+    val Chip = RoundedCornerShape(8.dp)
     /**
      * A calendar cell, in either overview: the month grid's day square and the week grid's block.
      * They are the same kind of object — a small filled area that stands for a period of time — so
      * they were the least defensible place for two different radii (12 dp and 6 dp). They now share
      * this one, which is deliberately smaller than a card's: at 100 dp wide, a 16 dp corner would
      * make a week cell look like a button.
+     *
+     * Also the one shape in the app drawn by the dozen — up to forty-two squares in the month grid
+     * and one per block in the week grid — so it keeps the plain corner. A smoothed outline is a
+     * path, and a path is clipped by the renderer rather than by the cheap rounded-rectangle route
+     * the platform has in hardware. At 12 dp the difference it would buy is 0.15 dp.
      */
-    val Cell = ContinuousCornerShape(12.dp, CornerSmoothing)
+    val Cell = RoundedCornerShape(12.dp)
     /**
      * Not smoothed, and it cannot be: a capsule's radius is already half its height, so there is
      * no straight edge left to ramp the curvature into. The budget in [ContinuousCornerShape]

@@ -89,6 +89,20 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
     private val periodicKey = booleanPreferencesKey("periodic_break_enabled")
     private val periodicEveryKey = intPreferencesKey("periodic_break_every_minutes")
     private val periodicLenKey = intPreferencesKey("periodic_break_minutes")
+
+    /**
+     * The keys the first-run flow itself can write.
+     *
+     * The rule below reads "a store that already holds settings belongs to someone who was using
+     * the app before this flow existed". It has to ignore what the flow writes *while it is being
+     * answered*, or it ends itself: picking a language on the first screen wrote `app_language`,
+     * the store stopped being empty, and the flow vanished mid-answer — dropping the reader into
+     * an app they had not finished setting up, with the language change recreating the activity
+     * on the way out so it looked like the app had simply skipped it.
+     */
+    private val firstRunKeys = setOf(
+        appLanguageKey.name, nameKey.name, startKey.name, endKey.name, onboardingKey.name,
+    )
     private val defaults = SchedulePreferences()
 
     override val preferences = store.data.catch { error ->
@@ -99,7 +113,7 @@ class DataStorePreferencesRepository(context: Context, private val onChanged: ()
             // An install that already holds settings belongs to someone who was using the app before
             // the first-run flow existed: asking them to answer it now would be a regression, so a
             // missing flag means "already past it" as soon as the store has anything else in it.
-            onboardingDone = values[onboardingKey] ?: values.asMap().isNotEmpty(),
+            onboardingDone = values[onboardingKey] ?: values.asMap().keys.any { it.name !in firstRunKeys },
             muteDuringSchoolHours = values[muteKey] ?: defaults.muteDuringSchoolHours,
             notifyRecovery = values[recoveryKey] ?: defaults.notifyRecovery,
             schoolStart = time(values[startKey], defaults.schoolStart),

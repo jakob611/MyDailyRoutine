@@ -174,6 +174,18 @@ fun OnboardingScreen(
                 }
             }
             if (Step.entries[step] == Step.START) {
+                // The reader's own timetable is the best possible starting state, so it is offered
+                // here rather than being something to go and find later. It finishes the flow
+                // first: the import sheet is an overlay of the main screen and is composed only
+                // once the first run is done, so the flow hands over and the sheet is already
+                // open when the app appears.
+                OutlinedButton(
+                    onClick = { finish(loadExample = false); onAction(TimelineAction.ShowTimetableImport) },
+                    shape = RoutineShapes.Pill,
+                    modifier = Modifier.fillMaxWidth().testTag("onboarding-timetable"),
+                ) {
+                    RoutineLabel(stringResource(R.string.onboarding_start_timetable), style = MaterialTheme.typography.labelLarge)
+                }
                 OutlinedButton(
                     onClick = { finish(loadExample = false) },
                     shape = RoutineShapes.Pill,

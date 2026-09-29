@@ -20,6 +20,7 @@
     <string name="onboarding_back">Back</string>
     <string name="onboarding_next">Next</string>
     <string name="onboarding_start_demo">Load the IB example</string>
+    <string name="onboarding_start_timetable">Import your timetable</string>
     <string name="onboarding_start_empty">Start with an empty day</string>
     <string name="onboarding_done">Ready. Your day is yours.</string>
     <string name="empty_day_greeting">Hi %1$s. Your day starts with room.</string>

@@ -15,6 +15,7 @@
     <string name="onboarding_back">Nazaj</string>
     <string name="onboarding_next">Naprej</string>
     <string name="onboarding_start_demo">Naloži primer IB</string>
+    <string name="onboarding_start_timetable">Uvozi svoj urnik</string>
     <string name="onboarding_start_empty">Raje začnem s praznim dnem</string>
     <string name="onboarding_done">Pripravljeno. Tvoj dan je tvoj.</string>
     <string name="empty_day_greeting">Živjo, %1$s. Dan se začne s prostorom.</string>
