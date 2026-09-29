@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -212,6 +213,8 @@ fun RoutineSwitch(
     val reduceMotion = LocalReduceMotion.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val currentChecked by rememberUpdatedState(checked)
+    val currentOnCheckedChange by rememberUpdatedState(onCheckedChange)
     val position = remember { Animatable(if (checked) 1f else 0f) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(checked, reduceMotion) {
@@ -266,7 +269,7 @@ fun RoutineSwitch(
                         },
                         onDragEnd = {
                             val target = position.value >= 0.5f
-                            if (target != checked) onCheckedChange?.invoke(target)
+                            if (target != currentChecked) currentOnCheckedChange?.invoke(target)
                             scope.launch {
                                 if (reduceMotion) position.snapTo(if (target) 1f else 0f)
                                 else position.animateTo(if (target) 1f else 0f, PopSpring)
@@ -274,8 +277,8 @@ fun RoutineSwitch(
                         },
                         onDragCancel = {
                             scope.launch {
-                                if (reduceMotion) position.snapTo(if (checked) 1f else 0f)
-                                else position.animateTo(if (checked) 1f else 0f, PopSpring)
+                                if (reduceMotion) position.snapTo(if (currentChecked) 1f else 0f)
+                                else position.animateTo(if (currentChecked) 1f else 0f, PopSpring)
                             }
                         },
                     )
@@ -360,6 +363,7 @@ fun LiquidSlider(
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
 ) {
     val reduceMotion = LocalReduceMotion.current
+    val currentOnValueChange by rememberUpdatedState(onValueChange)
     var dragging by remember { mutableStateOf(false) }
     val span = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.0001f)
     val fraction = ((value - valueRange.start) / span).coerceIn(0f, 1f)
@@ -394,17 +398,17 @@ fun LiquidSlider(
             .onSizeChanged { widthPx = it.width.toFloat() }
             .pointerInput(enabled, valueRange, widthPx) {
                 if (!enabled || widthPx <= 0f) return@pointerInput
-                detectTapGestures(onTap = { onValueChange(valueAt(it.x)) })
+                detectTapGestures(onTap = { currentOnValueChange(valueAt(it.x)) })
             }
             .pointerInput(enabled, valueRange, widthPx) {
                 if (!enabled || widthPx <= 0f) return@pointerInput
                 detectHorizontalDragGestures(
                     onDragStart = { offset ->
                         dragging = true
-                        onValueChange(valueAt(offset.x))
+                        currentOnValueChange(valueAt(offset.x))
                     },
                     onHorizontalDrag = { change, _ ->
-                        onValueChange(valueAt(change.position.x))
+                        currentOnValueChange(valueAt(change.position.x))
                         change.consume()
                     },
                     onDragEnd = { dragging = false },
@@ -424,7 +428,7 @@ fun LiquidSlider(
                     .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.2f), capsule),
             )
             Box(
-                Modifier.fillMaxWidth(shown).fillMaxHeight()
+                Modifier.fillMaxWidth(shown.coerceIn(0f, 1f)).fillMaxHeight()
                     .clip(capsule)
                     .background(RoutineColors.Primary),
             )
@@ -438,7 +442,7 @@ fun LiquidSlider(
             Modifier
                 .size(SliderThumb)
                 .graphicsLayer {
-                    translationX = thumbPx / 2f + shown * (widthPx - thumbPx).coerceAtLeast(0f)
+                    translationX = thumbPx / 2f + shown.coerceIn(0f, 1f) * (widthPx - thumbPx).coerceAtLeast(0f)
                 }
                 .liquidDisc(
                     backdrop = trackBackdrop.takeIf { glassThumb },
