@@ -1,6 +1,7 @@
 package com.example.mydailyroutine.core.designsystem.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,7 +12,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -55,6 +58,7 @@ import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
@@ -218,13 +222,9 @@ fun RoutineSwitch(
         if (reduceMotion) position.snapTo(if (checked) 1f else 0f)
         else position.animateTo(if (checked) 1f else 0f, PopSpring)
     }
-    val squash by animateFloatAsState(
-        if (pressed) 1f else 0f,
-        glassTouchSpec<Float>(reduceMotion),
-        label = "switch-squash",
-    )
     val density = LocalDensity.current
     val travelPx = with(density) { (SwitchWidth - SwitchKnob - SwitchPad * 2).toPx() }
+    val padPx = with(density) { SwitchPad.toPx() }
     // The knob samples the track's own layer and nothing else. Deliberately not the window: most
     // of these switches live inside a sheet, which is a different window, and a control that
     // sampled the window backdrop from in there would read as a hole punched through the sheet.
@@ -280,60 +280,122 @@ fun RoutineSwitch(
                         },
                     )
                 },
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        val track = RoundedCornerShape(percent = 50)
-        Box(
-            Modifier.fillMaxSize()
-                // First in the chain, so what the layer records is the track's own fill — a
-                // `layerBackdrop` placed after `background` would record an empty box.
-                .layerBackdrop(trackBackdrop)
-                .clip(track)
-                .background(lerp(RoutineColors.Surface4, RoutineColors.SwitchOn, position.value))
-                // One hairline of light along the top of the track: the same lit-edge idea as the
-                // glass rim, at capsule scale.
-                .drawWithContent {
-                    drawContent()
-                    drawRect(
-                        Brush.verticalGradient(
-                            0f to RoutineColors.GlassRim.copy(alpha = 0.10f * (1f - position.value * 0.6f)),
-                            0.5f to Color.Transparent,
-                        )
-                    )
-                }
-                .border(
-                    1.dp,
-                    RoutineColors.GlassRim.copy(alpha = 0.10f * (1f - position.value)),
-                    track,
-                ),
-        )
-        // The squash is handed to the glass as its `layerBlock` rather than applied around it: the
-        // library inverse-transforms the sampled backdrop by that block, so the track stays still
-        // while the disc stretches over it. Applied outside, the refraction would stretch too.
-        val squashBlock: GraphicsLayerScope.() -> Unit = {
-            scaleX = 1f + squash * SwitchKnobStretch
-            transformOrigin = TransformOrigin(if (position.value < 0.5f) 1f else 0f, 0.5f)
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            SwitchTrack(position, trackBackdrop)
+            SwitchKnobDisc(
+                pressed = pressed,
+                reduceMotion = reduceMotion,
+                position = position,
+                backdrop = trackBackdrop.takeIf { glassKnob },
+                padPx = padPx,
+                travelPx = travelPx,
+            )
         }
-        Box(
-            Modifier
-                .size(SwitchKnob)
-                // Draw-phase translation: the knob rides the spring without re-laying out the track.
-                .graphicsLayer {
-                    translationX = with(density) { SwitchPad.toPx() } + position.value * travelPx
-                }
-                .liquidDisc(
-                    backdrop = trackBackdrop.takeIf { glassKnob },
-                    grab = squash,
-                    blurRadius = SwitchKnobBlur,
-                    lensRadius = SwitchKnobLens,
-                    lensDepth = SwitchKnobLensDepth,
-                    shadowRadius = SwitchKnobShadow,
-                    clearance = SwitchKnobClearance,
-                    layerBlock = squashBlock,
-                ),
+    }
+}
+
+/** The alpha of the track's lit top edge at rest, and how much of it the fill takes over. */
+private const val TrackRimAlpha = 0.10f
+private const val TrackRimFade = 0.6f
+
+/**
+ * The capsule the knob rides: the fill, the lit top edge and the hairline, all three answering the
+ * same spring.
+ *
+ * Its own composable because that is where the spring is read, and a state read invalidates the
+ * smallest scope that read it. Left inline in the switch's body, every frame of the knob's travel
+ * rebuilt the whole control — the knob's glass layer included, whose effects the library
+ * re-configures whenever the modifier chain that carries them is replaced. Now the frames land on
+ * the track and nowhere else, and the knob rides them through a translation in its own layer.
+ *
+ * The fill and the lit edge are read in the **draw** phase; only the hairline's colour is still a
+ * composition read, because `Modifier.border` takes its colour as an argument. It is the one read
+ * left in a composable this small, which is the trade that keeps the hairline exactly the hairline
+ * it was rather than a hand-drawn stroke approximating one.
+ */
+@Composable
+private fun SwitchTrack(position: Animatable<Float, AnimationVector1D>, backdrop: LayerBackdrop) {
+    val track = RoundedCornerShape(percent = 50)
+    // One gradient for the life of the track. A `Brush` is the key the renderer caches its compiled
+    // shader under, so a fresh instance per frame is a fresh shader per frame; the spring modulates
+    // the paint's alpha instead, which is the same number the stops used to carry.
+    val rim = remember {
+        Brush.verticalGradient(
+            0f to RoutineColors.GlassRim.copy(alpha = TrackRimAlpha),
+            0.5f to Color.Transparent,
         )
     }
+    Box(
+        Modifier.fillMaxSize()
+            // First in the chain, so what the layer records is the track's own fill — a
+            // `layerBackdrop` placed after the drawing below would record an empty box.
+            .layerBackdrop(backdrop)
+            .clip(track)
+            .drawWithContent {
+                // The order the chain used to draw in: the fill, then the hairline the content pass
+                // brings with it, then the lit edge over both.
+                drawRect(lerp(RoutineColors.Surface4, RoutineColors.SwitchOn, position.value))
+                drawContent()
+                // One hairline of light along the top of the track: the same lit-edge idea as the
+                // glass rim, at capsule scale. It gives way as the brand colour arrives.
+                drawRect(rim, alpha = 1f - position.value * TrackRimFade)
+            }
+            .border(
+                1.dp,
+                RoutineColors.GlassRim.copy(alpha = TrackRimAlpha * (1f - position.value)),
+                track,
+            ),
+    )
+}
+
+/**
+ * The disc that rides the track, in a composition of its own.
+ *
+ * The press squash is handed to the glass as a `Float` parameter, so a frame of the squash is a
+ * frame of composition — that is the library's contract, not something a draw-phase read can avoid.
+ * What can be avoided is *whose* composition: left in the switch's body, each frame of a press
+ * rebuilt the whole control and, with it, the modifier chain carrying the knob's glass effects,
+ * which the library re-configures whenever the chain that holds them is replaced. Confined here, a
+ * press rebuilds one Box. The pixels are the same numbers in the same order.
+ */
+@Composable
+private fun SwitchKnobDisc(
+    pressed: Boolean,
+    reduceMotion: Boolean,
+    position: Animatable<Float, AnimationVector1D>,
+    backdrop: Backdrop?,
+    padPx: Float,
+    travelPx: Float,
+) {
+    val squash by animateFloatAsState(
+        if (pressed) 1f else 0f,
+        glassTouchSpec<Float>(reduceMotion),
+        label = "switch-squash",
+    )
+    // The squash is handed to the glass as its `layerBlock` rather than applied around it:
+    // the library inverse-transforms the sampled backdrop by that block, so the track stays
+    // still while the disc stretches over it. Applied outside, the refraction would stretch too.
+    val squashBlock: GraphicsLayerScope.() -> Unit = {
+        scaleX = 1f + squash * SwitchKnobStretch
+        transformOrigin = TransformOrigin(if (position.value < 0.5f) 1f else 0f, 0.5f)
     }
+    Box(
+        Modifier
+            .size(SwitchKnob)
+            // Draw-phase translation: the knob rides the spring without re-laying out the track.
+            .graphicsLayer { translationX = padPx + position.value * travelPx }
+            .liquidDisc(
+                backdrop = backdrop,
+                grab = squash,
+                blurRadius = SwitchKnobBlur,
+                lensRadius = SwitchKnobLens,
+                lensDepth = SwitchKnobLensDepth,
+                shadowRadius = SwitchKnobShadow,
+                clearance = SwitchKnobClearance,
+                layerBlock = squashBlock,
+            ),
+    )
 }
 
 private val SliderThumb = 20.dp
@@ -363,10 +425,15 @@ fun LiquidSlider(
     var dragging by remember { mutableStateOf(false) }
     val span = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.0001f)
     val fraction = ((value - valueRange.start) / span).coerceIn(0f, 1f)
-    val shown by animateFloatAsState(fraction, glassMorphSpec<Float>(reduceMotion), label = "slider-fill")
+    // Both handed down as states, not read here: a drag publishes a new value on every move, so the
+    // slider's own body recomposes per frame regardless, and whatever is read in it is rebuilt per
+    // frame with it. The track and the thumb read their springs in compositions of their own, which
+    // keeps both glass modifier chains — the layer the thumb refracts and the disc doing the
+    // refracting — intact for the length of the drag.
+    val shown = animateFloatAsState(fraction, glassMorphSpec<Float>(reduceMotion), label = "slider-fill")
     // One progress for "the finger has it": the growth, the lens and the clearing all read from it,
     // so they can never drift out of step with each other.
-    val grab by animateFloatAsState(
+    val grab = animateFloatAsState(
         if (dragging) 1f else 0f,
         glassTouchSpec<Float>(reduceMotion),
         label = "slider-grab",
@@ -413,45 +480,99 @@ fun LiquidSlider(
             },
         contentAlignment = Alignment.CenterStart,
     ) {
-        val capsule = RoundedCornerShape(percent = 50)
         // Both halves of the track recorded into one layer, so the thumb refracts the turquoise it
         // has already passed on one side and the empty track it has not reached on the other.
-        Box(Modifier.fillMaxWidth().height(SliderTrack).layerBackdrop(trackBackdrop)) {
-            Box(
-                Modifier.fillMaxSize()
-                    .clip(capsule)
-                    .background(RoutineColors.Surface4)
-                    .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.2f), capsule),
-            )
-            Box(
-                Modifier.fillMaxWidth(shown).fillMaxHeight()
-                    .clip(capsule)
-                    .background(RoutineColors.Primary),
-            )
-        }
-        val growBlock: GraphicsLayerScope.() -> Unit = {
-            val scale = 1f + grab * SliderThumbGrowth
-            scaleX = scale
-            scaleY = scale
-        }
-        Box(
-            Modifier
-                .size(SliderThumb)
-                .graphicsLayer {
-                    translationX = thumbPx / 2f + shown * (widthPx - thumbPx).coerceAtLeast(0f)
-                }
-                .liquidDisc(
-                    backdrop = trackBackdrop.takeIf { glassThumb },
-                    grab = grab,
-                    blurRadius = SliderThumbBlur,
-                    lensRadius = SliderThumbLens,
-                    lensDepth = SliderThumbLensDepth,
-                    shadowRadius = SliderThumbShadow,
-                    clearance = SliderThumbClearance,
-                    layerBlock = growBlock,
-                ),
+        LiquidSliderTrack(shown, trackBackdrop)
+        LiquidSliderThumb(
+            shown = shown,
+            grab = grab,
+            backdrop = trackBackdrop.takeIf { glassThumb },
+            thumbPx = thumbPx,
+            widthPx = widthPx,
         )
     }
+}
+
+/**
+ * The capsule strip under the thumb.
+ *
+ * Its own composable so that the fill's spring is read in the draw phase of a scope that does not
+ * recompose when the value does: a drag rebuilds the slider's body per frame, and a body that owns
+ * this chain rebuilds the layer the thumb refracts per frame with it.
+ */
+@Composable
+private fun LiquidSliderTrack(shown: State<Float>, backdrop: LayerBackdrop) {
+    val capsule = RoundedCornerShape(percent = 50)
+    Box(
+        Modifier.fillMaxWidth().height(SliderTrack)
+            // First in the chain, so what the layer records is the track's own fill.
+            .layerBackdrop(backdrop)
+            .clip(capsule)
+            .background(RoutineColors.Surface4)
+            // The fill is drawn, not laid out — and drawn between the surface and the hairline,
+            // which is the order the two children used to paint in.
+            //
+            // It was a child of the track sized with `fillMaxWidth(shown)`, and a fraction in a
+            // layout modifier is a layout read of an animated value: every frame of the thumb's
+            // spring re-measured the track, re-measured the thumb's box beside it and re-recorded
+            // the layer the thumb refracts. A drag publishes a new value on every move, so that was
+            // every frame of every drag of every slider in the entry editor. What is left is one
+            // repaint of a six-dp strip.
+            .drawWithContent {
+                drawContent()
+                val width = size.width * shown.value.coerceIn(0f, 1f)
+                if (width > 0f) {
+                    drawRoundRect(
+                        color = RoutineColors.Primary,
+                        size = Size(width, size.height),
+                        // The capsule the fill used to be clipped by: half the height, which is what
+                        // a 50 % corner resolves to on a strip this short.
+                        cornerRadius = CornerRadius(size.height / 2f),
+                    )
+                }
+            }
+            .border(1.dp, RoutineColors.CardBorder.copy(alpha = 0.2f), capsule),
+    )
+}
+
+/**
+ * The disc the finger drags.
+ *
+ * Its own composable for the same reason as the track, plus one more: the growth is handed to the
+ * glass as a `Float`, so a frame of it is a frame of composition, and that frame should rebuild one
+ * Box rather than the slider around it.
+ */
+@Composable
+private fun LiquidSliderThumb(
+    shown: State<Float>,
+    grab: State<Float>,
+    backdrop: Backdrop?,
+    thumbPx: Float,
+    widthPx: Float,
+) {
+    val growBlock: GraphicsLayerScope.() -> Unit = {
+        val scale = 1f + grab.value * SliderThumbGrowth
+        scaleX = scale
+        scaleY = scale
+    }
+    Box(
+        Modifier
+            .size(SliderThumb)
+            // Draw-phase translation: the thumb rides the spring without re-laying out the track.
+            .graphicsLayer {
+                translationX = thumbPx / 2f + shown.value * (widthPx - thumbPx).coerceAtLeast(0f)
+            }
+            .liquidDisc(
+                backdrop = backdrop,
+                grab = grab.value,
+                blurRadius = SliderThumbBlur,
+                lensRadius = SliderThumbLens,
+                lensDepth = SliderThumbLensDepth,
+                shadowRadius = SliderThumbShadow,
+                clearance = SliderThumbClearance,
+                layerBlock = growBlock,
+            ),
+    )
 }
 
 /**

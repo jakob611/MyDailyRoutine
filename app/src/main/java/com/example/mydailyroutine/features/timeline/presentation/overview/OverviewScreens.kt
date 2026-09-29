@@ -68,6 +68,7 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import com.example.mydailyroutine.core.platform.uiLocale
+import com.example.mydailyroutine.core.presentation.DayUi
 import com.example.mydailyroutine.core.presentation.TimelineContent
 import com.example.mydailyroutine.core.presentation.TimelineMode
 import com.example.mydailyroutine.core.presentation.PeriodRanges
@@ -371,7 +372,10 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
                             Surface(
                                 onClick = { onDate(date) },
                                 modifier = Modifier.weight(1f).aspectRatioCell()
-                                    .alpha(if (inMonth) 1f else 0.4f)
+                                    // Dimmed only when there is something to dim. `alpha(1f)` is not
+                                    // a no-op: it is a graphics layer, and this grid builds 42 cells
+                                    // of which at most 11 belong to a neighbouring month.
+                                    .then(if (inMonth) Modifier else Modifier.alpha(0.4f))
                                     .semantics { contentDescription = description },
                                 shape = RoutineShapes.Cell,
                                 color = background,
@@ -427,6 +431,28 @@ fun MonthlyOverview(content: TimelineContent, today: LocalDate, onGoals: () -> U
 /** Month cells keep one aspect ratio from the shared metrics instead of a local magic number. */
 private fun Modifier.aspectRatioCell(): Modifier = aspectRatio(RoutineMetrics.MonthCellRatio)
 
+/** What a month panel in the year view shows: markers, and days the calendar gives back. */
+private class MonthTotals(val markers: Map<YearMonth, Int>, val daysOff: Map<YearMonth, Int>)
+
+/**
+ * Counts the year's months in one pass over its days.
+ *
+ * Each of the twelve panels used to filter all 365 days down to its own month and call
+ * `YearMonth.from` on every one of them — twelve full passes and four thousand calendar
+ * computations, run again whenever a panel folded open, to fill twenty-four labels. One pass fills
+ * the same labels, and the panels read the two maps instead of the days.
+ */
+private fun monthTotalsOf(days: Iterable<DayUi>): MonthTotals {
+    val markers = HashMap<YearMonth, Int>()
+    val daysOff = HashMap<YearMonth, Int>()
+    days.forEach { day ->
+        val month = YearMonth.from(day.date)
+        markers[month] = (markers[month] ?: 0) + day.metrics.milestoneCount
+        if (day.calendar.any { it.isWorkFreeDay }) daysOff[month] = (daysOff[month] ?: 0) + 1
+    }
+    return MonthTotals(markers, daysOff)
+}
+
 @Composable
 fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, today: LocalDate, onGoals: () -> Unit = {}, topInset: Dp = 0.dp, bottomInset: Dp = RoutineMetrics.ListBottomInset, onDate: (LocalDate) -> Unit) {
     val (start, end) = PeriodRanges.range(content.date, TimelineMode.YEAR)
@@ -434,6 +460,7 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
     val targetInCycle = target in start..end
     val remaining = SlovenianAcademicCalendar.daysRemaining(today, target)
     val months = (0L..11L).map { YearMonth.from(start).plusMonths(it) }
+    val totals = monthTotalsOf(content.days.values)
     val upcomingMilestones = content.milestones.filter { !it.isCompleted && it.dueDate >= today }
     val upcomingTasks = content.taskMarkers.filter { !it.isCompleted && it.dueDate >= today }
     // Goal milestones are pre-filtered to open ones in the visible range; the radar should not miss them.
@@ -507,9 +534,8 @@ fun YearlyOverview(content: TimelineContent, preferences: SchedulePreferences, t
                     months.chunked(3).forEach { row ->
                         Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                             row.forEach { month ->
-                                val monthDays = content.days.values.filter { YearMonth.from(it.date) == month }
-                                val markers = monthDays.sumOf { it.metrics.milestoneCount }
-                                val off = monthDays.count { day -> day.calendar.any { it.isWorkFreeDay } }
+                                val markers = totals.markers[month] ?: 0
+                                val off = totals.daysOff[month] ?: 0
                                 OutlinedCard(
                                     onClick = { onDate(month.atDay(1)) },
                                     shape = RoutineShapes.Card,

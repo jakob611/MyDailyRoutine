@@ -23,7 +23,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -503,16 +502,20 @@ fun RoutineAmbientBackground(modifier: Modifier = Modifier) {
  * clip — so the glow can fall outside the card's bounds; the card then paints over the part that
  * would otherwise sit under it.
  */
-fun Modifier.liquidUnderGlow(accent: Color, alpha: Float = 0.06f): Modifier = this.drawBehind {
+fun Modifier.liquidUnderGlow(accent: Color, alpha: Float = 0.06f): Modifier = this.drawWithCache {
     val center = Offset(size.width * 0.5f, size.height * 1.04f)
     val radius = (size.width * 0.72f).coerceAtLeast(1f)
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(accent.copy(alpha = alpha), Color.Transparent),
-            center = center,
-            radius = radius,
-        ),
-        radius = radius,
+    // Built once per size, not once per draw. The wash is under the floating cards, which are the
+    // nodes that get re-recorded on every frame of a scroll, and a `Brush` is the key the renderer
+    // caches its compiled shader under — a fresh instance per draw was a fresh radial shader per
+    // frame of every fling. A new accent arrives as a new lambda, which invalidates the cache, so
+    // the colour still follows the card.
+    val wash = Brush.radialGradient(
+        colors = listOf(accent.copy(alpha = alpha), Color.Transparent),
         center = center,
+        radius = radius,
     )
+    onDrawBehind {
+        drawCircle(brush = wash, radius = radius, center = center)
+    }
 }

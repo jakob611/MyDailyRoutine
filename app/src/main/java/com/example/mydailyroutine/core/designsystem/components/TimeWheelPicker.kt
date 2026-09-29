@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -39,6 +40,8 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
 import kotlin.math.abs
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 /** One drum row. Five rows stay visible, exactly as on an iOS picker. */
@@ -67,8 +70,19 @@ private fun WheelDrum(
     val haptics = LocalRoutineHaptics.current
     val scope = rememberCoroutineScope()
     LaunchedEffect(state) {
-        snapshotFlow { state.isScrollInProgress }.collect { scrolling -> if (!scrolling) haptics.tap() }
+        // The tick answers a drum that has come to rest, so it is armed on the *edge*: a snapshot
+        // flow publishes the value it already holds the moment it is collected, and a picker that
+        // opens at rest is not a drum settling — it ticked once for being opened, which reads as the
+        // control answering a question nobody asked.
+        snapshotFlow { state.isScrollInProgress }
+            .distinctUntilChanged()
+            .drop(1)
+            .collect { scrolling -> if (!scrolling) haptics.tap() }
     }
+    // Two fades for the life of the drum. A `Brush` is the key the renderer caches its compiled
+    // shader under, and these never change: what changes is the rows scrolling beneath them.
+    val topFade = remember { Brush.verticalGradient(listOf(RoutineColors.SheetSurface, Color.Transparent)) }
+    val bottomFade = remember { Brush.verticalGradient(listOf(Color.Transparent, RoutineColors.SheetSurface)) }
     Box(Modifier.width(76.dp)) {
         LazyColumn(
             state = state,
@@ -91,9 +105,9 @@ private fun WheelDrum(
             .border(1.dp, RoutineColors.CardBorder))
         // Fade masks: rows dissolve into the panel instead of stopping at a clip edge.
         Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(WheelItem * 2)
-            .background(Brush.verticalGradient(listOf(RoutineColors.SheetSurface, Color.Transparent))))
+            .background(topFade))
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(WheelItem * 2)
-            .background(Brush.verticalGradient(listOf(Color.Transparent, RoutineColors.SheetSurface))))
+            .background(bottomFade))
     }
 }
 

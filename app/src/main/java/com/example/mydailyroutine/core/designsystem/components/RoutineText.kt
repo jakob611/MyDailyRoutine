@@ -1,17 +1,13 @@
 package com.example.mydailyroutine.core.designsystem.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.unit.IntSize
 import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
-import com.example.mydailyroutine.core.designsystem.motion.effectSpec
-import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import com.example.mydailyroutine.core.designsystem.motion.rememberChevronTurn
+import com.example.mydailyroutine.core.designsystem.motion.revealEnter
+import com.example.mydailyroutine.core.designsystem.motion.revealExit
+import com.example.mydailyroutine.core.designsystem.motion.turning
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -46,15 +42,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -197,6 +193,18 @@ fun RoutineLabel(
     heading: Boolean = false,
 ) {
     val designed = if (style.fontSize.isSpecified) style.fontSize else MaterialTheme.typography.labelMedium.fontSize
+    // One auto-size per label size, not one per recomposition. `RoutineLabel` is the most-used
+    // composable in the app — every time gutter, chip, button, tab and dot — and a fresh instance
+    // here is a fresh parameter for the text below, which is a fresh run of the step-down: the label
+    // shrinks its type by laying itself out at each step until it fits, so this is the one parameter
+    // worth never changing by accident.
+    val resolvedAutoSize = remember(autoSize, designed) {
+        autoSize ?: TextAutoSize.StepBased(
+            minFontSize = RoutineTextDefaults.MinLabelSize,
+            maxFontSize = designed,
+            stepSize = RoutineTextDefaults.LabelStep,
+        )
+    }
     RoutineText(
         text = text,
         modifier = modifier,
@@ -207,11 +215,7 @@ fun RoutineLabel(
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
         softWrap = true,
-        autoSize = autoSize ?: TextAutoSize.StepBased(
-            minFontSize = RoutineTextDefaults.MinLabelSize,
-            maxFontSize = designed,
-            stepSize = RoutineTextDefaults.LabelStep,
-        ),
+        autoSize = resolvedAutoSize,
         heading = heading,
     )
 }
@@ -314,7 +318,10 @@ fun CollapsibleSection(
     // snap() when the system's remove-animations setting is on — the state still changes, it just
     // stops moving, which is the whole point of the setting.
     val reduceMotion = LocalReduceMotion.current
-    val chevron by animateFloatAsState(if (expanded) 180f else 0f, spatialSpec<Float>(reduceMotion), label = "section-chevron")
+    // A State, read by `Modifier.turning` in the draw phase. An angle read here would recompose the
+    // section on every frame of the turn, and a section is the twelve-card month grid of the year
+    // view, not just its arrow.
+    val chevron = rememberChevronTurn(expanded)
     Column(modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().clip(RoutineShapes.Chip)
@@ -338,13 +345,13 @@ fun CollapsibleSection(
                 Icons.Outlined.ExpandMore,
                 contentDescription = stringResource(if (expanded) R.string.section_collapse else R.string.section_expand),
                 tint = RoutineColors.TextSecondary,
-                modifier = Modifier.rotate(chevron),
+                modifier = Modifier.turning(chevron),
             )
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(spatialSpec<IntSize>(reduceMotion)) + fadeIn(effectSpec<Float>(reduceMotion)),
-            exit = shrinkVertically(spatialSpec<IntSize>(reduceMotion)) + fadeOut(effectSpec<Float>(reduceMotion, 120)),
+            enter = revealEnter(reduceMotion),
+            exit = revealExit(reduceMotion, 120),
         ) {
             Column(
                 Modifier.fillMaxWidth().padding(top = RoutineSpacing.sm),
@@ -395,17 +402,23 @@ fun <T : Enum<T>> CategoryTabs(
         // gradient (not a shadow) is what says "the row continues" without adding a second row.
         if (scroll.canScrollForward) {
             Box(
-                Modifier.matchParentSize().drawBehind {
+                // Built once per size, not once per draw. The gradient names its own coordinates, so
+                // a fresh instance is a fresh shader, and this edge sits over the row the finger is
+                // dragging — the one moment a compile per frame is afforded least.
+                Modifier.matchParentSize().drawWithCache {
                     val fade = 24.dp.toPx()
-                    drawRect(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(Color.Transparent, RoutineColors.SheetSurface),
-                            startX = size.width - fade,
-                            endX = size.width,
-                        ),
-                        topLeft = Offset(size.width - fade, 0f),
-                        size = Size(fade, size.height),
+                    val brush = Brush.horizontalGradient(
+                        colors = listOf(Color.Transparent, RoutineColors.SheetSurface),
+                        startX = size.width - fade,
+                        endX = size.width,
                     )
+                    onDrawBehind {
+                        drawRect(
+                            brush = brush,
+                            topLeft = Offset(size.width - fade, 0f),
+                            size = Size(fade, size.height),
+                        )
+                    }
                 },
             )
         }

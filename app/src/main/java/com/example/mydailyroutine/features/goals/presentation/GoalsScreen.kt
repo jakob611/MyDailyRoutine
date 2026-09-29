@@ -710,6 +710,10 @@ private fun GoalGantt(
     val end = projects.maxOf { it.end }
     val spanDays = maxOf(1L, ChronoUnit.DAYS.between(start, end))
     val monthCount = (spanDays / 31 + 1).toInt().coerceIn(2, 30)
+    // One grouping for the whole chart. The lanes, the bands and the row packing all ask the same
+    // question — which activities belong to this project — and each of them used to ask it of the
+    // whole list, once per project.
+    val byProject = activities.groupBy { it.projectId }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val cellWidth = ((maxWidth - GanttLaneLabel - RoutineSpacing.sm) / monthCount).coerceAtLeast(28.dp)
         val timelineWidth = cellWidth * monthCount
@@ -719,29 +723,16 @@ private fun GoalGantt(
         }
         // Days where two or more projects both plan open work get a soft crimson band.
         val busyWindows = projects.mapNotNull { project ->
-            val open = activities.filter { it.projectId == project.id && !it.isDone }
+            val open = byProject[project.id].orEmpty().filter { !it.isDone }
             if (open.isEmpty()) return@mapNotNull null // nothing planned here — never claim an overlap
             val from = maxOf(open.minOf { it.start }, project.start)
             val to = minOf(open.maxOf { it.end }, project.end)
             if (to < from) null else from to to
         }
-        val overlapRuns = if (projects.size < 2) emptyList() else run {
-            val days = mutableListOf<LocalDate>()
-            var day = start
-            while (!day.isAfter(end)) {
-                if (busyWindows.count { !day.isBefore(it.first) && !day.isAfter(it.second) } > 1) days += day
-                day = day.plusDays(1)
-            }
-            days.fold(mutableListOf<Pair<LocalDate, LocalDate>>()) { runs, current ->
-                val last = runs.lastOrNull()
-                if (last != null && last.second == current.minusDays(1)) runs[runs.lastIndex] = last.first to current
-                else runs.add(current to current)
-                runs
-            }
-        }
+        val overlapRuns = overlapRunsOf(busyWindows)
         val showEveryMonth = cellWidth >= 44.dp
         Column(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-            val laneRows = projects.map { project -> packActivityRows(activities.filter { it.projectId == project.id }) }
+            val laneRows = projects.map { project -> packActivityRows(byProject[project.id].orEmpty()) }
             // Header: one equal cell per month, so labels can never collide.
             Row(Modifier.width(GanttLaneLabel + timelineWidth)) {
                 Spacer(Modifier.width(GanttLaneLabel))
@@ -935,6 +926,47 @@ private fun GanttBar(activity: GoalActivity, onActivity: (GoalActivity) -> Unit)
             )
         }
     }
+}
+
+/**
+ * The runs of days where two or more of [windows] overlap, as inclusive date pairs — the crimson
+ * bands of the month plan.
+ *
+ * A sweep over the window edges rather than a walk over the days between them. The plan spans
+ * whatever the projects span, which for a two-year extended essay is seven hundred days, and the
+ * walk asked every one of those days how many windows covered it, on every recomposition of the
+ * chart — a tap on a bar was a third of a million date comparisons.
+ *
+ * The edges are summed **per date** before the depth is walked, and that is the part worth the
+ * comment: a window closing on the day another opens moves the depth down and up on one date, and
+ * counting those as two moments cuts a single band in half at the seam. One date is one depth, which
+ * is what a day of the plan is.
+ *
+ * Kept free of Compose so a unit test can pin it down.
+ */
+internal fun overlapRunsOf(windows: List<Pair<LocalDate, LocalDate>>): List<Pair<LocalDate, LocalDate>> {
+    if (windows.size < 2) return emptyList()
+    // +1 on the first covered day, -1 on the day after the last, summed per date and walked in order.
+    val depthChange = windows
+        .flatMap { (from, to) -> listOf(from to 1, to.plusDays(1) to -1) }
+        .groupBy({ it.first }, { it.second })
+        .mapValues { (_, deltas) -> deltas.sum() }
+        .toSortedMap()
+    val runs = mutableListOf<Pair<LocalDate, LocalDate>>()
+    var depth = 0
+    var openedOn: LocalDate? = null
+    depthChange.forEach { (date, change) ->
+        val before = depth
+        depth += change
+        if (before < 2 && depth >= 2) {
+            openedOn = date
+        } else if (before >= 2 && depth < 2) {
+            val from = openedOn
+            if (from != null) runs.add(from to date.minusDays(1))
+            openedOn = null
+        }
+    }
+    return runs
 }
 
 /** Greedy interval packing so CAS strands that run in parallel get their own sub-row instead of colliding. */

@@ -1,15 +1,9 @@
 package com.example.mydailyroutine.features.timeline.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -59,7 +53,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -91,8 +84,11 @@ import androidx.compose.runtime.State
 import com.example.mydailyroutine.core.designsystem.motion.LocalPulse
 import com.example.mydailyroutine.core.designsystem.motion.pulsing
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
+import com.example.mydailyroutine.core.designsystem.motion.rememberChevronTurn
+import com.example.mydailyroutine.core.designsystem.motion.revealEnter
+import com.example.mydailyroutine.core.designsystem.motion.revealExit
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
-import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
+import com.example.mydailyroutine.core.designsystem.motion.turning
 import com.example.mydailyroutine.core.designsystem.theme.categoryStyle
 import com.example.mydailyroutine.core.platform.uiLocale
 import com.example.mydailyroutine.core.presentation.TimelineAction
@@ -135,16 +131,23 @@ fun TimelineBlockCard(
     onAction: (TimelineAction) -> Unit,
 ) {
     var expanded by rememberSaveable(block.key) { mutableStateOf(false) }
-    var dragY by remember(block.key) { mutableFloatStateOf(0f) }
+    // The drag offset is held as a state *object*, never delegated to a `var` read here. It changes
+    // on every frame of the gesture, and the card that owns it holds the expanded section, the chips
+    // and the actions: reading the offset in this scope would recompose all of it sixty times a
+    // second to move one number and translate one layer. The layer reads it in the draw phase, the
+    // minutes label reads it in a composition of its own, and the gesture writes it in neither.
+    val dragOffset = remember(block.key) { mutableFloatStateOf(0f) }
     val dragScope = rememberCoroutineScope()
     var dragging by remember(block.key) { mutableStateOf(false) }
-    // Release springs the card home. A bare `dragY = 0f` teleports it in one frame, and the eye
-    // reads that teleport as the card jumping, even when the commit itself reflows correctly.
+    // Release springs the card home. A bare reset teleports it in one frame, and the eye reads that
+    // teleport as the card jumping, even when the commit itself reflows correctly.
     val settleDrag: () -> Unit = {
         dragging = false
-        val from = dragY
+        val from = dragOffset.floatValue
         dragScope.launch {
-            Animatable(from).animateTo(0f, spring(dampingRatio = 0.55f, stiffness = 320f)) { dragY = value }
+            Animatable(from).animateTo(0f, spring(dampingRatio = 0.55f, stiffness = 320f)) {
+                dragOffset.floatValue = value
+            }
         }
     }
     val currentAction by rememberUpdatedState(onAction)
@@ -157,7 +160,8 @@ fun TimelineBlockCard(
     val active = !block.isSuppressed && !block.isCompleted &&
         now.toInstant() >= window.start && now.toInstant() < window.end
     val past = now.toInstant() >= window.end || block.isCompleted
-    val activeAmount by animateFloatAsState(if (active) 1f else 0f, spatialSpec<Float>(LocalReduceMotion.current), label = "active-border")
+    val reduceMotion = LocalReduceMotion.current
+    val activeAmount by animateFloatAsState(if (active) 1f else 0f, spatialSpec<Float>(reduceMotion), label = "active-border")
     val barColor = block.subject?.let { Color(it.colorHex.toInt()) } ?: style.accent
     val toggleDescription = stringResource(if (block.isCompleted) R.string.mark_not_done else R.string.mark_done)
     val expandLabel = stringResource(if (expanded) R.string.collapse_block else R.string.expand_block)
@@ -194,7 +198,7 @@ fun TimelineBlockCard(
                 modifier = Modifier.weight(1f)
                     // Dragging translates the card only; it never scales, so the lifted card stays
                     // inside its own opaque bounds and cannot mix its text with a neighbour's.
-                    .graphicsLayer { translationY = dragY }
+                    .graphicsLayer { translationY = dragOffset.floatValue }
                     .semantics {
                         customActions = listOf(
                             CustomAccessibilityAction(doneAction) {
@@ -208,7 +212,6 @@ fun TimelineBlockCard(
                             },
                         )
                     }
-                    .animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
                     .pointerInput(block.key, block.startsAt, block.endsAt, busy) {
                         if (!busy && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
                             // One tick per detent the drag passes, the way an iOS picker rail feels:
@@ -218,8 +221,8 @@ fun TimelineBlockCard(
                                 onDragStart = { dragging = true; detent = 0; haptics.dragStart() },
                                 onDrag = { change, amount ->
                                     change.consume()
-                                    dragY += amount.y
-                                    val step = (dragY / dragStepPx).roundToInt()
+                                    dragOffset.floatValue += amount.y
+                                    val step = (dragOffset.floatValue / dragStepPx).roundToInt()
                                     if (step != detent) {
                                         detent = step
                                         haptics.dragThreshold()
@@ -230,7 +233,7 @@ fun TimelineBlockCard(
                                 onDragCancel = { settleDrag(); haptics.dragEnd() },
                                 onDragEnd = {
                                     val start = block.startsAt.toLocalTime().toSecondOfDay() / 60
-                                    val delta = ((dragY / dragStepPx).roundToInt() * 15).coerceIn(-start, 1439 - start)
+                                    val delta = ((dragOffset.floatValue / dragStepPx).roundToInt() * 15).coerceIn(-start, 1439 - start)
                                     if (delta != 0) {
                                         currentAction(
                                             TimelineAction.SaveBlockEdit(
@@ -286,7 +289,10 @@ fun TimelineBlockCard(
                             Icon(
                                 Icons.Outlined.ExpandMore,
                                 contentDescription = expandLabel,
-                                modifier = Modifier.size(RoutineMetrics.IconSize).rotate(if (expanded) 180f else 0f),
+                                // Turned in the draw phase, like every other chevron in the app: a
+                                // snapped arrow is an affordance that appears not to move, and an
+                                // arrow read in composition moves the card with it.
+                                modifier = Modifier.size(RoutineMetrics.IconSize).turning(rememberChevronTurn(expanded)),
                                 tint = RoutineColors.TextSecondary,
                             )
                             if (canStart && !block.isCompleted && !block.isSuppressed && !block.isFixedCommitment && !block.category.isBuffer) {
@@ -342,11 +348,7 @@ fun TimelineBlockCard(
                             }
                         }
                         if (dragging) {
-                            RoutineLabel(
-                                text = stringResource(R.string.drag_minutes, (dragY / dragStepPx).roundToInt() * 15),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = RoutineColors.TextPrimary,
-                            )
+                            DragMinutesLabel(dragOffset, dragStepPx)
                         }
                         if (block.isCarryIn) {
                             RoutineText(
@@ -393,8 +395,8 @@ fun TimelineBlockCard(
                         }
                         AnimatedVisibility(
                             visible = expanded,
-                            enter = fadeIn(tween(TransitionMillis)) + slideInVertically(tween(TransitionMillis)) { -it / 4 },
-                            exit = fadeOut(tween(TransitionMillis)),
+                            enter = revealEnter(reduceMotion),
+                            exit = revealExit(reduceMotion),
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm)) {
                                 HorizontalDivider(color = RoutineColors.Border)
@@ -578,6 +580,7 @@ fun MilestoneCard(
     modifier: Modifier = Modifier,
 ) {
     var expanded by rememberSaveable(item.key) { mutableStateOf(false) }
+    val reduceMotion = LocalReduceMotion.current
     val haptics = LocalRoutineHaptics.current
     val expandLabel = stringResource(if (expanded) R.string.collapse_block else R.string.expand_block)
     Box(modifier.fillMaxWidth()) {
@@ -589,7 +592,7 @@ fun MilestoneCard(
             )
             Card(
                 onClick = { haptics.tap(); expanded = !expanded },
-                modifier = Modifier.weight(1f).animateContentSize(),
+                modifier = Modifier.weight(1f),
                 shape = RoutineShapes.Card,
                 border = BorderStroke(1.dp, RoutineColors.CardBorder),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
@@ -611,7 +614,7 @@ fun MilestoneCard(
                         Icon(
                             Icons.Outlined.ExpandMore,
                             contentDescription = expandLabel,
-                            modifier = Modifier.size(RoutineMetrics.IconSize).rotate(if (expanded) 180f else 0f),
+                            modifier = Modifier.size(RoutineMetrics.IconSize).turning(rememberChevronTurn(expanded)),
                             tint = RoutineColors.TextSecondary,
                         )
                         Checkbox(
@@ -639,8 +642,8 @@ fun MilestoneCard(
                     )
                     AnimatedVisibility(
                         visible = expanded,
-                        enter = fadeIn(tween(TransitionMillis)),
-                        exit = fadeOut(tween(TransitionMillis)),
+                        enter = revealEnter(reduceMotion),
+                        exit = revealExit(reduceMotion),
                     ) {
                         ActionRow {
                             TextButton(enabled = !busy, onClick = { onAction(TimelineAction.Edit(item)) }) {
@@ -655,6 +658,23 @@ fun MilestoneCard(
             }
         }
     }
+}
+
+/**
+ * The minutes a drag has moved its block by, in a composition of its own.
+ *
+ * The number changes on every frame of the drag; the card around it does not. Reading the offset
+ * here confines each frame to this label instead of rebuilding the card — its chips, its actions,
+ * its expanded section — for the length of the gesture, which is the gesture the reader judges the
+ * app by: the one where they hold their day in a finger and watch a number answer.
+ */
+@Composable
+private fun DragMinutesLabel(offset: State<Float>, stepPx: Float) {
+    RoutineLabel(
+        text = stringResource(R.string.drag_minutes, (offset.value / stepPx).roundToInt() * 15),
+        style = MaterialTheme.typography.labelMedium,
+        color = RoutineColors.TextPrimary,
+    )
 }
 
 /**
