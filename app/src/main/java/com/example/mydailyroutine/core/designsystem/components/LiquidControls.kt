@@ -58,6 +58,7 @@ import com.example.mydailyroutine.core.designsystem.glass.routineGlass
 import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
@@ -314,7 +315,7 @@ private const val TrackRimFade = 0.6f
  * it was rather than a hand-drawn stroke approximating one.
  */
 @Composable
-private fun SwitchTrack(position: Animatable<Float, AnimationVector1D>, backdrop: Backdrop) {
+private fun SwitchTrack(position: Animatable<Float, AnimationVector1D>, backdrop: LayerBackdrop) {
     val track = RoundedCornerShape(percent = 50)
     // One gradient for the life of the track. A `Brush` is the key the renderer caches its compiled
     // shader under, so a fresh instance per frame is a fresh shader per frame; the spring modulates
@@ -500,7 +501,7 @@ fun LiquidSlider(
  * this chain rebuilds the layer the thumb refracts per frame with it.
  */
 @Composable
-private fun LiquidSliderTrack(shown: State<Float>, backdrop: Backdrop) {
+private fun LiquidSliderTrack(shown: State<Float>, backdrop: LayerBackdrop) {
     val capsule = RoundedCornerShape(percent = 50)
     Box(
         Modifier.fillMaxWidth().height(SliderTrack)

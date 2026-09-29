@@ -1,6 +1,7 @@
 package com.example.mydailyroutine.features.onboarding.presentation
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -8,7 +9,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +43,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.DpVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -144,10 +144,12 @@ fun OnboardingScreen(
                         val forward = if (targetState >= initialState) 1 else -1
                         val spatial = spatialSpec<IntOffset>(reduceMotion)
                         val effect = effectSpec<Float>(reduceMotion)
-                        (slideInHorizontally(spatial) { it / 4 * forward } + fadeIn(effect)) togetherWith
-                            (slideOutHorizontally(spatial) { -it / 4 * forward } + fadeOut(effect))
+                        ContentTransform(
+                            slideInHorizontally(spatial) { it / 4 * forward } + fadeIn(effect),
+                            slideOutHorizontally(spatial) { -it / 4 * forward } + fadeOut(effect),
+                            sizeTransform = SizeTransform { _, _ -> spatialSpec<IntSize>(reduceMotion) },
+                        )
                     },
-                    sizeTransform = SizeTransform(sizeAnimationSpec = { _, _ -> spatialSpec<IntSize>(reduceMotion) }),
                 ) { shown ->
                     // A column of its own, with the outer column's arrangement: the steps' children
                     // were siblings of a `spacedBy` column, and inside an AnimatedContent they would
@@ -283,7 +285,7 @@ private fun StepDots(step: Int, count: Int, modifier: Modifier = Modifier) {
             // says the app skipped something. Both animate inside this scope and no wider — two dots
             // and a spacer is what recomposes while they move.
             val size by animateDpAsState(if (index == step) DotActive else DotInactive,
-                spatialSpec<DpVector>(reduceMotion), label = "step-dot-size")
+                spatialSpec<Dp>(reduceMotion), label = "step-dot-size")
             val tint by animateColorAsState(if (index == step) RoutineColors.Primary else RoutineColors.TextDisabled,
                 effectSpec(reduceMotion), label = "step-dot-tint")
             Box(Modifier.size(size).clip(CircleShape).background(tint))
