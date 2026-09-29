@@ -3,7 +3,8 @@ on:
   pull_request:
     branches: [master]
   push:
-    branches: [master]
+    # This review branch publishes its own test APK without overwriting debug-latest.
+    branches: [master, arena/01a0edd0-mydailyroutine]
   workflow_dispatch:
     inputs:
       publish_preview:
@@ -205,7 +206,7 @@ jobs:
     # Never replace a downloadable "green" APK while the emulator job is still running.
     needs: [build, device-tests]
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/arena/01a0edd0-mydailyroutine')) ||
       (github.event_name == 'workflow_dispatch' && inputs.publish_preview)
     runs-on: ubuntu-latest
     permissions:
@@ -229,7 +230,7 @@ jobs:
           tag="test-${GITHUB_SHA:0:12}"
           title="Test APK — ${GITHUB_SHA:0:12}"
           flags=(--prerelease --latest=false)
-          if [ "$EVENT_NAME" = "push" ]; then
+          if [ "$EVENT_NAME" = "push" ] && [ "$GITHUB_REF" = "refs/heads/master" ]; then
             tag="debug-latest"
             title="APK (zadnji zeleni CI): release + debug"
             flags=()
