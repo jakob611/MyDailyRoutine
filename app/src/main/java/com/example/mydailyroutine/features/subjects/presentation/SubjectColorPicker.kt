@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -219,7 +220,10 @@ private fun ColorWheel(
             Modifier.fillMaxSize()
                 .drawWithCache {
                     val radius = size.minDimension / 2f
-                    val centre = center
+                    // Spelled out rather than as the draw scope's `center`: inside `drawWithCache`
+                    // the receiver is a `CacheDrawScope`, where that extension does not resolve,
+                    // and the glass layer builds its centres the same way.
+                    val centre = Offset(size.width / 2f, size.height / 2f)
                     val hue = Brush.sweepGradient(RoutineColors.HueWheel, centre)
                     // White fading to *transparent white*: `Color.Transparent` is transparent black,
                     // and interpolating towards it would grey the middle of the ramp.
