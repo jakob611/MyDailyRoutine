@@ -4,8 +4,6 @@ import com.example.mydailyroutine.core.database.entities.*
 import com.example.mydailyroutine.core.database.daos.*
 
 import android.content.Context
-import android.content.res.Resources
-import com.example.mydailyroutine.core.platform.calendarTitle
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -44,13 +42,24 @@ abstract class RoutineDatabase : RoomDatabase() {
         )
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
             .addMigrations(DatabaseMigrations.MIGRATION_1_2, DatabaseMigrations.MIGRATION_2_3, DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6, DatabaseMigrations.MIGRATION_6_7, DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9)
-            .addCallback(SeedAndIntegrityCallback(context.resources))
+            .addCallback(SeedAndIntegrityCallback())
             // No destructive migration fallback: schema changes must ship an explicit migration.
             .build()
     }
 }
 
-class SeedAndIntegrityCallback(private val resources: Resources) : RoomDatabase.Callback() {
+/**
+ * Seeds the bundled calendar and installs the integrity triggers.
+ *
+ * The calendar is seeded in **dataset keys**, not in translated titles. It used to be seeded in
+ * whatever language the app happened to speak on first launch, and nothing ever rewrote those rows:
+ * a reader who started in Slovenian and switched to English kept reading "Jesenske počitnice" under
+ * an English interface. The key is stable, the screen translates it on the way out
+ * (`Resources.calendarTitle`), and the rows stay correct in both languages for the life of the
+ * install. The Slovenian titles are the keys, so a database seeded in Slovenian — every database
+ * that predates the English translation — already holds exactly these rows and needs no migration.
+ */
+class SeedAndIntegrityCallback : RoomDatabase.Callback() {
     override fun onCreate(db: SupportSQLiteDatabase) {
         DatabaseIntegrity.install(db)
         DatabaseMigrations.installExecutionIntegrity(db)
@@ -65,7 +74,7 @@ class SeedAndIntegrityCallback(private val resources: Resources) : RoomDatabase.
             SlovenianAcademicCalendar.entries().forEach { entry ->
                 statement.clearBindings()
                 statement.bindLong(1, entry.date.toEpochDay())
-                statement.bindString(2, resources.calendarTitle(entry.title))
+                statement.bindString(2, entry.title)
                 statement.bindLong(3, if (entry.isWorkFreeDay) 1L else 0L)
                 statement.executeInsert()
             }

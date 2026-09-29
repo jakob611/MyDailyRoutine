@@ -15,16 +15,14 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
-import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTilt
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.mydailyroutine.app.di.appGraph
+import com.example.mydailyroutine.core.platform.captureDeviceLanguage
 import com.example.mydailyroutine.core.platform.withRoutineLocale
 import com.example.mydailyroutine.features.settings.presentation.NotificationAccess
 import com.example.mydailyroutine.core.designsystem.theme.MyDailyRoutineTheme
@@ -44,6 +42,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun attachBaseContext(newBase: Context) {
+        // Re-read here, not only at process start: changing the per-app language in system settings
+        // recreates the activity without killing the process, and this is where the new
+        // configuration arrives.
+        captureDeviceLanguage(newBase)
         super.attachBaseContext(newBase.withRoutineLocale())
     }
 
@@ -62,7 +64,6 @@ class MainActivity : ComponentActivity() {
         refreshAccess()
         setContent {
             MyDailyRoutineTheme {
-                CompositionLocalProvider(LocalGlassTilt provides rememberGlassTilt()) {
                 RoutineApp(viewModel, access,
                     requestNotifications = {
                         if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -73,7 +74,6 @@ class MainActivity : ComponentActivity() {
                     },
                     openNotificationSettings = ::openNotificationSettings,
                 )
-                }
             }
         }
     }
@@ -106,7 +106,8 @@ class MainActivity : ComponentActivity() {
             // A deadline shared from ManageBac or any other app lands as a pre-filled quick-add in the Tasks sheet.
             val shared = intent.getStringExtra(Intent.EXTRA_TEXT)
             if (!shared.isNullOrBlank()) {
-                val draft = com.example.mydailyroutine.core.platform.ShareTextParser.parse(shared)
+                // The parser is pure JVM, so the localized placeholder travels in from here.
+                val draft = com.example.mydailyroutine.core.platform.ShareTextParser.parse(shared, getString(R.string.shared_task_default_title))
                 viewModel.onAction(TimelineAction.OpenSharedTask(draft.title, draft.dueEpochDay))
             }
             return

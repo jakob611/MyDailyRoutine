@@ -21,11 +21,17 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * The fallback placeholder is a *test input*, not a string the parser owns: production hands the
+ * parser the localized resource, the parser only falls back to what it was given.
+ */
 class ShareTextParserTest {
+
+    private val fallback = "Naloga"
 
     @Test
     fun isoDeadline() {
-        val draft = ShareTextParser.parse("Math IA - deadline 2026-10-15 submit final draft")
+        val draft = ShareTextParser.parse("Math IA - deadline 2026-10-15 submit final draft", fallback)
         assertEquals(LocalDate.of(2026, 10, 15).toEpochDay(), draft.dueEpochDay)
         assertTrue(draft.title.contains("Math IA"))
         assertTrue(!draft.title.contains("2026"))
@@ -33,41 +39,41 @@ class ShareTextParserTest {
 
     @Test
     fun slovenianDottedDate() {
-        val draft = ShareTextParser.parse("Fizija: oddaja - rok 15. 10. 2026")
+        val draft = ShareTextParser.parse("Fizija: oddaja - rok 15. 10. 2026", fallback)
         assertEquals(LocalDate.of(2026, 10, 15).toEpochDay(), draft.dueEpochDay)
         assertTrue(draft.title.contains("Fizija"))
     }
 
     @Test
     fun englishMonthDate() {
-        val draft = ShareTextParser.parse("Chemistry lab report due Oct 15, 2026")
+        val draft = ShareTextParser.parse("Chemistry lab report due Oct 15, 2026", fallback)
         assertEquals(LocalDate.of(2026, 10, 15).toEpochDay(), draft.dueEpochDay)
         assertTrue(draft.title.contains("Chemistry"))
     }
 
     @Test
     fun dayMonthYearOrder() {
-        val draft = ShareTextParser.parse("Submit EE first draft on 12 Nov 2026")
+        val draft = ShareTextParser.parse("Submit EE first draft on 12 Nov 2026", fallback)
         assertEquals(LocalDate.of(2026, 11, 12).toEpochDay(), draft.dueEpochDay)
     }
 
     @Test
     fun textWithoutDateStillProducesTitle() {
-        val draft = ShareTextParser.parse("Read chapter 4 for the seminar")
+        val draft = ShareTextParser.parse("Read chapter 4 for the seminar", fallback)
         assertNull(draft.dueEpochDay)
         assertEquals("Read chapter 4 for the seminar", draft.title)
     }
 
     @Test
-    fun urlOnlyShareFallsBackToPlaceholder() {
-        val draft = ShareTextParser.parse("https://managebac.com/assignments/42")
+    fun urlOnlyShareFallsBackToTheGivenPlaceholder() {
+        val draft = ShareTextParser.parse("https://managebac.com/assignments/42", "Task")
         assertNull(draft.dueEpochDay)
-        assertEquals("Naloga", draft.title)
+        assertEquals("Task", draft.title)
     }
 
     @Test
     fun implausibleYearIgnored() {
-        val draft = ShareTextParser.parse("Legacy plan from 1988-01-02")
+        val draft = ShareTextParser.parse("Legacy plan from 1988-01-02", fallback)
         assertNull(draft.dueEpochDay)
     }
 }

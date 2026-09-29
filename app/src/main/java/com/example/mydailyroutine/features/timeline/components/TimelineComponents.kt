@@ -87,7 +87,9 @@ import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import androidx.compose.runtime.State
 import com.example.mydailyroutine.core.designsystem.motion.LocalPulse
+import com.example.mydailyroutine.core.designsystem.motion.pulsing
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
 import com.example.mydailyroutine.core.designsystem.motion.spatialSpec
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
@@ -496,7 +498,7 @@ fun TimelineBlockCard(
                             time = now.toLocalTime().clockLabel(),
                             progress = progress,
                             modifier = Modifier.matchParentSize(),
-                            pulse = pulseAlpha(),
+                            pulse = appPulse(),
                         )
                     }
                 }
@@ -508,7 +510,7 @@ fun TimelineBlockCard(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WarningBadge(warning: WarningUi, busy: Boolean, onInsert: () -> Unit) {
-    val pulse = pulseAlpha()
+    val pulse = appPulse()
     val description = stringResource(R.string.insert_break_description, warning.recoveryMinutes)
     Surface(
         onClick = onInsert,
@@ -522,7 +524,7 @@ fun WarningBadge(warning: WarningUi, busy: Boolean, onInsert: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.Psychology, null, Modifier.size(RoutineMetrics.IconSmall).alpha(pulse), tint = RoutineColors.Warning)
+            Icon(Icons.Outlined.Psychology, null, Modifier.size(RoutineMetrics.IconSmall).pulsing(pulse), tint = RoutineColors.Warning)
             RoutineLabel(
                 text = stringResource(R.string.insert_break, warning.recoveryMinutes),
                 style = MaterialTheme.typography.labelSmall,
@@ -537,20 +539,20 @@ fun WarningBadge(warning: WarningUi, busy: Boolean, onInsert: () -> Unit) {
  * measured [NowBand] is used instead.
  */
 @Composable
-fun NowMarker(time: String, modifier: Modifier = Modifier, pulse: Float = pulseAlpha()) {
+fun NowMarker(time: String, modifier: Modifier = Modifier, pulse: State<Float> = appPulse()) {
     Surface(color = RoutineColors.Background, modifier = modifier) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = RoutineMetrics.NowBandHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                Modifier.size(RoutineMetrics.NowDotSize).alpha(pulse)
+                Modifier.size(RoutineMetrics.NowDotSize).pulsing(pulse)
                     .background(RoutineColors.Error, CircleShape),
             )
             Box(Modifier.weight(1f).height(RoutineMetrics.SpineWidth).background(RoutineColors.Error))
             RoutineLabel(
                 text = time,
-                modifier = Modifier.alpha(pulse).padding(horizontal = RoutineSpacing.xs),
+                modifier = Modifier.pulsing(pulse).padding(horizontal = RoutineSpacing.xs),
                 style = MaterialTheme.typography.labelSmall,
                 color = RoutineColors.Error,
             )
@@ -566,7 +568,7 @@ fun NowMarker(time: String, modifier: Modifier = Modifier, pulse: Float = pulseA
  * never starts at all under the system's remove-animations setting.
  */
 @Composable
-fun pulseAlpha(): Float = LocalPulse.current
+fun appPulse(): State<Float> = LocalPulse.current
 
 @Composable
 fun MilestoneCard(

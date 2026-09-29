@@ -28,7 +28,7 @@ class RoutinePatternsIntegrationTest {
     private val monday=LocalDate.of(2027,1,11)
     private val clock=MutableClock(monday.minusDays(1).atTime(12,0).toInstant(ZoneOffset.UTC))
     @Before fun setup() {
-        db=Room.inMemoryDatabaseBuilder(context,RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback(context.resources)).build()
+        db=Room.inMemoryDatabaseBuilder(context,RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback()).build()
         timeline=RoomTimelineRepository(db,{})
         patterns=RoomRoutinePatternsRepository(db,timeline,{},clock) { ZoneOffset.UTC }
     }
@@ -121,7 +121,7 @@ class RoutinePatternsIntegrationTest {
                 legacy.execSQL("INSERT INTO routine_blocks(id,subjectId,title,category,dayOfWeek,startMinutes,durationMinutes,isNotificationEnabled,minDurationMinutes,elasticity,priorityWeight,isFixedCommitment,rawDurationMinutes) VALUES(1,NULL,'Pouk','SCHOOL',1,480,45,0,45,0.0,3.0,1,45)")
             }
             val migrated=Room.databaseBuilder(context,RoutineDatabase::class.java,name).addMigrations(DatabaseMigrations.MIGRATION_6_7, DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9)
-                .addCallback(SeedAndIntegrityCallback(context.resources)).build()
+                .addCallback(SeedAndIntegrityCallback()).build()
             try {
                 val row=migrated.routines().get(1)!!
                 assertEquals(45,row.durationMinutes);assertEquals(RoutineOrigin.USER,row.origin);assertTrue(row.isEnabled)

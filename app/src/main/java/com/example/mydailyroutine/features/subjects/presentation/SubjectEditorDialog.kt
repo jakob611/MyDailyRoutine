@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,9 +26,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -59,9 +56,6 @@ private val colorLabels = listOf(
     R.string.color_violet, R.string.color_indigo, R.string.color_blue, R.string.color_slate,
 )
 
-/** "#RRGGBB" of an ARGB long, for the custom-colour field. */
-private fun hexOf(color: Long): String = "%06X".format(color and 0xFFFFFFL)
-
 /**
  * Create or edit a subject. Deleting lives in the body as a full-width row, so the dialog buttons stay
  * a single unambiguous pair (save / cancel) instead of three labels fighting for one narrow slot.
@@ -86,10 +80,9 @@ fun SubjectEditorDialog(
             else subject.colorHex,
         )
     }
-    // The field is empty while a shelf colour is selected; typing in it takes over.
-    var hex by rememberSaveable(subject.id) {
-        mutableStateOf(if (subject.colorHex in SubjectPalette.swatches) "" else hexOf(subject.colorHex))
-    }
+    // The wheel's own memory: the last custom colour. A reader who re-picks a shelf swatch finds
+    // the wheel exactly where they left it, instead of at a colour they never chose.
+    var custom by rememberSaveable(subject.id) { mutableLongStateOf(color) }
     var confirmingDelete by rememberSaveable { mutableStateOf(false) }
     val haptics = LocalRoutineHaptics.current
     val validDuration = duration.toIntOrNull()?.takeIf { it in 1..1439 }
@@ -149,7 +142,6 @@ fun SubjectEditorDialog(
                                 .background(Color(value.toInt()), CircleShape)
                                 .clickable(enabled = !busy) {
                                     color = value
-                                    hex = ""
                                     haptics.selection()
                                 }
                                 .semantics { contentDescription = description },
@@ -157,44 +149,17 @@ fun SubjectEditorDialog(
                     }
                 }
                 // Anything the shelf does not carry: the school's own colour, a subject that must
-                // match a printed timetable, or simply a preference. Hex, because a wheel that is
-                // easy to nudge and hard to land on is worse than typing six characters.
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
-                ) {
-                    val custom = color !in RoutineColors.subjectSwatches
-                    Box(
-                        Modifier.size(RoutineMetrics.SwatchSmall)
-                            .border(
-                                BorderStroke(if (custom) 3.dp else 1.dp,
-                                    if (custom) RoutineColors.TextPrimary else RoutineColors.Border),
-                                CircleShape,
-                            )
-                            .padding(3.dp)
-                            .background(Color(color.toInt()), CircleShape),
-                    )
-                    OutlinedTextField(
-                        value = hex,
-                        onValueChange = { raw ->
-                            val cleaned = raw.filter { it.isLetterOrDigit() }.take(6).uppercase()
-                            hex = cleaned
-                            if (cleaned.length == 6) cleaned.toLongOrNull(16)?.let { color = 0xFF000000L or it }
-                        },
-                        label = { RoutineText(stringResource(R.string.subject_color_custom)) },
-                        supportingText = {
-                            RoutineLabel(stringResource(R.string.subject_color_custom_hint),
-                                style = MaterialTheme.typography.labelSmall)
-                        },
-                        singleLine = true,
-                        enabled = !busy,
-                        isError = hex.isNotEmpty() && hex.length != 6,
-                        // Hex only: a suggestion bar inserting a space in the middle of a colour would be a bug.
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                // match a printed timetable, or simply a preference. A wheel and a slider instead
+                // of six hex digits: a colour is felt with the finger, and the exact code stays
+                // in the readout for the reader who needs it.
+                RoutineText(stringResource(R.string.subject_color_custom),
+                    style = MaterialTheme.typography.titleSmall, maxLines = RoutineTextDefaults.Body)
+                SubjectColorPicker(
+                    customColor = custom,
+                    active = color !in RoutineColors.subjectSwatches,
+                    onColor = { picked -> custom = picked; color = picked },
+                    enabled = !busy,
+                )
                 if (subject.id > 0L && onDelete != null) {
                     TextButton(
                         enabled = !busy,

@@ -1,9 +1,17 @@
 package com.example.mydailyroutine.core.platform
 
 import android.content.res.Resources
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.platform.LocalContext
 import com.example.mydailyroutine.R
 
-/** Core calendar titles are dataset keys, not hardcoded Android presentation copy. */
+/**
+ * Core calendar titles are dataset keys, not hardcoded Android presentation copy.
+ *
+ * The key is what the database stores; this is the only place it becomes a language. Anything
+ * the reader typed or imported has no key and is returned unchanged.
+ */
 fun Resources.calendarTitle(key: String): String = when (key) {
     "Začetek pouka" -> getString(R.string.calendar_label_0)
     "Jesenske počitnice" -> getString(R.string.calendar_label_1)
@@ -36,3 +44,8 @@ fun Resources.calendarTitle(key: String): String = when (key) {
     "Binkošti" -> getString(R.string.calendar_label_28)
     else -> key // Preserve titles imported/entered by the user.
 }
+
+/** The same mapping for the screen: the key lives in the database, the language on the display. */
+@Composable
+@ReadOnlyComposable
+fun calendarTitle(key: String): String = LocalContext.current.resources.calendarTitle(key)

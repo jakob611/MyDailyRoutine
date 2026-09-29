@@ -47,7 +47,7 @@ import com.example.mydailyroutine.core.presentation.clockLabel
 import com.example.mydailyroutine.core.presentation.minuteLabel
 import com.example.mydailyroutine.domain.model.ResolvedTimelineItem
 import com.example.mydailyroutine.domain.routines.RoutineOrigin
-import com.example.mydailyroutine.features.timeline.components.pulseAlpha
+import com.example.mydailyroutine.features.timeline.components.appPulse
 import java.time.ZonedDateTime
 
 /**
@@ -158,7 +158,7 @@ fun ManagedRoutineCard(
                             time = now.toLocalTime().clockLabel(),
                             progress = progress,
                             modifier = Modifier.matchParentSize(),
-                            pulse = pulseAlpha(),
+                            pulse = appPulse(),
                         )
                     }
                 }

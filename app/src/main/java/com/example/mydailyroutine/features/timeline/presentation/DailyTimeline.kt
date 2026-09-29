@@ -1,6 +1,5 @@
 package com.example.mydailyroutine.features.timeline.presentation
 
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -45,6 +44,7 @@ import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
 import com.example.mydailyroutine.core.designsystem.components.SectionHeader
+import com.example.mydailyroutine.core.designsystem.motion.routineItemAnimation
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
@@ -70,7 +70,7 @@ import com.example.mydailyroutine.features.timeline.components.MetricTile
 import com.example.mydailyroutine.features.timeline.components.MilestoneCard
 import com.example.mydailyroutine.features.timeline.components.NowMarker
 import com.example.mydailyroutine.features.timeline.components.TimelineBlockCard
-import com.example.mydailyroutine.features.timeline.components.pulseAlpha
+import com.example.mydailyroutine.features.timeline.components.appPulse
 import java.time.LocalDate
 import java.time.ZonedDateTime
 
@@ -434,7 +434,10 @@ fun DailyTimeline(
                 nowPlaced = true
             }
             item(key = entry.key, contentType = if (entry is ResolvedTimelineItem.Block) "block" else "milestone") {
-                val placement = Modifier.animateItem(placementSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
+                // The shared list spring, not a hand-rolled one: this copy never asked
+                // LocalReduceMotion, so the day view kept sliding its rows under a system setting
+                // that had turned every other animation in the app off.
+                val placement = routineItemAnimation()
                 when (entry) {
                     is ResolvedTimelineItem.Block ->
                         if (entry.origin != RoutineOrigin.USER) {
@@ -539,7 +542,7 @@ private fun TimelineGap(minutes: Int, nowFraction: Float?, clock: String) {
                 time = clock,
                 progress = nowFraction.coerceIn(0f, 1f),
                 modifier = Modifier.matchParentSize(),
-                pulse = pulseAlpha(),
+                pulse = appPulse(),
             )
         }
     }

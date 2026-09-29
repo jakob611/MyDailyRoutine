@@ -30,7 +30,7 @@ class FullPaperIntegrationTest {
     private val date=LocalDate.now().plusDays(2)
     private val clock=MutableClock(date.atTime(9,0).atZone(ZoneId.systemDefault()).toInstant())
     @Before fun setup() {
-        db=Room.inMemoryDatabaseBuilder(context,RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback(context.resources)).build()
+        db=Room.inMemoryDatabaseBuilder(context,RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback()).build()
         timeline=RoomTimelineRepository(db,{})
         planning=RoomPlanningRepository(db,timeline,{})
         execution=RoomExecutionRepository(db,timeline,planning,{},clock)

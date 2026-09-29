@@ -13,7 +13,12 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import com.example.mydailyroutine.core.designsystem.theme.TransitionMillis
 import kotlin.math.PI
@@ -55,6 +60,31 @@ fun rememberReduceMotion(): Boolean {
                 Settings.Global.WINDOW_ANIMATION_SCALE).any { Settings.Global.getFloat(resolver, it, 1f) == 0f }
         }.getOrDefault(false)
     }
+}
+
+/**
+ * The animation a row gets in a list that is added to, removed from or reordered.
+ *
+ * Lists whose contents change are the one place where a missing animation reads as a bug: a task
+ * ticked off, a subject deleted or a backlog entry scheduled makes everything below it jump to a
+ * new place with no explanation of where it came from.
+ *
+ * All three specs are given, not just placement. `animateItem` defaults the two fade specs to
+ * springs of its own, and those springs never ask [LocalReduceMotion] — so a list left on the
+ * default would keep fading rows in and out under the system setting that turned every other
+ * animation in the app off.
+ *
+ * Only for lists that actually mutate. A picker wheel or a fixed set of options has nothing to
+ * animate and would only wobble.
+ */
+@Composable
+fun LazyItemScope.routineItemAnimation(): Modifier {
+    val reduceMotion = LocalReduceMotion.current
+    return Modifier.animateItem(
+        fadeInSpec = effectSpec(reduceMotion),
+        placementSpec = spatialSpec(reduceMotion),
+        fadeOutSpec = effectSpec(reduceMotion),
+    )
 }
 
 /** Movement: a calm spring, or nothing at all when the system asks for no animation. */
@@ -149,15 +179,32 @@ fun <T> glassMorphSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
  * breathe in phase, which is what a live "now" should do anyway — and under the system's
  * remove-animations setting the loop never starts and the value holds its brightest state.
  */
-val LocalPulse = staticCompositionLocalOf { 1f }
+private val SteadyPulse: State<Float> = mutableStateOf(1f)
 
+val LocalPulse = staticCompositionLocalOf { SteadyPulse }
+
+/**
+ * The pulse as a [State], deliberately, and never as a `Float`.
+ *
+ * An infinite transition changes every frame. Read as a value it is read *during composition*, and
+ * because [LocalPulse] is a static local — the kind that does not track its readers — providing
+ * that value at the root recomposed the entire application on every frame of the loop, forever, on
+ * a screen that refreshes 120 times a second. The animation is three dots breathing.
+ *
+ * Handing out the state object instead means the local's value never changes: the reference is
+ * stable and the frames land in `.value`, which [pulsing] reads in the draw phase where a changing
+ * number costs a repaint of one node and nothing else.
+ */
 @Composable
-fun rememberAppPulse(reduceMotion: Boolean = LocalReduceMotion.current): Float {
-    if (reduceMotion) return 1f
+fun rememberAppPulse(reduceMotion: Boolean = LocalReduceMotion.current): State<Float> {
+    if (reduceMotion) return SteadyPulse
     val transition = rememberInfiniteTransition(label = "app-pulse")
     return transition.animateFloat(
         0.78f, 1f,
         infiniteRepeatable(tween(2800, easing = CubicBezierEasing(0.37f, 0f, 0.63f, 1f)), RepeatMode.Reverse),
         label = "app-pulse-value",
-    ).value
+    )
 }
+
+/** Breathes a node's opacity. `alpha(pulse.value)` would read the frame during composition. */
+fun Modifier.pulsing(pulse: State<Float>): Modifier = graphicsLayer { alpha = pulse.value }

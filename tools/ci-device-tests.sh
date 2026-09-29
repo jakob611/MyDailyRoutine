@@ -118,6 +118,11 @@ PY
   emit "no test results: $(find app/build -name 'TEST-*.xml' 2>/dev/null | wc -l | tr -d ' ') xml, $(find app/build/outputs/androidTest-results -type f 2>/dev/null | wc -l | tr -d ' ') output files"
 fi
 
+# The instrumentation suite has had its turn on the debug variant. Now the variant the reader
+# installs gets one: built, installed, started and used. Run after the tests so a smoke failure
+# never hides a test result, and its status is folded in rather than replacing theirs.
+bash tools/ci-release-smoke.sh || status=$?
+
 pkg=com.example.mydailyroutine
 public_dir="/sdcard/Pictures/ui-audit"
 external="/sdcard/Android/data/$pkg/files/ui-audit"

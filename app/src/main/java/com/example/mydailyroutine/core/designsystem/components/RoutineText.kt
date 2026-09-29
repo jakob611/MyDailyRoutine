@@ -2,11 +2,7 @@ package com.example.mydailyroutine.core.designsystem.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.graphicsLayer
-import com.example.mydailyroutine.core.designsystem.motion.AppleMotion
-import com.example.mydailyroutine.core.designsystem.motion.glassTouchSpec
 import androidx.compose.ui.unit.IntSize
 import com.example.mydailyroutine.core.designsystem.components.RoutineSwitch
 import com.example.mydailyroutine.core.designsystem.motion.LocalReduceMotion
@@ -28,7 +24,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
@@ -42,19 +37,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,8 +60,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -83,13 +74,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import com.example.mydailyroutine.core.designsystem.glass.GlassRole
-import com.example.mydailyroutine.core.designsystem.glass.LocalGlassTilt
+import com.example.mydailyroutine.core.designsystem.glass.LocalSheetBackdrop
+import com.example.mydailyroutine.core.designsystem.glass.rememberGlassTouch
+import com.example.mydailyroutine.core.designsystem.glass.rememberReduceTransparency
 import com.example.mydailyroutine.core.designsystem.glass.routineGlass
+import com.example.mydailyroutine.core.designsystem.glass.routineGlassTouch
 import com.example.mydailyroutine.core.designsystem.theme.RoutineColors
 import com.example.mydailyroutine.core.designsystem.theme.RoutineMetrics
 import com.example.mydailyroutine.core.designsystem.theme.RoutineShapes
 import com.example.mydailyroutine.R
 import com.example.mydailyroutine.core.designsystem.theme.RoutineSpacing
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -423,11 +418,10 @@ private fun SheetHeader(
     subtitle: String?,
     closeLabel: String?,
     onClose: (() -> Unit)?,
-    backdrop: LayerBackdrop,
+    backdrop: Backdrop?,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet,
-        tilt = LocalGlassTilt.current)) {
+    Column(modifier.routineGlass(backdrop, RoutineShapes.GlassSheetHeader, GlassRole.Sheet)) {
         Row(
             Modifier.fillMaxWidth().padding(start = RoutineMetrics.ScreenPadding, end = RoutineSpacing.md,
                 top = RoutineSpacing.md, bottom = RoutineSpacing.md),
@@ -453,14 +447,18 @@ private fun SheetHeader(
     }
 }
 
+/**
+ * The action row at the bottom of a sheet. No frame of its own: the buttons are their own panes of
+ * liquid glass (see [SheetPrimaryButton]), so there is no glass island to sit on top of — and one
+ * less full-width blur sampling the sheet on every frame while it slides.
+ */
 @Composable
-private fun ColumnScope.SheetFooter(footer: (@Composable ColumnScope.() -> Unit)?, backdrop: LayerBackdrop) {
+private fun ColumnScope.SheetFooter(footer: (@Composable ColumnScope.() -> Unit)?) {
     if (footer == null) return
     Column(
-        Modifier.fillMaxWidth().padding(RoutineSpacing.md)
-            .routineGlass(backdrop, RoutineShapes.GlassSheetFooter, GlassRole.Sheet,
-            tilt = LocalGlassTilt.current)
-            .padding(horizontal = RoutineSpacing.lg, vertical = RoutineSpacing.md),
+        Modifier.fillMaxWidth()
+            .padding(horizontal = RoutineMetrics.ScreenPadding)
+            .padding(top = RoutineSpacing.sm, bottom = RoutineSpacing.lg),
         verticalArrangement = Arrangement.spacedBy(RoutineSpacing.sm),
     ) { footer() }
 }
@@ -477,6 +475,9 @@ private fun ColumnScope.SheetFooter(footer: (@Composable ColumnScope.() -> Unit)
  * [body] receives the backdrop and the measured header height, so the scrolling content can pad
  * itself clear of the header on the first line and still slide underneath it while scrolling.
  */
+/** Subcomposition slots for [SheetShell]: the header has to be measured before the body exists. */
+private enum class SheetSlot { Header, Body }
+
 @Composable
 private fun SheetShell(
     title: String,
@@ -491,16 +492,43 @@ private fun SheetShell(
         drawRect(RoutineColors.SheetSurface)
         drawContent()
     }
-    val density = LocalDensity.current
-    var headerHeight by remember { mutableStateOf(0.dp) }
+    // The body keeps recording into the layer — that is what the body is drawn into, not an effect
+    // it pays for — but under maximum contrast the chrome stops sampling it and goes solid.
+    val chromeBackdrop = if (rememberReduceTransparency()) null else sheetBackdrop
     Column(modifier.fillMaxWidth().imePadding()) {
-        Box(Modifier.weight(1f, fill = false).fillMaxWidth()) {
-            body(sheetBackdrop, headerHeight)
-            SheetHeader(title, subtitle, closeLabel, onClose, sheetBackdrop,
-                Modifier.align(Alignment.TopCenter).fillMaxWidth()
-                    .onSizeChanged { headerHeight = with(density) { it.height.toDp() } })
+        // The header is measured first and the body is composed knowing how tall it is, in one
+        // pass. It used to be the other way round: the body was padded by a `headerHeight` state
+        // that started at zero and was written from the header's `onSizeChanged`, so the first
+        // frame of every sheet put the content under the header and the second frame dropped it
+        // into place — a visible jump on every open, and a full recomposition of the body to go
+        // with it. A measure pass cannot read a value that has not been written yet; subcomposing
+        // in order can.
+        SubcomposeLayout(Modifier.weight(1f, fill = false).fillMaxWidth()) { constraints ->
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val header = subcompose(SheetSlot.Header) {
+                // The body carries `layerBackdrop`, so it is the one place in the sheet that must
+                // not be told about that layer: a node that samples the layer it is drawn into
+                // draws itself into itself and takes the render thread down with it (SIGSEGV). A
+                // control in the body therefore finds no backdrop and falls back to its solid
+                // surface — which is also the rule the glass follows: chrome refracts, content is
+                // refracted.
+                SheetHeader(title, subtitle, closeLabel, onClose, chromeBackdrop, Modifier.fillMaxWidth())
+            }.map { it.measure(loose) }
+            val headerHeight = header.maxOfOrNull { it.height } ?: 0
+            val content = subcompose(SheetSlot.Body) { body(sheetBackdrop, headerHeight.toDp()) }
+                .map { it.measure(constraints) }
+            layout(
+                content.maxOfOrNull { it.width } ?: constraints.minWidth,
+                content.maxOfOrNull { it.height } ?: headerHeight,
+            ) {
+                content.forEach { it.place(0, 0) }
+                header.forEach { it.place(0, 0) }
+            }
         }
-        SheetFooter(footer, sheetBackdrop)
+        // The footer is a sibling of that layer, not a child of it, so its buttons may sample it.
+        CompositionLocalProvider(LocalSheetBackdrop provides chromeBackdrop) {
+            SheetFooter(footer)
+        }
     }
 }
 
@@ -562,10 +590,17 @@ fun RoutineSheetListScaffold(
 }
 
 /**
- * Primary sheet action: identical geometry everywhere, label never breaks. The brief's liquid
- * button: a solid turquoise capsule (the theme's `primary` with the background as its ink) that
- * compresses four percent under the finger and springs back — the soft-body press from Kyant0's
- * catalog, without pretending a 52 dp button is a lens.
+ * Primary sheet action: identical geometry everywhere, label never breaks.
+ *
+ * The button **is** the liquid glass: one turquoise-tinted pane (the theme's `primary` hue over
+ * the refracted sheet, the background as its ink) that compresses under the finger and blooms at
+ * the touch point — Apple's `.interactive()` through [rememberGlassTouch], not a solid capsule
+ * sitting on top of a glass frame. What it refracts is the sheet's own layer
+ * ([LocalSheetBackdrop]) and nothing else: in a sheet footer that layer is a sibling and the
+ * glass is real, and anywhere else — inside the scrolling body, or outside a sheet entirely —
+ * there is no layer to sample and the pane falls back to its solid surface. Reaching past the
+ * sheet to the window behind it is not an option: it is a different window, and a control that
+ * sampled the layer it is drawn into would take the render thread down with it.
  */
 @Composable
 fun SheetPrimaryButton(
@@ -574,29 +609,35 @@ fun SheetPrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val reduceMotion = LocalReduceMotion.current
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val press by animateFloatAsState(
-        if (pressed) 1f else 0f,
-        glassTouchSpec<Float>(reduceMotion),
-        label = "primary-press",
-    )
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        shape = RoutineShapes.Pill,
-        interactionSource = interaction,
-        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp)
-            .graphicsLayer {
-                val scale = 1f - press * (1f - AppleMotion.PressScale)
-                scaleX = scale
-                scaleY = scale
-            },
-    ) { RoutineLabel(label, style = MaterialTheme.typography.labelLarge) }
+    val backdrop = LocalSheetBackdrop.current
+    val touch = rememberGlassTouch(LocalReduceMotion.current)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
+            .routineGlassTouch(touch, RoutineShapes.Pill)
+            .routineGlass(
+                backdrop, RoutineShapes.Pill, GlassRole.Control,
+                tint = RoutineColors.Primary, hue = true,
+                specular = true,
+            )
+            .clip(RoutineShapes.Pill)
+            .clickable(
+                interactionSource = touch.source,
+                indication = null,
+                role = Role.Button,
+                enabled = enabled,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) { RoutineLabel(label, style = MaterialTheme.typography.labelLarge, color = RoutineColors.InkOnPrimary) }
 }
 
-/** Secondary sheet action: same geometry as [SheetPrimaryButton], outlined emphasis. */
+/**
+ * Secondary sheet action: same geometry as [SheetPrimaryButton], neutral glass instead of the
+ * turquoise wash — emphasis by what the pane does not do.
+ */
 @Composable
 fun SheetSecondaryButton(
     label: String,
@@ -605,12 +646,32 @@ fun SheetSecondaryButton(
     enabled: Boolean = true,
     contentColor: Color = Color.Unspecified,
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        shape = RoutineShapes.Pill,
-        colors = if (contentColor == Color.Unspecified) ButtonDefaults.outlinedButtonColors()
-        else ButtonDefaults.outlinedButtonColors(contentColor = contentColor),
-        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),
-    ) { RoutineLabel(label, style = MaterialTheme.typography.labelLarge) }
+    val backdrop = LocalSheetBackdrop.current
+    val touch = rememberGlassTouch(LocalReduceMotion.current)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
+            .routineGlassTouch(touch, RoutineShapes.Pill)
+            .routineGlass(
+                backdrop, RoutineShapes.Pill, GlassRole.Control,
+                specular = true,
+            )
+            .clip(RoutineShapes.Pill)
+            .clickable(
+                interactionSource = touch.source,
+                indication = null,
+                role = Role.Button,
+                enabled = enabled,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        RoutineLabel(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (contentColor == Color.Unspecified) RoutineColors.TextPrimary else contentColor,
+        )
+    }
 }

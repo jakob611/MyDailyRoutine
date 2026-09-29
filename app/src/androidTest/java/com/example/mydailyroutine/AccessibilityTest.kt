@@ -49,7 +49,7 @@ class AccessibilityTest {
      * reader can jump to, not that the words are unique.
      */
     private fun awaitHeading(@StringRes id: Int) {
-        compose.waitUntil(10000) {
+        compose.waitUntil(UiWaitMillis) {
             compose.onAllNodes(hasText(text(id)) and isHeading).fetchSemanticsNodes().isNotEmpty()
         }
     }
@@ -76,7 +76,7 @@ class AccessibilityTest {
         // Wait for the day screen to settle into one of its two shapes before reading anything: a
         // summary with tiles, or the invitation card. Reading earlier sees neither and blames the app
         // for a state it was never in.
-        compose.waitUntil(10000) {
+        compose.waitUntil(UiWaitMillis) {
             compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription))
                 .fetchSemanticsNodes().isNotEmpty() ||
                 compose.onAllNodesWithText(text(R.string.empty_day_title)).fetchSemanticsNodes().isNotEmpty()
@@ -107,7 +107,7 @@ class AccessibilityTest {
         // would do nothing are the loudest thing on it; the invitation card is the only thing that
         // belongs there. When another test has already filled the day this has nothing to prove, so
         // it steps aside rather than inventing a failure from a shared database.
-        compose.waitUntil(10000) {
+        compose.waitUntil(UiWaitMillis) {
             compose.onAllNodesWithText(text(R.string.plan_first_block)).fetchSemanticsNodes().isNotEmpty() ||
                 compose.onAllNodesWithText(text(R.string.metric_focus)).fetchSemanticsNodes().isNotEmpty()
         }
@@ -132,7 +132,7 @@ class AccessibilityTest {
         ).map { text(it) }
         assertTrue("two meanings may not share a symbol: $shapes", shapes.toSet().size == shapes.size)
         shapes.forEach { shape ->
-            compose.waitUntil(10000) {
+            compose.waitUntil(UiWaitMillis) {
                 compose.onAllNodesWithContentDescription(shape).fetchSemanticsNodes().isNotEmpty()
             }
         }
@@ -154,7 +154,7 @@ class AccessibilityTest {
         // A preset is the shortest honest route to a real block: it fills the sheet and saving keeps it.
         compose.onNodeWithText(text(R.string.preset_deep_work)).performClick()
         compose.onNodeWithText(text(R.string.entry_save)).performClick()
-        compose.waitUntil(10000) { actionableBlocks().isNotEmpty() }
+        compose.waitUntil(UiWaitMillis) { actionableBlocks().isNotEmpty() }
         val labels = actionableBlocks().flatMap { node -> actionsOf(node.config).map { it.label } }
         assertTrue(
             "a block offered $labels",

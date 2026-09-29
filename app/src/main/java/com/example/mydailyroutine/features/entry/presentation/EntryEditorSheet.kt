@@ -123,10 +123,14 @@ fun EntryEditorSheet(
     val context = LocalContext.current
     val standardPresets = remember { PresetFactory.standard() }
     // One rail instead of two: standard presets always, the selected subject's own beside them.
-    val quickPresets = if (editing == null) {
-        standardPresets + subjectPresets.filter { subjectId == null || it.subjectId == subjectId }
-    } else {
-        subjectPresets.filter { it.isExam && (subjectId == null || it.subjectId == subjectId) }
+    // Remembered, not rebuilt: the sheet recomposes on every frame of its own slide and every
+    // keystroke, and the list only changes when one of its inputs does.
+    val quickPresets = remember(editing, subjectId, standardPresets, subjectPresets) {
+        if (editing == null) {
+            standardPresets + subjectPresets.filter { subjectId == null || it.subjectId == subjectId }
+        } else {
+            subjectPresets.filter { it.isExam && (subjectId == null || it.subjectId == subjectId) }
+        }
     }
     var showError by rememberSaveable { mutableStateOf(false) }
     val parsedStart = ScheduleValidation.parseTime(startText)

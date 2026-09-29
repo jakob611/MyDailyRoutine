@@ -29,7 +29,7 @@ class ResearchIntegrationTest {
     private lateinit var planning: RoomPlanningRepository
     private val date=LocalDate.now().plusDays(1)
     @Before fun setup() {
-        db=Room.inMemoryDatabaseBuilder(context,RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback(context.resources)).build()
+        db=Room.inMemoryDatabaseBuilder(context,RoutineDatabase::class.java).addCallback(SeedAndIntegrityCallback()).build()
         timeline=RoomTimelineRepository(db,{})
         planning=RoomPlanningRepository(db,timeline,{})
     }
@@ -129,7 +129,7 @@ class ResearchIntegrationTest {
                 legacy.execSQL("INSERT INTO backlog_entries VALUES(1,'Fokus','FOCUS_ANALYTICAL',90,25,1.0,3.0,NULL,1,NULL,NULL,NULL,NULL,'SLIPPAGE')")
             }
             val migrated=Room.databaseBuilder(context,RoutineDatabase::class.java,name).addMigrations(DatabaseMigrations.MIGRATION_3_4, DatabaseMigrations.MIGRATION_4_5, DatabaseMigrations.MIGRATION_5_6, DatabaseMigrations.MIGRATION_6_7, DatabaseMigrations.MIGRATION_7_8, DatabaseMigrations.MIGRATION_8_9)
-                .addCallback(SeedAndIntegrityCallback(context.resources)).build()
+                .addCallback(SeedAndIntegrityCallback()).build()
             try {
                 assertEquals(60,migrated.backlog().get(1)!!.rawDurationMinutes)
                 assertEquals(90,migrated.routines().get(1)!!.durationMinutes)

@@ -43,7 +43,7 @@ class LargeFontUiTest {
         assertTrue("fontScale=${configuration.fontScale}", configuration.fontScale >= 1.45f)
         assertTrue("widthDp=${configuration.screenWidthDp}", configuration.screenWidthDp in 300..340)
 
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UiWaitMillis) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
         capture("13-font-day")
         click(text(R.string.nav_week)); awaitText(text(R.string.week_heading)); capture("14-font-week")
         click(text(R.string.nav_month)); awaitText(text(R.string.month_heading)); capture("15-font-month")
@@ -67,9 +67,9 @@ class LargeFontUiTest {
         // the five tabs below the fold on a 640 dp screen. Vertical position is what the test can
         // measure, so it measures that — the row may still scroll sideways, which is N10's deliberate
         // trade, and the fade at its edge is what says so.
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UiWaitMillis) { compose.onAllNodesWithTag("fast-add").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(text(R.string.settings)).performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("settings-tab-rhythm").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(UiWaitMillis) { compose.onAllNodesWithTag("settings-tab-rhythm").fetchSemanticsNodes().isNotEmpty() }
         // Not `onRoot()`: an open sheet is a second root of its own, so the window is the tallest root
         // rather than "the" root. Both share the screen size, but asking for one of two is a test that
         // fails for the wrong reason.
@@ -95,7 +95,7 @@ class LargeFontUiTest {
 
     /** Waits for a string to be on screen, not merely composed; the transitions here are 200 ms. */
     private fun awaitText(label: String) {
-        compose.waitUntil(10000) {
+        compose.waitUntil(UiWaitMillis) {
             compose.onAllNodesWithText(label).fetchSemanticsNodes().isNotEmpty() &&
                 runCatching { compose.onNodeWithText(label).assertIsDisplayed() }.isSuccess
         }

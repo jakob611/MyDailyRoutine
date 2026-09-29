@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.mydailyroutine.R
+import com.example.mydailyroutine.core.designsystem.components.LanguageSelector
 import com.example.mydailyroutine.core.designsystem.components.RoutineLabel
 import com.example.mydailyroutine.core.designsystem.components.RoutineText
 import com.example.mydailyroutine.core.designsystem.components.RoutineTextDefaults
@@ -68,6 +69,12 @@ fun OnboardingScreen(
     userName: String,
     schoolStart: LocalTime,
     schoolEnd: LocalTime,
+    /**
+     * The interface language as it is stored right now (`null` = follows the device). Shown on
+     * the first screen, because a reader who does not read Slovenian should be able to leave the
+     * whole flow in English — and the change applies at once, so step two is already theirs.
+     */
+    appLanguage: String?,
     onAction: (TimelineAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -120,6 +127,18 @@ fun OnboardingScreen(
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().testTag("onboarding-name"),
                         )
+                        Spacer(Modifier.size(RoutineSpacing.md))
+                        RoutineText(stringResource(R.string.onboarding_language_title),
+                            style = MaterialTheme.typography.titleSmall, maxLines = RoutineTextDefaults.Body,
+                            modifier = Modifier.semantics { heading() })
+                        LanguageSelector(
+                            selected = appLanguage,
+                            onSelect = { language -> onAction(TimelineAction.SetAppLanguage(language)) },
+                            tagPrefix = "onboarding-language",
+                        )
+                        RoutineText(stringResource(R.string.onboarding_language_hint),
+                            style = MaterialTheme.typography.bodySmall, color = RoutineColors.TextSecondary,
+                            maxLines = RoutineTextDefaults.Paragraph)
                     }
                     Step.START -> {
                         Heading(stringResource(R.string.onboarding_start_title))
@@ -155,6 +174,18 @@ fun OnboardingScreen(
                 }
             }
             if (Step.entries[step] == Step.START) {
+                // The reader's own timetable is the best possible starting state, so it is offered
+                // here rather than being something to go and find later. It finishes the flow
+                // first: the import sheet is an overlay of the main screen and is composed only
+                // once the first run is done, so the flow hands over and the sheet is already
+                // open when the app appears.
+                OutlinedButton(
+                    onClick = { finish(loadExample = false); onAction(TimelineAction.ShowTimetableImport) },
+                    shape = RoutineShapes.Pill,
+                    modifier = Modifier.fillMaxWidth().testTag("onboarding-timetable"),
+                ) {
+                    RoutineLabel(stringResource(R.string.onboarding_start_timetable), style = MaterialTheme.typography.labelLarge)
+                }
                 OutlinedButton(
                     onClick = { finish(loadExample = false) },
                     shape = RoutineShapes.Pill,

@@ -3,6 +3,7 @@ package com.example.mydailyroutine.core.designsystem.theme
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
@@ -83,6 +84,10 @@ object RoutineColors {
     val GlassTintAlpha = 0.52f
     val GlassTintCompactAlpha = 0.58f
     val GlassTintStrongAlpha = 0.68f
+    // The shadow under a glass pane is the background deepened, not black: on an OLED canvas a
+    // black shadow is invisible exactly where the pane already sits on black, and muddy over a card.
+    val GlassShadowAlpha = 0.10f
+    val GlassShadow = Background.copy(alpha = GlassShadowAlpha)
     val GlassFallback = Color(0x94151C2E)
     val GlassFallbackStrong = Color(0xAD0F1422)
     val GlassRim = TextPrimary
@@ -91,7 +96,6 @@ object RoutineColors {
     val GlassSpecular = 1f
     val GlassSpecularFall = 0.35f
     val GlassTouchGlow = 0.16f
-    val GlassTiltGlow = 0.06f
 
     val WarningContainer = Color(0xFF4B3B1B)
     val School = CategoryStyle(Timer, Surface2, TextPrimary)
@@ -103,6 +107,24 @@ object RoutineColors {
     fun cardSurface(accent: Color): Color = accent.copy(alpha = 0.06f).compositeOver(Surface1)
 
     val subjectSwatches = SubjectPalette.swatches
+
+    /**
+     * The hue circle of the subject colour picker, as the stops of a sweep gradient.
+     *
+     * These are the six RGB primaries, not palette colours: at full saturation and value the
+     * HSV → RGB conversion is linear interpolation between exactly these, so a sweep through them
+     * *is* the hue circle rather than an approximation of it. They live here because a colour
+     * literal belongs to the palette file even when its job is to let the reader leave the palette.
+     */
+    val HueWheel: List<Color> = listOf(
+        0xFFFF0000, 0xFFFFFF00, 0xFF00FF00, 0xFF00FFFF, 0xFF0000FF, 0xFFFF00FF, 0xFFFF0000,
+    ).map { Color(it) }
+
+    /** Centre of the picker's saturation ramp: pure white fading to *transparent white*. */
+    val HueWheelCentre: Color = Color.White
+
+    /** The veil that darkens the picker's wheel to the brightness the slider is showing. */
+    val HueWheelShade: Color = Color.Black
 }
 
 data class CategoryStyle(val accent: Color, val container: Color, val content: Color)
@@ -117,7 +139,23 @@ fun categoryStyle(category: RoutineCategory, subjectColor: Long? = null): Catego
 }
 
 object RoutineShapes {
-    val Card = RoundedCornerShape(16.dp)
+    /**
+     * Corner smoothing, on the 0..1 slider Figma uses. 0.6 is the value Apple uses for app icons
+     * and the one Figma labels "iOS".
+     *
+     * A plain rounded corner jumps from no curvature to all of it at the join with the straight
+     * edge, and the eye reads that jump as a seam. Smoothing spends more of the edge ramping into
+     * the arc — at 0.6 the corner starts 60 % further from the apex — so the curvature is
+     * continuous the whole way round. See [ContinuousCornerShape] for the construction.
+     */
+    const val CornerSmoothing = 0.6f
+
+    val Card = ContinuousCornerShape(16.dp, CornerSmoothing)
+    /**
+     * Not smoothed. At 8 dp the smoothed outline differs from the plain one by a tenth of a dp —
+     * three tenths of a pixel — and a chip is something the app draws by the dozen. Paying a path
+     * clip per chip for a difference nobody can see is the wrong side of the trade.
+     */
     val Chip = RoundedCornerShape(8.dp)
     /**
      * A calendar cell, in either overview: the month grid's day square and the week grid's block.
@@ -125,23 +163,59 @@ object RoutineShapes {
      * they were the least defensible place for two different radii (12 dp and 6 dp). They now share
      * this one, which is deliberately smaller than a card's: at 100 dp wide, a 16 dp corner would
      * make a week cell look like a button.
+     *
+     * Also the one shape in the app drawn by the dozen — up to forty-two squares in the month grid
+     * and one per block in the week grid — so it keeps the plain corner. A smoothed outline is a
+     * path, and a path is clipped by the renderer rather than by the cheap rounded-rectangle route
+     * the platform has in hardware. At 12 dp the difference it would buy is 0.15 dp.
      */
     val Cell = RoundedCornerShape(12.dp)
+    /**
+     * Not smoothed, and it cannot be: a capsule's radius is already half its height, so there is
+     * no straight edge left to ramp the curvature into. The budget in [ContinuousCornerShape]
+     * works this out and lands on zero smoothing by itself — this is the same shape, drawn by the
+     * cheaper path that the platform can clip as a rounded rectangle.
+     */
     val Pill = RoundedCornerShape(50)
-    val Sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    val Sheet = ContinuousCornerShape(topStart = 24.dp, topEnd = 24.dp, smoothing = CornerSmoothing)
     /**
      * Glass shapes. The lens effect refracts by the corner radius, so every glass shape keeps a
      * minimum radius of at least 12 dp on the corners the reader can actually see. The top bar
      * is a floating pane with real space above and beside it, so all of its corners are rounded
      * and the pane can never read as a panel stuck to the screen edge.
      */
-    val GlassBar = RoundedCornerShape(22.dp)
-    val GlassPanel = RoundedCornerShape(28.dp)
-    val GlassChip = RoundedCornerShape(14.dp)
-    /** The rotated square that marks a milestone on the Gantt; 2 of its 9 dp, so it still reads sharp. */
+    val GlassBar = ContinuousCornerShape(22.dp, CornerSmoothing)
+    val GlassPanel = ContinuousCornerShape(28.dp, CornerSmoothing)
+    val GlassChip = ContinuousCornerShape(14.dp, CornerSmoothing)
+    /**
+     * The rotated square that marks a milestone on the Gantt; 2 of its 9 dp, so it still reads
+     * sharp. Nothing to smooth at that size, and smoothing it would only blunt the one shape whose
+     * job is to be pointed.
+     */
     val Diamond = RoundedCornerShape(2.dp)
-    val GlassSheetHeader = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 18.dp, bottomEnd = 18.dp)
-    val GlassSheetFooter = RoundedCornerShape(18.dp)
+    val GlassSheetHeader = ContinuousCornerShape(
+        topStart = 24.dp, topEnd = 24.dp, bottomStart = 18.dp, bottomEnd = 18.dp,
+        smoothing = CornerSmoothing,
+    )
+    /** A centred modal. Material's own default is 28 dp, and a dialog is big enough to want it. */
+    val Dialog = ContinuousCornerShape(28.dp, CornerSmoothing)
+
+    /**
+     * What Material hands to anything that does not name a shape.
+     *
+     * Without this, eleven `AlertDialog`s were quietly drawing Material's stock 28 dp rounded
+     * rectangle — the one element in the app still wearing the old corner, and the largest, most
+     * centred thing on the screen when it appears. Filling the set here means a Material component
+     * cannot drift away from the design system by simply not being told, which is the same reason
+     * the presentation gate forbids inventing a radius in a feature file.
+     */
+    val Material = Shapes(
+        extraSmall = Chip,
+        small = Chip,
+        medium = Card,
+        large = Card,
+        extraLarge = Dialog,
+    )
 }
 
 /**
