@@ -211,3 +211,47 @@ jobs:
             ci-device-crash.log
             ci-device-logcat.log
             app/build/ui-audit/
+  publish-preview:
+    # Publish only verified, same-repository PRs, never untrusted fork builds.
+    needs: [build, device-tests]
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-apk
+          path: release-apk
+      - name: Publish commit-specific test release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="preview-${BUILD_SHA}"
+          title="PR #${PR_NUMBER} release APK (${BUILD_SHA:0:7})"
+          (cd release-apk && sha256sum app-release.apk > SHA256SUMS.txt)
+          cat > release-notes.md <<NOTES
+          Testna release varianta za PR #${PR_NUMBER}, commit ${BUILD_SHA}.
+
+          CI: ${RUN_URL}
+          Build, unit testi, lint in emulator job so uspeli. APK je zgrajen iz PR merge refa.
+          R8 in resource shrinking sta vkljucena; podpis je debug kljuc, ne produkcijski podpis.
+          Prenesi app-release.apk in po potrebi dovoli namestitev iz tega vira.
+          Ce Android zavrne posodobitev zaradi drugega podpisa, najprej izvozi podatke;
+          odstranitev aplikacije izbrise lokalne podatke.
+          NOTES
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release edit "$tag" --title "$title" --notes-file release-notes.md --prerelease --latest=false
+          else
+            gh release create "$tag" --target "$BUILD_SHA" --title "$title" --notes-file release-notes.md --prerelease --latest=false
+          fi
+          gh release upload "$tag" release-apk/app-release.apk release-apk/SHA256SUMS.txt --clobber
+          echo "### Test release" >> "$GITHUB_STEP_SUMMARY"
+          gh release view "$tag" --json url --jq '.url' >> "$GITHUB_STEP_SUMMARY"
